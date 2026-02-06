@@ -13,6 +13,7 @@ import { Album, AlbumPage } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { PageService } from '../services/PageService';
 import { PageCard } from '../components/PageCard';
+import { PageEditorScreen } from './PageEditorScreen';
 
 interface AlbumScreenProps {
   album: Album;
@@ -26,6 +27,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(isFirstOpen);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [editingPage, setEditingPage] = useState<AlbumPage | null>(null);
 
   const loadPages = useCallback(async () => {
     try {
@@ -61,8 +63,19 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handlePagePress = (page: AlbumPage) => {
-    // TODO: Open page editor
-    Alert.alert('עריכת עמוד', `פותח עמוד ${page.pageNumber} לעריכה...`);
+    if (isEditMode) {
+      setEditingPage(page);
+    }
+  };
+
+  const handleEditorSave = async () => {
+    // TODO: persist page changes
+    setEditingPage(null);
+    await loadPages();
+  };
+
+  const handleEditorDiscard = () => {
+    setEditingPage(null);
   };
 
   const handleDeletePage = (page: AlbumPage) => {
@@ -92,6 +105,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     setMenuVisible(false);
     setIsEditMode(!isEditMode);
   };
+
+  if (editingPage) {
+    return (
+      <PageEditorScreen
+        page={editingPage}
+        onSave={handleEditorSave}
+        onDiscard={handleEditorDiscard}
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
