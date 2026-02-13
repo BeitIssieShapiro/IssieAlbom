@@ -68,8 +68,13 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     }
   };
 
-  const handleEditorSave = async () => {
-    // TODO: persist page changes
+  const handleEditorSave = async (updatedPage: AlbumPage) => {
+    try {
+      await PageService.updatePage(album.id, updatedPage);
+    } catch (error) {
+      console.error('Failed to save page:', error);
+      Alert.alert('שגיאה', 'שמירת העמוד נכשלה');
+    }
     setEditingPage(null);
     await loadPages();
   };
