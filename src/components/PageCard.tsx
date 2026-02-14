@@ -111,7 +111,13 @@ export function PageCard({ page, isEditMode, onPress, onDelete }: PageCardProps)
             ]}
           >
             {element.type === 'text' && (
-              <Text style={styles.elementText}>{element.content}</Text>
+              <Text style={[
+                styles.elementText,
+                {
+                  fontSize: element.fontSize || 20,
+                  color: element.color || '#333',
+                },
+              ]}>{element.content}</Text>
             )}
             {(element.type === 'image' || element.type === 'sticker') && (
               <Image

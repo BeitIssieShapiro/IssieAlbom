@@ -23,6 +23,8 @@ export interface PageElement {
   content: string; // For text: the text content, for images/stickers: the file path
   rotation?: number;
   scale?: number;
+  fontSize?: number;   // text elements only, default 20
+  color?: string;      // text elements only, default '#333'
 }
 
 export interface AlbumMetadata {

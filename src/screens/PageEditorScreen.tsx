@@ -34,10 +34,12 @@ const TOOLS: Tool[] = [
   { type: 'eraser', label: 'מחק', icon: 'eraser', accessibilityLabel: 'כלי מחיקה' },
 ];
 
-const TEXT_DEFAULT_WIDTH = 200;
-const TEXT_DEFAULT_HEIGHT = 40;
 const IMAGE_DEFAULT_SIZE = 150;
 const TAP_THRESHOLD = 5;
+
+const TEXT_DEFAULT_FONT_SIZE = 20;
+const TEXT_DEFAULT_COLOR = '#333';
+const FONT_SIZE_PRESETS = [16, 20, 28, 36, 48];
 
 const PEN_COLOR = '#333333';
 const PEN_STROKE_WIDTH = 3;
@@ -136,6 +138,9 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
   const [penColor, setPenColor] = useState(PEN_COLOR);
   const [penStrokeWidth, setPenStrokeWidth] = useState(PEN_STROKE_WIDTH);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
+  const [textColor, setTextColor] = useState(TEXT_DEFAULT_COLOR);
+  const [textFontSize, setTextFontSize] = useState(TEXT_DEFAULT_FONT_SIZE);
+  const [colorPickerTarget, setColorPickerTarget] = useState<'pen' | 'text'>('pen');
 
   // Refs so PanResponder closures can access current state
   const activeToolRef = useRef(activeTool);
@@ -156,8 +161,13 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   useEffect(() => { elementsRef.current = elements; }, [elements]);
   useEffect(() => { editingTextIdRef.current = editingTextId; }, [editingTextId]);
+  const textColorRef = useRef(textColor);
+  const textFontSizeRef = useRef(textFontSize);
+
   useEffect(() => { penColorRef.current = penColor; }, [penColor]);
   useEffect(() => { penStrokeWidthRef.current = penStrokeWidth; }, [penStrokeWidth]);
+  useEffect(() => { textColorRef.current = textColor; }, [textColor]);
+  useEffect(() => { textFontSizeRef.current = textFontSize; }, [textFontSize]);
 
   const handleSliderTouch = (pageX: number) => {
     const { pageX: sx, width } = sliderLayoutRef.current;
@@ -232,13 +242,15 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
       if (tapped) {
         setSelectedId(tapped.id);
         setEditingTextId(tapped.id);
+        setTextColor(tapped.color || TEXT_DEFAULT_COLOR);
+        setTextFontSize(tapped.fontSize || TEXT_DEFAULT_FONT_SIZE);
       } else {
-        const { width: cw, height: ch } = canvasSize.current;
-        const x = Math.max(0, Math.min(cx - TEXT_DEFAULT_WIDTH / 2, cw - TEXT_DEFAULT_WIDTH));
-        const y = Math.max(0, Math.min(cy - TEXT_DEFAULT_HEIGHT / 2, ch - TEXT_DEFAULT_HEIGHT));
+        const x = Math.max(0, cx);
+        const y = Math.max(0, cy);
         const newEl: PageElement = {
           id: generateId(), type: 'text', x, y,
-          width: TEXT_DEFAULT_WIDTH, height: TEXT_DEFAULT_HEIGHT, content: '',
+          width: 60, height: 28, content: '',
+          fontSize: textFontSizeRef.current, color: textColorRef.current,
         };
         setElements(prev => [...prev, newEl]);
         setSelectedId(newEl.id);
@@ -555,16 +567,31 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
                 {
                   left: element.x,
                   top: element.y,
-                  width: element.width,
-                  height: element.height,
+                  ...(element.type !== 'text' && { width: element.width, height: element.height }),
                 },
+                element.type === 'text' && styles.textElementAuto,
                 selectedId === element.id && styles.elementSelected,
               ]}
+              onLayout={element.type === 'text' ? (e) => {
+                const { width, height } = e.nativeEvent.layout;
+                const cur = elementsRef.current.find(el => el.id === element.id);
+                if (cur && (Math.abs(width - cur.width) > 1 || Math.abs(height - cur.height) > 1)) {
+                  setElements(prev => prev.map(el =>
+                    el.id === element.id ? { ...el, width, height } : el,
+                  ));
+                }
+              } : undefined}
             >
               {/* --- Text element --- */}
               {element.type === 'text' && editingTextId === element.id ? (
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    {
+                      fontSize: element.fontSize || TEXT_DEFAULT_FONT_SIZE,
+                      color: element.color || TEXT_DEFAULT_COLOR,
+                    },
+                  ]}
                   autoFocus
                   multiline
                   value={element.content}
@@ -577,7 +604,13 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
                   }
                 />
               ) : element.type === 'text' ? (
-                <Text style={styles.elementText}>{element.content}</Text>
+                <Text style={[
+                  styles.elementText,
+                  {
+                    fontSize: element.fontSize || TEXT_DEFAULT_FONT_SIZE,
+                    color: element.color || TEXT_DEFAULT_COLOR,
+                  },
+                ]}>{element.content}</Text>
               ) : null}
 
               {/* --- Image element --- */}
@@ -650,7 +683,10 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
             ))}
             <TouchableOpacity
               style={styles.paletteButton}
-              onPress={() => setColorPickerVisible(true)}
+              onPress={() => {
+                setColorPickerTarget('pen');
+                setColorPickerVisible(true);
+              }}
               accessibilityLabel="בחירת צבע מותאם"
             >
               <MaterialCommunityIcons name="palette" size={24} color="#555" />
@@ -705,6 +741,71 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
         </View>
       )}
 
+      {/* Text options panel */}
+      {(activeTool === 'text' || (selectedId && elements.find(el => el.id === selectedId)?.type === 'text')) && (
+        <View style={styles.penOptions}>
+          {/* Color row */}
+          <View style={styles.colorRow}>
+            {PRESET_COLORS.map(color => (
+              <TouchableOpacity
+                key={color}
+                style={[
+                  styles.colorSwatch,
+                  { backgroundColor: color },
+                  textColor === color && styles.colorSwatchSelected,
+                ]}
+                onPress={() => {
+                  setTextColor(color);
+                  if (selectedId) {
+                    setElements(prev => prev.map(el =>
+                      el.id === selectedId ? { ...el, color } : el,
+                    ));
+                  }
+                }}
+                accessibilityLabel={`צבע טקסט ${color}`}
+              />
+            ))}
+            <TouchableOpacity
+              style={styles.paletteButton}
+              onPress={() => {
+                setColorPickerTarget('text');
+                setColorPickerVisible(true);
+              }}
+              accessibilityLabel="בחירת צבע טקסט מותאם"
+            >
+              <MaterialCommunityIcons name="palette" size={24} color="#555" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Font size row */}
+          <View style={styles.fontSizeRow}>
+            {FONT_SIZE_PRESETS.map(size => (
+              <TouchableOpacity
+                key={size}
+                style={[
+                  styles.fontSizeChip,
+                  textFontSize === size && styles.fontSizeChipSelected,
+                ]}
+                onPress={() => {
+                  setTextFontSize(size);
+                  if (selectedId) {
+                    setElements(prev => prev.map(el =>
+                      el.id === selectedId ? { ...el, fontSize: size } : el,
+                    ));
+                  }
+                }}
+                accessibilityLabel={`גודל גופן ${size}`}
+              >
+                <Text style={[
+                  styles.fontSizeChipText,
+                  textFontSize === size && styles.fontSizeChipTextSelected,
+                ]}>{size}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* Color picker modal */}
       <Modal
         visible={colorPickerVisible}
@@ -720,21 +821,33 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
           <View style={styles.colorPickerContainer}>
             <Text style={styles.colorPickerTitle}>בחירת צבע</Text>
             <View style={styles.colorPickerGrid}>
-              {COLOR_PICKER_COLORS.map(color => (
-                <TouchableOpacity
-                  key={color}
-                  style={[
-                    styles.colorPickerSwatch,
-                    { backgroundColor: color },
-                    color === '#FFFFFF' && styles.colorPickerSwatchWhite,
-                    penColor === color && styles.colorSwatchSelected,
-                  ]}
-                  onPress={() => {
-                    setPenColor(color);
-                    setColorPickerVisible(false);
-                  }}
-                />
-              ))}
+              {COLOR_PICKER_COLORS.map(color => {
+                const isSelected = colorPickerTarget === 'pen' ? penColor === color : textColor === color;
+                return (
+                  <TouchableOpacity
+                    key={color}
+                    style={[
+                      styles.colorPickerSwatch,
+                      { backgroundColor: color },
+                      color === '#FFFFFF' && styles.colorPickerSwatchWhite,
+                      isSelected && styles.colorSwatchSelected,
+                    ]}
+                    onPress={() => {
+                      if (colorPickerTarget === 'pen') {
+                        setPenColor(color);
+                      } else {
+                        setTextColor(color);
+                        if (selectedId) {
+                          setElements(prev => prev.map(el =>
+                            el.id === selectedId ? { ...el, color } : el,
+                          ));
+                        }
+                      }
+                      setColorPickerVisible(false);
+                    }}
+                  />
+                );
+              })}
             </View>
           </View>
         </TouchableOpacity>
@@ -831,21 +944,21 @@ const styles = StyleSheet.create({
   element: {
     position: 'absolute',
   },
+  textElementAuto: {
+    minWidth: 60,
+    minHeight: 28,
+  },
   elementSelected: {
     borderWidth: 1,
     borderColor: '#007AFF',
     borderStyle: 'dashed',
   },
   elementText: {
-    fontSize: 14,
-    color: '#333',
   },
   textInput: {
-    fontSize: 14,
-    color: '#333',
     padding: 0,
     margin: 0,
-    flex: 1,
+    minWidth: 60,
     backgroundColor: 'rgba(255,255,255,0.8)',
   },
   elementImage: {
@@ -972,6 +1085,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  fontSizeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fontSizeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  fontSizeChipSelected: {
+    backgroundColor: '#007AFF',
+  },
+  fontSizeChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+  },
+  fontSizeChipTextSelected: {
+    color: '#fff',
   },
   colorPickerOverlay: {
     flex: 1,
