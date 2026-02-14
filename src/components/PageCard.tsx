@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { Defs, G, Mask, Path as SvgPath, Rect as SvgRect } from 'react-native-svg';
 import { AlbumPage } from '../types/Album';
+import { computeDrawingLayers } from '../screens/PageEditorScreen';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PAGE_MARGIN = 16;
@@ -24,6 +26,8 @@ interface PageCardProps {
 
 export function PageCard({ page, isEditMode, onPress, onDelete }: PageCardProps) {
   const [menuVisible, setMenuVisible] = useState(false);
+  const drawingElements = useMemo(() => page.elements.filter(el => el.type === 'drawing'), [page.elements]);
+  const drawingLayers = useMemo(() => computeDrawingLayers(drawingElements), [drawingElements]);
 
   const handleMenuOption = (action: 'delete') => {
     setMenuVisible(false);
@@ -49,7 +53,47 @@ export function PageCard({ page, isEditMode, onPress, onDelete }: PageCardProps)
           <View style={styles.emptyPage} />
         )}
 
-        {page.elements.map((element) => (
+        {/* Drawing layer (SVG with eraser masking) */}
+        {drawingLayers.length > 0 && (
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+              {drawingLayers.map((layer, i) => (
+                <Mask id={`card-mask-${page.id}-${i}`} key={`mask-${i}`} maskType="luminance"
+                  maskUnits="userSpaceOnUse" x="0" y="0" width="9999" height="9999">
+                  <SvgRect x="0" y="0" width="9999" height="9999" fill="white" />
+                  {layer.eraserPaths.map((ep, j) => (
+                    <SvgPath
+                      key={`e-${i}-${j}`}
+                      d={ep.path}
+                      stroke="black"
+                      strokeWidth={ep.strokeWidth}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ))}
+                </Mask>
+              ))}
+            </Defs>
+            {drawingLayers.map((layer, i) => (
+              <G key={`layer-${i}`} mask={`url(#card-mask-${page.id}-${i})`}>
+                {layer.penPaths.map((pp, j) => (
+                  <SvgPath
+                    key={`p-${i}-${j}`}
+                    d={pp.path}
+                    stroke={pp.color}
+                    strokeWidth={pp.strokeWidth}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </G>
+            ))}
+          </Svg>
+        )}
+
+        {page.elements.filter(el => el.type !== 'drawing').map((element) => (
           <View
             key={element.id}
             style={[

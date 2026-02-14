@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
   LayoutChangeEvent,
+  Modal,
   PanResponder,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { launchImageLibrary } from 'react-native-image-picker';
+import Svg, { Defs, G, Mask, Path as SvgPath, Rect as SvgRect } from 'react-native-svg';
 import { AlbumPage, PageElement } from '../types/Album';
 
 type ToolType = 'text' | 'image' | 'recording' | 'pen' | 'eraser';
@@ -37,6 +39,28 @@ const TEXT_DEFAULT_HEIGHT = 40;
 const IMAGE_DEFAULT_SIZE = 150;
 const TAP_THRESHOLD = 5;
 
+const PEN_COLOR = '#333333';
+const PEN_STROKE_WIDTH = 3;
+const ERASER_MASK_COLOR = '#000000';
+const ERASER_PREVIEW_COLOR = 'rgba(200,200,200,0.5)';
+const ERASER_STROKE_WIDTH = 20;
+
+const PRESET_COLORS = [
+  '#000000', '#555555', '#FF3B30', '#FF9500',
+  '#FFCC00', '#34C759', '#007AFF', '#AF52DE',
+];
+
+const SLIDER_MIN = 1;
+const SLIDER_MAX = 20;
+
+const COLOR_PICKER_COLORS = [
+  '#FF3B30', '#FF6961', '#FF2D55', '#E91E63', '#FF69B4', '#FFB6C1',
+  '#FF9500', '#FF6600', '#FFCC00', '#FFD700', '#FFF176', '#FFEB3B',
+  '#34C759', '#4CAF50', '#8BC34A', '#00BCD4', '#009688', '#2E7D32',
+  '#007AFF', '#2196F3', '#3F51B5', '#5856D6', '#AF52DE', '#9C27B0',
+  '#000000', '#555555', '#888888', '#BBBBBB', '#FFFFFF', '#8D6E63',
+];
+
 interface PageEditorScreenProps {
   page: AlbumPage;
   onSave: (updatedPage: AlbumPage) => void;
@@ -51,6 +75,45 @@ interface HandleCtx {
   startW: number;
   startH: number;
   aspectRatio?: number;
+}
+
+export interface DrawingData {
+  path: string;
+  color: string;
+  strokeWidth: number;
+  isEraser?: boolean;
+}
+
+export interface DrawingLayer {
+  penPaths: DrawingData[];
+  eraserPaths: DrawingData[];
+}
+
+export function computeDrawingLayers(drawingElements: PageElement[]): DrawingLayer[] {
+  const layers: DrawingLayer[] = [];
+  let currentPens: DrawingData[] = [];
+
+  for (const el of drawingElements) {
+    const data: DrawingData = JSON.parse(el.content);
+    if (data.isEraser) {
+      // Eraser: push current pens as a layer, then add this eraser to all preceding layers
+      if (currentPens.length > 0) {
+        layers.push({ penPaths: currentPens, eraserPaths: [] });
+        currentPens = [];
+      }
+      // Add eraser to all existing layers' masks
+      for (const layer of layers) {
+        layer.eraserPaths.push(data);
+      }
+    } else {
+      currentPens.push(data);
+    }
+  }
+  // Remaining pen strokes form the final layer (no erasers affect them)
+  if (currentPens.length > 0) {
+    layers.push({ penPaths: currentPens, eraserPaths: [] });
+  }
+  return layers;
 }
 
 function generateId(): string {
@@ -69,9 +132,15 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [currentDrawingPath, setCurrentDrawingPath] = useState<string | null>(null);
+  const [penColor, setPenColor] = useState(PEN_COLOR);
+  const [penStrokeWidth, setPenStrokeWidth] = useState(PEN_STROKE_WIDTH);
+  const [colorPickerVisible, setColorPickerVisible] = useState(false);
 
   // Refs so PanResponder closures can access current state
   const activeToolRef = useRef(activeTool);
+  const penColorRef = useRef(penColor);
+  const penStrokeWidthRef = useRef(penStrokeWidth);
   const elementsRef = useRef(elements);
   const editingTextIdRef = useRef(editingTextId);
   const canvasRef = useRef<View>(null);
@@ -79,10 +148,27 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
   const canvasOffset = useRef({ x: 0, y: 0 });
   const isMoving = useRef(false);
   const handleCtx = useRef<HandleCtx | null>(null);
+  const drawingPathRef = useRef<string | null>(null);
+  const drawingToolRef = useRef<ToolType | null>(null);
+  const sliderRef = useRef<View>(null);
+  const sliderLayoutRef = useRef({ pageX: 0, width: 0 });
 
   useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
   useEffect(() => { elementsRef.current = elements; }, [elements]);
   useEffect(() => { editingTextIdRef.current = editingTextId; }, [editingTextId]);
+  useEffect(() => { penColorRef.current = penColor; }, [penColor]);
+  useEffect(() => { penStrokeWidthRef.current = penStrokeWidth; }, [penStrokeWidth]);
+
+  const handleSliderTouch = (pageX: number) => {
+    const { pageX: sx, width } = sliderLayoutRef.current;
+    if (width === 0) { return; }
+    const relX = Math.max(0, Math.min(pageX - sx, width));
+    const value = Math.round(SLIDER_MIN + (relX / width) * (SLIDER_MAX - SLIDER_MIN));
+    setPenStrokeWidth(value);
+  };
+
+  const drawingElements = useMemo(() => elements.filter(el => el.type === 'drawing'), [elements]);
+  const drawingLayers = useMemo(() => computeDrawingLayers(drawingElements), [drawingElements]);
 
   // --- Coordinate conversion ---
   const screen2Canvas = (sx: number, sy: number): [number, number] => {
@@ -209,11 +295,30 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
 
       onPanResponderGrant: (_, gs) => {
         const [cx, cy] = screen2Canvas(gs.x0, gs.y0);
+        if (activeToolRef.current === 'pen' || activeToolRef.current === 'eraser') {
+          drawingToolRef.current = activeToolRef.current;
+          const halfSW = (activeToolRef.current === 'eraser' ? ERASER_STROKE_WIDTH : penStrokeWidthRef.current) / 2;
+          const clampedX = Math.max(halfSW, Math.min(cx, canvasSize.current.width - halfSW));
+          const clampedY = Math.max(halfSW, Math.min(cy, canvasSize.current.height - halfSW));
+          drawingPathRef.current = `M${clampedX.toFixed(1)} ${clampedY.toFixed(1)}`;
+          setCurrentDrawingPath(drawingPathRef.current);
+          return;
+        }
         const elem = findElementAt(cx, cy);
         startRef.current = { cx, cy, elem, initialX: elem?.x, initialY: elem?.y };
       },
 
       onPanResponderMove: (_, gs) => {
+        if ((activeToolRef.current === 'pen' || activeToolRef.current === 'eraser')
+            && drawingPathRef.current !== null) {
+          const [cx, cy] = screen2Canvas(gs.moveX, gs.moveY);
+          const halfSW = (drawingToolRef.current === 'eraser' ? ERASER_STROKE_WIDTH : penStrokeWidthRef.current) / 2;
+          const clampedX = Math.max(halfSW, Math.min(cx, canvasSize.current.width - halfSW));
+          const clampedY = Math.max(halfSW, Math.min(cy, canvasSize.current.height - halfSW));
+          drawingPathRef.current += ` L${clampedX.toFixed(1)} ${clampedY.toFixed(1)}`;
+          setCurrentDrawingPath(drawingPathRef.current);
+          return;
+        }
         if (!startRef.current) { return; }
         if (Math.abs(gs.dx) < 3 && Math.abs(gs.dy) < 3) { return; }
         const { elem, initialX, initialY } = startRef.current;
@@ -228,6 +333,28 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
       },
 
       onPanResponderRelease: (_, gs) => {
+        if ((activeToolRef.current === 'pen' || activeToolRef.current === 'eraser')
+            && drawingPathRef.current !== null) {
+          if (Math.abs(gs.dx) >= TAP_THRESHOLD || Math.abs(gs.dy) >= TAP_THRESHOLD) {
+            const isEraser = drawingToolRef.current === 'eraser';
+            const drawingData: DrawingData = {
+              path: drawingPathRef.current!,
+              color: isEraser ? ERASER_MASK_COLOR : penColorRef.current,
+              strokeWidth: isEraser ? ERASER_STROKE_WIDTH : penStrokeWidthRef.current,
+              ...(isEraser ? { isEraser: true } : {}),
+            };
+            const content = JSON.stringify(drawingData);
+            const newEl: PageElement = {
+              id: generateId(), type: 'drawing', x: 0, y: 0,
+              width: 0, height: 0, content,
+            };
+            setElements(prev => [...prev, newEl]);
+          }
+          drawingPathRef.current = null;
+          drawingToolRef.current = null;
+          setCurrentDrawingPath(null);
+          return;
+        }
         if (!startRef.current) { return; }
         if (Math.abs(gs.dx) < TAP_THRESHOLD && Math.abs(gs.dy) < TAP_THRESHOLD) {
           // Tap
@@ -347,7 +474,80 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
             <View style={styles.emptyPage} />
           )}
 
-          {elements.map(element => (
+          {/* Drawing layer (SVG with eraser masking) */}
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+              {drawingLayers.map((layer, i) => (
+                <Mask id={`eraser-mask-${i}`} key={`mask-${i}`} maskType="luminance"
+                  maskUnits="userSpaceOnUse" x="0" y="0" width="9999" height="9999">
+                  <SvgRect x="0" y="0" width="9999" height="9999" fill="white" />
+                  {layer.eraserPaths.map((ep, j) => (
+                    <SvgPath
+                      key={`e-${i}-${j}`}
+                      d={ep.path}
+                      stroke="black"
+                      strokeWidth={ep.strokeWidth}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ))}
+                  {currentDrawingPath && drawingToolRef.current === 'eraser' && (
+                    <SvgPath
+                      d={currentDrawingPath}
+                      stroke="black"
+                      strokeWidth={ERASER_STROKE_WIDTH}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  )}
+                </Mask>
+              ))}
+            </Defs>
+
+            {drawingLayers.map((layer, i) => (
+              <G key={`layer-${i}`} mask={`url(#eraser-mask-${i})`}>
+                {layer.penPaths.map((pp, j) => (
+                  <SvgPath
+                    key={`p-${i}-${j}`}
+                    d={pp.path}
+                    stroke={pp.color}
+                    strokeWidth={pp.strokeWidth}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </G>
+            ))}
+
+            {/* In-progress pen path (unmasked, newest drawing) */}
+            {currentDrawingPath && drawingToolRef.current === 'pen' && (
+              <SvgPath
+                d={currentDrawingPath}
+                stroke={penColor}
+                strokeWidth={penStrokeWidth}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+            {/* In-progress eraser preview (semi-transparent visual feedback) */}
+            {currentDrawingPath && drawingToolRef.current === 'eraser' && (
+              <SvgPath
+                d={currentDrawingPath}
+                stroke={ERASER_PREVIEW_COLOR}
+                strokeWidth={ERASER_STROKE_WIDTH}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={0.3}
+              />
+            )}
+          </Svg>
+
+          {elements.filter(el => el.type !== 'drawing').map(element => (
             <View
               key={element.id}
               style={[
@@ -430,6 +630,115 @@ export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenPr
           ))}
         </View>
       </View>
+
+      {/* Pen options panel */}
+      {activeTool === 'pen' && (
+        <View style={styles.penOptions}>
+          {/* Color row */}
+          <View style={styles.colorRow}>
+            {PRESET_COLORS.map(color => (
+              <TouchableOpacity
+                key={color}
+                style={[
+                  styles.colorSwatch,
+                  { backgroundColor: color },
+                  penColor === color && styles.colorSwatchSelected,
+                ]}
+                onPress={() => setPenColor(color)}
+                accessibilityLabel={`צבע ${color}`}
+              />
+            ))}
+            <TouchableOpacity
+              style={styles.paletteButton}
+              onPress={() => setColorPickerVisible(true)}
+              accessibilityLabel="בחירת צבע מותאם"
+            >
+              <MaterialCommunityIcons name="palette" size={24} color="#555" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Stroke width slider */}
+          <View style={styles.widthRow}>
+            <View
+              ref={sliderRef}
+              style={styles.sliderTrack}
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+              onResponderGrant={(e) => handleSliderTouch(e.nativeEvent.pageX)}
+              onResponderMove={(e) => handleSliderTouch(e.nativeEvent.pageX)}
+              onLayout={() => {
+                sliderRef.current?.measure((_x, _y, width, _h, pageX) => {
+                  sliderLayoutRef.current = { pageX, width };
+                });
+              }}
+            >
+              <View
+                style={[
+                  styles.sliderFill,
+                  {
+                    width: `${((penStrokeWidth - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100}%`,
+                    backgroundColor: penColor,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.sliderThumb,
+                  {
+                    left: `${((penStrokeWidth - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100}%`,
+                  },
+                ]}
+              />
+            </View>
+            {/* Live preview */}
+            <View style={styles.widthPreview}>
+              <View
+                style={{
+                  width: Math.max(penStrokeWidth, 4),
+                  height: Math.max(penStrokeWidth, 4),
+                  borderRadius: penStrokeWidth / 2,
+                  backgroundColor: penColor,
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Color picker modal */}
+      <Modal
+        visible={colorPickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setColorPickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.colorPickerOverlay}
+          activeOpacity={1}
+          onPress={() => setColorPickerVisible(false)}
+        >
+          <View style={styles.colorPickerContainer}>
+            <Text style={styles.colorPickerTitle}>בחירת צבע</Text>
+            <View style={styles.colorPickerGrid}>
+              {COLOR_PICKER_COLORS.map(color => (
+                <TouchableOpacity
+                  key={color}
+                  style={[
+                    styles.colorPickerSwatch,
+                    { backgroundColor: color },
+                    color === '#FFFFFF' && styles.colorPickerSwatchWhite,
+                    penColor === color && styles.colorSwatchSelected,
+                  ]}
+                  onPress={() => {
+                    setPenColor(color);
+                    setColorPickerVisible(false);
+                  }}
+                />
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Toolbar */}
       <View style={[styles.toolbar, { paddingBottom: insets.bottom || 12 }]}>
@@ -592,5 +901,112 @@ const styles = StyleSheet.create({
   },
   toolLabelActive: {
     color: '#007AFF',
+  },
+  penOptions: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  colorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  colorSwatch: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  colorSwatchSelected: {
+    borderWidth: 3,
+    borderColor: '#007AFF',
+  },
+  paletteButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  widthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sliderTrack: {
+    flex: 1,
+    height: 28,
+    justifyContent: 'center',
+    borderRadius: 4,
+    backgroundColor: '#e0e0e0',
+  },
+  sliderFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 4,
+    opacity: 0.3,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    marginLeft: -11,
+    top: 3,
+  },
+  widthPreview: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  colorPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  colorPickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: 280,
+  },
+  colorPickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  colorPickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  colorPickerSwatch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  colorPickerSwatchWhite: {
+    borderColor: '#ccc',
+    borderWidth: 2,
   },
 });

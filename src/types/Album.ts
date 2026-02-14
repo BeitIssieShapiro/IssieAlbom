@@ -15,7 +15,7 @@ export interface AlbumPage {
 
 export interface PageElement {
   id: string;
-  type: 'image' | 'text' | 'sticker' | 'recording';
+  type: 'image' | 'text' | 'sticker' | 'recording' | 'drawing';
   x: number;
   y: number;
   width: number;
