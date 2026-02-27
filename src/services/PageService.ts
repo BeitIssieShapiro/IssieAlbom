@@ -1,5 +1,6 @@
 import RNFS from 'react-native-fs';
-import { AlbumPage, AlbumMetadata } from '../types/Album';
+import { Dimensions } from 'react-native';
+import { AlbumPage, AlbumPageV2, AlbumMetadata } from '../types/Album';
 import { AlbumService } from './AlbumService';
 
 export const PageService = {
@@ -36,11 +37,18 @@ export const PageService = {
 
     const pageId = `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    const newPage: AlbumPage = {
+    // Save screen dimensions as the canvas base size
+    const screenWidth = Dimensions.get('window').width;
+    const screenHeight = Dimensions.get('window').height;
+
+    const newPage: AlbumPageV2 = {
       id: pageId,
       pageNumber: nextPageNumber,
       backgroundPath: null,
+      version: '2.0',
       elements: [],
+      canvasWidth: screenWidth,
+      canvasHeight: screenHeight,
     };
 
     const pagePath = `${pagesPath}/${pageId}.json`;

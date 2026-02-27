@@ -33,8 +33,20 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>AntDesign.ttf</string>
+		<string>Ionicons.ttf</string>
+		<string>MaterialIcons.ttf</string>
+		<string>MaterialDesignIcons.ttf</string>
+		<string>FontAwesome6_Brands.ttf</string>
+		<string>FontAwesome6_Regular.ttf</string>
+		<string>FontAwesome6_Solid.ttf</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>IssieAlbum needs access to your microphone to record audio notes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>IssieAlbum needs access to your photo library to allow you to select and organize photos in your albums.</string>
 	<key>RCTNewArchEnabled</key>

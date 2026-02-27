@@ -1,3 +1,6 @@
+import { PathCommand } from '@shopify/react-native-skia';
+import { ImageURISource } from 'react-native';
+
 export interface Album {
   id: string;
   name: string;
@@ -6,13 +9,7 @@ export interface Album {
   path: string;
 }
 
-export interface AlbumPage {
-  id: string;
-  pageNumber: number;
-  backgroundPath: string | null;
-  elements: PageElement[];
-}
-
+// Legacy PageElement (for backward compatibility)
 export interface PageElement {
   id: string;
   type: 'image' | 'text' | 'sticker' | 'recording' | 'drawing';
@@ -20,11 +17,173 @@ export interface PageElement {
   y: number;
   width: number;
   height: number;
-  content: string; // For text: the text content, for images/stickers: the file path
+  content: string;
   rotation?: number;
   scale?: number;
-  fontSize?: number;   // text elements only, default 20
-  color?: string;      // text elements only, default '#333'
+  fontSize?: number;
+  color?: string;
+}
+
+// New queue-based types (from IssieDocs)
+export type SketchPoint = [number, number];
+
+export interface Offset {
+  x: number;
+  y: number;
+}
+
+export enum ElementTypes {
+  Sketch = 'sketch',
+  Text = 'text',
+  Line = 'line',
+  Image = 'image',
+  Audio = 'audio',
+  Table = 'table',
+  Element = 'element',
+}
+
+export interface ElementBase {
+  id: string;
+  editMode?: boolean;
+  backup?: any;
+}
+
+export interface SketchPath extends ElementBase {
+  points: PathCommand[];
+  color: string;
+  strokeWidth: number;
+  isMarker: boolean;
+}
+
+export interface SketchLine extends ElementBase {
+  from: SketchPoint;
+  to: SketchPoint;
+  color: string;
+  strokeWidth: number;
+}
+
+export interface SketchText extends ElementBase {
+  text: string;
+  fontSize: number;
+  color: string;
+  rtl: boolean;
+  alignment: string;
+  fontFamily?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  tableId?: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  pendingPageHeightIncrease?: number;
+  tempTop2CursorHeight?: number;
+}
+
+export interface SketchImage extends ElementBase {
+  src?: ImageURISource;
+  imageData?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  aspectRatio?: number;
+}
+
+export interface SketchTable extends ElementBase {
+  verticalLines: number[];
+  horizontalLines: number[];
+  color: string;
+  strokeWidth: number;
+  strokeDash?: [number, number];
+}
+
+export interface SketchElement extends ElementBase {
+  x: number;
+  y: number;
+  type: string;
+  [key: string]: any;
+}
+
+export interface SketchAudio extends ElementBase {
+  x: number;
+  y: number;
+  file?: string; // Audio file path
+  duration?: number; // Duration in milliseconds
+}
+
+export interface SketchElementAttributes {
+  showDelete: boolean;
+}
+
+export enum MoveTypes {
+  Text = 'text',
+  LineStart = 'line-start',
+  LineEnd = 'line-end',
+  LineMove = 'line-move',
+  ImageMove = 'image-move',
+  ImageResize = 'image-resize',
+  TableResize = 'table-resize',
+  TableMove = 'table-move',
+  ElementMove = 'elem-move',
+}
+
+export interface MoveContext {
+  id: string;
+  type: MoveTypes;
+  offsetX: number;
+  offsetY: number;
+  lastPt?: SketchPoint;
+}
+
+export interface TableContext {
+  elem: SketchTable;
+  cell?: [number, number];
+  hLine?: number;
+  vLine?: number;
+  initialPosition?: SketchPoint;
+}
+
+export enum TablePart {
+  VerticalLine = 'vLine',
+  HorizontalLine = 'hLine',
+  TableCell = 'table-cell',
+}
+
+export interface CurrentEdited {
+  lineId?: string;
+  textId?: string;
+  imageId?: string;
+}
+
+// Queue element wrapper
+export interface QueueElement {
+  elem?: any;
+  elemID?: string;
+  type: string;
+  withPrevious?: boolean;
+}
+
+// Page with queue-based storage
+export interface AlbumPageV2 {
+  id: string;
+  pageNumber: number;
+  backgroundPath: string | null;
+  version: '2.0';
+  elements: QueueElement[]; // Queue elements instead of flat array
+  canvasWidth?: number; // Original canvas width when page was created
+  canvasHeight?: number; // Original canvas height when page was created
+}
+
+// Union type for backward compatibility
+export type AlbumPage = AlbumPageLegacy | AlbumPageV2;
+
+export interface AlbumPageLegacy {
+  id: string;
+  pageNumber: number;
+  backgroundPath: string | null;
+  elements: PageElement[]; // Legacy flat array
 }
 
 export interface AlbumMetadata {
@@ -34,4 +193,13 @@ export interface AlbumMetadata {
   updatedAt: number;
   pageCount: number;
   hasBeenViewed?: boolean;
+}
+
+// Type guards
+export function isPageV2(page: AlbumPage): page is AlbumPageV2 {
+  return (page as AlbumPageV2).version === '2.0';
+}
+
+export function isLegacyPage(page: AlbumPage): page is AlbumPageLegacy {
+  return !isPageV2(page);
 }

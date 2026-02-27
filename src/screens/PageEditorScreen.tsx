@@ -1,896 +1,1011 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Image,
-  LayoutChangeEvent,
-  Modal,
-  PanResponder,
+  Dimensions,
+  ImageURISource,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { PathCommand } from '@shopify/react-native-skia';
 import { launchImageLibrary } from 'react-native-image-picker';
-import Svg, { Defs, G, Mask, Path as SvgPath, Rect as SvgRect } from 'react-native-svg';
-import { AlbumPage, PageElement } from '../types/Album';
+import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio } from '../types/Album';
+import { SketchElement, SketchElementAttributes } from '../components/canvas/types';
+import DoQueue from '../utils/DoQueue';
+import Canvas from '../components/canvas/canvas';
+import { AudioElement } from '../components/AudioElement';
+import { getId, compileQueueToElements } from '../utils/pageUtils';
+import { PageService } from '../services/PageService';
+import { MyIcon } from '../common/icons';
 
-type ToolType = 'text' | 'image' | 'recording' | 'pen' | 'eraser';
-
-interface Tool {
-  type: ToolType;
-  label: string;
-  icon: string;
-  accessibilityLabel: string;
-}
-
-const TOOLS: Tool[] = [
-  { type: 'text', label: 'טקסט', icon: 'format-text', accessibilityLabel: 'הוספת טקסט' },
-  { type: 'image', label: 'תמונה', icon: 'image-plus', accessibilityLabel: 'הוספת תמונה' },
-  { type: 'recording', label: 'הקלטה', icon: 'microphone', accessibilityLabel: 'הוספת הקלטה' },
-  { type: 'pen', label: 'עט', icon: 'pencil', accessibilityLabel: 'כלי עט לציור' },
-  { type: 'eraser', label: 'מחק', icon: 'eraser', accessibilityLabel: 'כלי מחיקה' },
-];
-
-const IMAGE_DEFAULT_SIZE = 150;
-const TAP_THRESHOLD = 5;
-
-const TEXT_DEFAULT_FONT_SIZE = 20;
-const TEXT_DEFAULT_COLOR = '#333';
-const FONT_SIZE_PRESETS = [16, 20, 28, 36, 48];
-
-const PEN_COLOR = '#333333';
-const PEN_STROKE_WIDTH = 3;
-const ERASER_MASK_COLOR = '#000000';
-const ERASER_PREVIEW_COLOR = 'rgba(200,200,200,0.5)';
-const ERASER_STROKE_WIDTH = 20;
-
-const PRESET_COLORS = [
-  '#000000', '#555555', '#FF3B30', '#FF9500',
-  '#FFCC00', '#34C759', '#007AFF', '#AF52DE',
-];
-
-const SLIDER_MIN = 1;
-const SLIDER_MAX = 20;
-
-const COLOR_PICKER_COLORS = [
-  '#FF3B30', '#FF6961', '#FF2D55', '#E91E63', '#FF69B4', '#FFB6C1',
-  '#FF9500', '#FF6600', '#FFCC00', '#FFD700', '#FFF176', '#FFEB3B',
-  '#34C759', '#4CAF50', '#8BC34A', '#00BCD4', '#009688', '#2E7D32',
-  '#007AFF', '#2196F3', '#3F51B5', '#5856D6', '#AF52DE', '#9C27B0',
-  '#000000', '#555555', '#888888', '#BBBBBB', '#FFFFFF', '#8D6E63',
-];
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const HEADER_HEIGHT = 60;
+const TOOLBAR_HEIGHT = 80;
 
 interface PageEditorScreenProps {
   page: AlbumPage;
-  onSave: (updatedPage: AlbumPage) => void;
-  onDiscard: () => void;
+  albumId: string;
+  onSave: (updatedPage: AlbumPageV2) => void;
 }
 
-interface HandleCtx {
-  type: 'element-move' | 'image-resize';
-  id: string;
-  startX: number;
-  startY: number;
-  startW: number;
-  startH: number;
-  aspectRatio?: number;
-}
-
-export interface DrawingData {
-  path: string;
-  color: string;
-  strokeWidth: number;
-  isEraser?: boolean;
-}
-
-export interface DrawingLayer {
-  penPaths: DrawingData[];
-  eraserPaths: DrawingData[];
-}
-
-export function computeDrawingLayers(drawingElements: PageElement[]): DrawingLayer[] {
-  const layers: DrawingLayer[] = [];
-  let currentPens: DrawingData[] = [];
-
-  for (const el of drawingElements) {
-    const data: DrawingData = JSON.parse(el.content);
-    if (data.isEraser) {
-      // Eraser: push current pens as a layer, then add this eraser to all preceding layers
-      if (currentPens.length > 0) {
-        layers.push({ penPaths: currentPens, eraserPaths: [] });
-        currentPens = [];
-      }
-      // Add eraser to all existing layers' masks
-      for (const layer of layers) {
-        layer.eraserPaths.push(data);
-      }
-    } else {
-      currentPens.push(data);
-    }
-  }
-  // Remaining pen strokes form the final layer (no erasers affect them)
-  if (currentPens.length > 0) {
-    layers.push({ penPaths: currentPens, eraserPaths: [] });
-  }
-  return layers;
-}
-
-function generateId(): string {
-  return `el_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
-
-function hitTest(el: PageElement, x: number, y: number): boolean {
-  return x >= el.x && x <= el.x + el.width && y >= el.y && y <= el.y + el.height;
-}
-
-export function PageEditorScreen({ page, onSave, onDiscard }: PageEditorScreenProps) {
+export function PageEditorScreen({ page, albumId, onSave }: PageEditorScreenProps) {
   const insets = useSafeAreaInsets();
-  const [activeTool, setActiveTool] = useState<ToolType | null>(null);
-  const [elements, setElements] = useState<PageElement[]>(() =>
-    page.elements.map(e => ({ ...e })),
-  );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  const [currentDrawingPath, setCurrentDrawingPath] = useState<string | null>(null);
-  const [penColor, setPenColor] = useState(PEN_COLOR);
-  const [penStrokeWidth, setPenStrokeWidth] = useState(PEN_STROKE_WIDTH);
-  const [colorPickerVisible, setColorPickerVisible] = useState(false);
-  const [textColor, setTextColor] = useState(TEXT_DEFAULT_COLOR);
-  const [textFontSize, setTextFontSize] = useState(TEXT_DEFAULT_FONT_SIZE);
-  const [colorPickerTarget, setColorPickerTarget] = useState<'pen' | 'text'>('pen');
+  const canvasRef = useRef<any>(null);
 
-  // Refs so PanResponder closures can access current state
-  const activeToolRef = useRef(activeTool);
-  const penColorRef = useRef(penColor);
-  const penStrokeWidthRef = useRef(penStrokeWidth);
-  const elementsRef = useRef(elements);
-  const editingTextIdRef = useRef(editingTextId);
-  const canvasRef = useRef<View>(null);
-  const canvasSize = useRef({ width: 0, height: 0 });
-  const canvasOffset = useRef({ x: 0, y: 0 });
-  const isMoving = useRef(false);
-  const handleCtx = useRef<HandleCtx | null>(null);
-  const drawingPathRef = useRef<string | null>(null);
-  const drawingToolRef = useRef<ToolType | null>(null);
-  const sliderRef = useRef<View>(null);
-  const sliderLayoutRef = useRef({ pageX: 0, width: 0 });
+  // Queue for undo/redo
+  const queue = useRef(new DoQueue());
 
-  useEffect(() => { activeToolRef.current = activeTool; }, [activeTool]);
-  useEffect(() => { elementsRef.current = elements; }, [elements]);
-  useEffect(() => { editingTextIdRef.current = editingTextId; }, [editingTextId]);
-  const textColorRef = useRef(textColor);
-  const textFontSizeRef = useRef(textFontSize);
+  // Canvas state (external to Canvas component)
+  const [paths, setPaths] = useState<SketchPath[]>([]);
+  const [texts, setTexts] = useState<SketchText[]>([]);
+  const [images, setImages] = useState<SketchImage[]>([]);
+  const [audios, setAudios] = useState<SketchElement[]>([]);
+  const [currentEdited, setCurrentEdited] = useState<CurrentEdited>({});
+  const [currentElementType, setCurrentElementType] = useState<ElementTypes>(ElementTypes.Sketch);
 
-  useEffect(() => { penColorRef.current = penColor; }, [penColor]);
-  useEffect(() => { penStrokeWidthRef.current = penStrokeWidth; }, [penStrokeWidth]);
-  useEffect(() => { textColorRef.current = textColor; }, [textColor]);
-  useEffect(() => { textFontSizeRef.current = textFontSize; }, [textFontSize]);
+  // Track text being edited (all temporary changes not yet in queue)
+  const [editingTextChanges, setEditingTextChanges] = useState<Partial<SketchText> & { id: string } | null>(null);
 
-  const handleSliderTouch = (pageX: number) => {
-    const { pageX: sx, width } = sliderLayoutRef.current;
-    if (width === 0) { return; }
-    const relX = Math.max(0, Math.min(pageX - sx, width));
-    const value = Math.round(SLIDER_MIN + (relX / width) * (SLIDER_MAX - SLIDER_MIN));
-    setPenStrokeWidth(value);
-  };
+  // Track element being moved (for non-text elements or when not editing)
+  const [movingElement, setMovingElement] = useState<{ id: string; type: string; x: number; y: number; width?: number; height?: number } | null>(null);
 
-  const drawingElements = useMemo(() => elements.filter(el => el.type === 'drawing'), [elements]);
-  const drawingLayers = useMemo(() => computeDrawingLayers(drawingElements), [drawingElements]);
+  // Refs to avoid closure issues
+  const currentEditedRef = useRef<CurrentEdited>({});
+  const editingTextChangesRef = useRef<Partial<SketchText> & { id: string } | null>(null);
+  const isEraserRef = useRef<boolean>(false);
+  const movingElementRef = useRef<{ id: string; type: string; x: number; y: number; width?: number; height?: number } | null>(null);
+  const imagesRef = useRef<SketchImage[]>([]);
+  const audiosRef = useRef<SketchElement[]>([]);
 
-  // --- Coordinate conversion ---
-  const screen2Canvas = (sx: number, sy: number): [number, number] => {
-    return [sx - canvasOffset.current.x, sy - canvasOffset.current.y];
-  };
+  // Sync refs with state
+  useEffect(() => {
+    currentEditedRef.current = currentEdited;
+  }, [currentEdited]);
 
-  // --- Element search (topmost first, filtered by active tool) ---
-  const findElementAt = (cx: number, cy: number): PageElement | undefined => {
-    const tool = activeToolRef.current;
-    const elems = elementsRef.current;
-    for (let i = elems.length - 1; i >= 0; i--) {
-      const el = elems[i];
-      if (!hitTest(el, cx, cy)) { continue; }
-      if (tool === 'text' && el.type === 'text') { return el; }
-      if (tool === 'image' && (el.type === 'image' || el.type === 'sticker')) { return el; }
+  useEffect(() => {
+    editingTextChangesRef.current = editingTextChanges;
+  }, [editingTextChanges]);
+
+  useEffect(() => {
+    movingElementRef.current = movingElement;
+  }, [movingElement]);
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  useEffect(() => {
+    audiosRef.current = audios;
+  }, [audios]);
+
+  // Computed texts array that includes editing changes and move changes
+  const displayTexts = React.useMemo(() => {
+    const result = texts.map(t => {
+      // Apply editing changes (text, color, size, position)
+      if (editingTextChanges?.id === t.id) {
+        return { ...t, ...editingTextChanges };
+      }
+      // Apply move changes (only for non-edited texts)
+      if (movingElement?.type === 'text' && movingElement.id === t.id && !editingTextChanges) {
+        return { ...t, x: movingElement.x, y: movingElement.y };
+      }
+      return t;
+    });
+
+    // If editingTextChanges has a text not in the queue yet (brand new), add it
+    if (editingTextChanges && !texts.find(t => t.id === editingTextChanges.id)) {
+      result.push(editingTextChanges as SketchText);
     }
-    return undefined;
-  };
 
-  // --- Finalize text editing (remove empty) ---
-  const finalizeTextEditing = () => {
-    const editId = editingTextIdRef.current;
-    if (!editId) { return; }
-    setEditingTextId(null);
-    setElements(prev =>
-      prev.filter(el => !(el.id === editId && el.type === 'text' && el.content.trim() === '')),
-    );
-  };
+    return result;
+  }, [texts, editingTextChanges, movingElement]);
 
-  // --- Image picker ---
-  const pickImage = async (cx: number, cy: number) => {
-    try {
-      const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
-      if (!result.assets?.[0]?.uri) { return; }
-      const asset = result.assets[0];
-      const uri = asset.uri!;
-      const aspectRatio = asset.width && asset.height ? asset.width / asset.height : 1;
-      const imgW = IMAGE_DEFAULT_SIZE;
-      const imgH = imgW / aspectRatio;
-      const { width: cw, height: ch } = canvasSize.current;
-      const x = Math.max(0, Math.min(cx - imgW / 2, cw - imgW));
-      const y = Math.max(0, Math.min(cy - imgH / 2, ch - imgH));
-      const content = uri.startsWith('file://') ? uri.slice(7) : uri;
-      const newEl: PageElement = {
-        id: generateId(), type: 'image', x, y, width: imgW, height: imgH, content,
-      };
-      setElements(prev => [...prev, newEl]);
-      setSelectedId(newEl.id);
-    } catch (error) {
-      console.error('Image pick failed:', error);
-    }
-  };
-
-  // --- Canvas click handler ---
-  const handleCanvasClick = (cx: number, cy: number) => {
-    const tool = activeToolRef.current;
-    const tapped = findElementAt(cx, cy);
-
-    if (tool === 'text') {
-      finalizeTextEditing();
-      if (tapped) {
-        setSelectedId(tapped.id);
-        setEditingTextId(tapped.id);
-        setTextColor(tapped.color || TEXT_DEFAULT_COLOR);
-        setTextFontSize(tapped.fontSize || TEXT_DEFAULT_FONT_SIZE);
-      } else {
-        const x = Math.max(0, cx);
-        const y = Math.max(0, cy);
-        const newEl: PageElement = {
-          id: generateId(), type: 'text', x, y,
-          width: 60, height: 28, content: '',
-          fontSize: textFontSizeRef.current, color: textColorRef.current,
+  // Computed images array that includes move/resize changes
+  const displayImages = React.useMemo(() => {
+    return images.map(img => {
+      if (movingElement && (movingElement.type === 'image-move' || movingElement.type === 'image-resize') && movingElement.id === img.id) {
+        return {
+          ...img,
+          x: movingElement.x,
+          y: movingElement.y,
+          ...(movingElement.width !== undefined && { width: movingElement.width }),
+          ...(movingElement.height !== undefined && { height: movingElement.height }),
         };
-        setElements(prev => [...prev, newEl]);
-        setSelectedId(newEl.id);
-        setEditingTextId(newEl.id);
       }
-    } else if (tool === 'image') {
-      finalizeTextEditing();
-      if (tapped) {
-        setSelectedId(tapped.id);
-      } else {
-        pickImage(cx, cy);
+      return img;
+    });
+  }, [images, movingElement]);
+
+  // Use ref to avoid closure issues in callbacks
+  const currentElementTypeRef = useRef<ElementTypes>(ElementTypes.Sketch);
+
+  // Drawing settings
+  const [sketchColor, setSketchColor] = useState('#333333');
+  const [sketchStrokeWidth, setSketchStrokeWidth] = useState(3);
+  const [isEraser, setIsEraser] = useState(false); // Track if pen is in eraser mode
+  const [textColor, setTextColor] = useState('#333333');
+  const [textSize, setTextSize] = useState(20);
+
+  // Sync isEraser ref (must be after isEraser state declaration)
+  useEffect(() => {
+    isEraserRef.current = isEraser;
+    console.log('isEraser state changed:', isEraser, 'ref updated to:', isEraserRef.current);
+  }, [isEraser]);
+
+  // Color presets
+  const COLORS = ['#000000', '#333333', '#FF0000', '#0000FF', '#00FF00', '#FFFF00', '#FF00FF', '#00FFFF'];
+  const PEN_SIZES = [2, 3, 5, 8];
+  const TEXT_SIZES = [16, 20, 28, 36];
+
+  // Calculate available space for canvas
+  const availableWidth = SCREEN_WIDTH;
+  const availableHeight = SCREEN_HEIGHT - (HEADER_HEIGHT + insets.top) - (TOOLBAR_HEIGHT + insets.bottom);
+
+  // Get original page dimensions (screen dimensions when page was created)
+  const v2Page = page as AlbumPageV2;
+  const pageWidth = v2Page.canvasWidth || SCREEN_WIDTH;
+  const pageHeight = v2Page.canvasHeight || SCREEN_HEIGHT;
+
+  // Calculate ratio (scale) to fit page dimensions into available space
+  const ratioX = availableWidth / pageWidth;
+  const ratioY = availableHeight / pageHeight;
+  const ratio = Math.min(ratioX, ratioY);
+
+  // Calculate actual canvas size (scaled dimensions)
+  const canvasWidth = pageWidth * ratio;
+  const canvasHeight = pageHeight * ratio;
+
+  // Calculate side margin to center horizontally
+  const sideMargin = (availableWidth - canvasWidth) / 2;
+
+  // Calculate canvas top position
+  const canvasTop = HEADER_HEIGHT + insets.top;
+
+  console.log('Render calculations:', {
+    availableWidth,
+    availableHeight,
+    pageWidth,
+    pageHeight,
+    ratio,
+    canvasWidth,
+    canvasHeight,
+    sideMargin,
+    canvasTop
+  });
+
+  // Keep offset stable - use ref to prevent re-renders
+  const canvasOffsetRef = useRef({ x: 0, y: 0 });
+
+  // Load initial page data into queue and state
+  useEffect(() => {
+    queue.current.clear();
+    const v2Page = page as AlbumPageV2;
+
+    if (v2Page.version === '2.0' && v2Page.elements) {
+      // Load from queue
+      for (const elem of v2Page.elements) {
+        queue.current.add(elem);
       }
+
+      // Build state from queue
+      rebuildStateFromQueue();
     } else {
-      finalizeTextEditing();
-      setSelectedId(null);
+      // Initialize with background if needed
+      if (page.backgroundPath) {
+        queue.current.add({ type: 'background', elem: { path: page.backgroundPath } });
+      }
     }
+  }, [page.id]);
+
+  // Rebuild paths/texts/images/audios arrays from queue using shared utility
+  const rebuildStateFromQueue = () => {
+    const queueElements = queue.current.getAll();
+    console.log('rebuildStateFromQueue: processing', queueElements.length, 'queue elements');
+
+    const { paths: rebuiltPaths, texts: rebuiltTexts, images: rebuiltImages, audios: rebuiltAudios } = compileQueueToElements(queueElements);
+
+    console.log('Rebuilt from queue:', { paths: rebuiltPaths.length, texts: rebuiltTexts.length, images: rebuiltImages.length, audios: rebuiltAudios.length });
+    console.log('Rebuilt images:', rebuiltImages.map(i => ({ id: i.id, x: i.x, y: i.y, width: i.width, height: i.height })));
+
+    setPaths(rebuiltPaths);
+    setTexts(rebuiltTexts);
+    setImages(rebuiltImages);
+    // Convert SketchAudio to SketchElement
+    setAudios(rebuiltAudios.map(a => ({ ...a, type: 'audio' })));
   };
 
-  // --- Save handler (uses ref for latest elements) ---
-  const doSave = () => {
-    const finalElements = elementsRef.current.filter(
-      el => !(el.type === 'text' && el.content.trim() === ''),
-    );
-    onSave({ ...page, elements: finalElements });
+  // Auto-save to disk without closing editor (for during-edit saves like image moves)
+  const autoSave = async () => {
+    const savedPage: AlbumPageV2 = {
+      id: page.id,
+      pageNumber: page.pageNumber,
+      backgroundPath: page.backgroundPath,
+      version: '2.0',
+      elements: queue.current.getAll(),
+      canvasWidth: pageWidth,
+      canvasHeight: pageHeight,
+    };
+
+    try {
+      await PageService.updatePage(albumId, savedPage);
+      console.log('Auto-saved page to disk');
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    }
   };
 
   const handleBack = () => {
-    Alert.alert(
-      'יציאה מעריכה',
-      'מה ברצונך לעשות?',
-      [
-        { text: 'המשך עריכה', style: 'cancel' },
-        { text: 'שמירה ויציאה', onPress: doSave },
-        { text: 'יציאה ללא שמירה', style: 'destructive', onPress: onDiscard },
-      ],
-    );
+    // Save currently edited text before exiting
+    if (currentEdited.textId) {
+      const text = displayTexts.find(t => t.id === currentEdited.textId);
+      if (text) {
+        queue.current.pushText(text);
+      }
+    }
+
+    // Auto-save on exit - changes are saved on every action
+    const savedPage: AlbumPageV2 = {
+      id: page.id,
+      pageNumber: page.pageNumber,
+      backgroundPath: page.backgroundPath,
+      version: '2.0',
+      elements: queue.current.getAll(),
+      canvasWidth: pageWidth,
+      canvasHeight: pageHeight,
+    };
+    onSave(savedPage);
   };
 
-  // ============================================================
-  // Canvas PanResponder — taps + image dragging
-  // (Following IssieDocs sketchResponder pattern)
-  // ============================================================
-  const startRef = useRef<{
-    cx: number; cy: number;
-    elem?: PageElement;
-    initialX?: number; initialY?: number;
-  } | null>(null);
+  const handleUndo = () => {
+    // Save any pending text edits before undo
+    if (currentEdited.textId || editingTextChanges) {
+      const textId = currentEdited.textId || editingTextChanges?.id;
+      if (textId) {
+        handleTextEditEnd(textId);
+        setCurrentEdited({});
+      }
+    }
 
-  const canvasResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !isMoving.current,
-      onMoveShouldSetPanResponder: (_, gs) =>
-        !isMoving.current && (Math.abs(gs.dx) > 3 || Math.abs(gs.dy) > 3),
-
-      onPanResponderGrant: (_, gs) => {
-        const [cx, cy] = screen2Canvas(gs.x0, gs.y0);
-        if (activeToolRef.current === 'pen' || activeToolRef.current === 'eraser') {
-          drawingToolRef.current = activeToolRef.current;
-          const halfSW = (activeToolRef.current === 'eraser' ? ERASER_STROKE_WIDTH : penStrokeWidthRef.current) / 2;
-          const clampedX = Math.max(halfSW, Math.min(cx, canvasSize.current.width - halfSW));
-          const clampedY = Math.max(halfSW, Math.min(cy, canvasSize.current.height - halfSW));
-          drawingPathRef.current = `M${clampedX.toFixed(1)} ${clampedY.toFixed(1)}`;
-          setCurrentDrawingPath(drawingPathRef.current);
-          return;
-        }
-        const elem = findElementAt(cx, cy);
-        startRef.current = { cx, cy, elem, initialX: elem?.x, initialY: elem?.y };
-      },
-
-      onPanResponderMove: (_, gs) => {
-        if ((activeToolRef.current === 'pen' || activeToolRef.current === 'eraser')
-            && drawingPathRef.current !== null) {
-          const [cx, cy] = screen2Canvas(gs.moveX, gs.moveY);
-          const halfSW = (drawingToolRef.current === 'eraser' ? ERASER_STROKE_WIDTH : penStrokeWidthRef.current) / 2;
-          const clampedX = Math.max(halfSW, Math.min(cx, canvasSize.current.width - halfSW));
-          const clampedY = Math.max(halfSW, Math.min(cy, canvasSize.current.height - halfSW));
-          drawingPathRef.current += ` L${clampedX.toFixed(1)} ${clampedY.toFixed(1)}`;
-          setCurrentDrawingPath(drawingPathRef.current);
-          return;
-        }
-        if (!startRef.current) { return; }
-        if (Math.abs(gs.dx) < 3 && Math.abs(gs.dy) < 3) { return; }
-        const { elem, initialX, initialY } = startRef.current;
-        // Only move non-text elements by direct drag (text uses move handle)
-        if (elem && initialX !== undefined && initialY !== undefined
-            && activeToolRef.current !== 'text') {
-          isMoving.current = true;
-          setElements(prev => prev.map(el =>
-            el.id === elem.id ? { ...el, x: initialX + gs.dx, y: initialY + gs.dy } : el,
-          ));
-        }
-      },
-
-      onPanResponderRelease: (_, gs) => {
-        if ((activeToolRef.current === 'pen' || activeToolRef.current === 'eraser')
-            && drawingPathRef.current !== null) {
-          if (Math.abs(gs.dx) >= TAP_THRESHOLD || Math.abs(gs.dy) >= TAP_THRESHOLD) {
-            const isEraser = drawingToolRef.current === 'eraser';
-            const drawingData: DrawingData = {
-              path: drawingPathRef.current!,
-              color: isEraser ? ERASER_MASK_COLOR : penColorRef.current,
-              strokeWidth: isEraser ? ERASER_STROKE_WIDTH : penStrokeWidthRef.current,
-              ...(isEraser ? { isEraser: true } : {}),
-            };
-            const content = JSON.stringify(drawingData);
-            const newEl: PageElement = {
-              id: generateId(), type: 'drawing', x: 0, y: 0,
-              width: 0, height: 0, content,
-            };
-            setElements(prev => [...prev, newEl]);
-          }
-          drawingPathRef.current = null;
-          drawingToolRef.current = null;
-          setCurrentDrawingPath(null);
-          return;
-        }
-        if (!startRef.current) { return; }
-        if (Math.abs(gs.dx) < TAP_THRESHOLD && Math.abs(gs.dy) < TAP_THRESHOLD) {
-          // Tap
-          handleCanvasClick(startRef.current.cx, startRef.current.cy);
-        } else if (isMoving.current && startRef.current.elem) {
-          // Clamp after drag
-          const id = startRef.current.elem.id;
-          const { width: cw, height: ch } = canvasSize.current;
-          setElements(prev => prev.map(el => {
-            if (el.id !== id) { return el; }
-            return {
-              ...el,
-              x: Math.max(0, Math.min(el.x, cw - el.width)),
-              y: Math.max(0, Math.min(el.y, ch - el.height)),
-            };
-          }));
-        }
-        startRef.current = null;
-        isMoving.current = false;
-      },
-    }),
-  ).current;
-
-  // ============================================================
-  // Move/Resize PanResponder — shared by all handles
-  // (Following IssieDocs moveResponder pattern)
-  // ============================================================
-  const moveResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => {
-        isMoving.current = true;
-        return true;
-      },
-      onMoveShouldSetPanResponder: () => true,
-
-      onPanResponderMove: (_, gs) => {
-        const ctx = handleCtx.current;
-        if (!ctx) { return; }
-        if (ctx.type === 'element-move') {
-          setElements(prev => prev.map(el =>
-            el.id === ctx.id
-              ? { ...el, x: ctx.startX + gs.dx, y: ctx.startY + gs.dy }
-              : el,
-          ));
-        } else if (ctx.type === 'image-resize') {
-          const newW = Math.max(40, ctx.startW + gs.dx);
-          const newH = ctx.aspectRatio
-            ? newW / ctx.aspectRatio
-            : Math.max(40, ctx.startH + gs.dy);
-          setElements(prev => prev.map(el =>
-            el.id === ctx.id ? { ...el, width: newW, height: newH } : el,
-          ));
-        }
-      },
-
-      onPanResponderRelease: () => {
-        isMoving.current = false;
-        const ctx = handleCtx.current;
-        if (ctx) {
-          const { width: cw, height: ch } = canvasSize.current;
-          setElements(prev => prev.map(el => {
-            if (el.id !== ctx.id) { return el; }
-            return {
-              ...el,
-              x: Math.max(0, Math.min(el.x, cw - el.width)),
-              y: Math.max(0, Math.min(el.y, ch - el.height)),
-            };
-          }));
-          handleCtx.current = null;
-        }
-      },
-    }),
-  ).current;
-
-  // --- Canvas layout measurement ---
-  const handleCanvasLayout = (_e: LayoutChangeEvent) => {
-    setTimeout(() => {
-      canvasRef.current?.measure((_x, _y, width, height, pageX, pageY) => {
-        canvasSize.current = { width, height };
-        canvasOffset.current = { x: pageX, y: pageY };
-      });
-    }, 50);
+    if (queue.current.undo()) {
+      rebuildStateFromQueue();
+    }
   };
 
-  // --- Render ---
+  const handleRedo = () => {
+    // Save any pending text edits before redo
+    if (currentEdited.textId || editingTextChanges) {
+      const textId = currentEdited.textId || editingTextChanges?.id;
+      if (textId) {
+        handleTextEditEnd(textId);
+        setCurrentEdited({});
+      }
+    }
+
+    if (queue.current.redo()) {
+      rebuildStateFromQueue();
+    }
+  };
+
+  // Canvas callbacks
+  const handleSketchEnd = (commands?: PathCommand[]) => {
+    if (commands && commands.length > 0) {
+      const isEraserMode = isEraserRef.current;
+      const pathElem: SketchPath = {
+        id: getId('path'),
+        points: commands,
+        color: isEraserMode ? '#00000000' : sketchColor, // Transparent for eraser
+        strokeWidth: isEraserMode ? 20 : sketchStrokeWidth, // Wider stroke for eraser
+        isMarker: isEraserMode,
+      };
+
+      console.log('Saving path to queue:', { isEraser: isEraserMode, color: pathElem.color, strokeWidth: pathElem.strokeWidth });
+
+      queue.current.pushPath(pathElem);
+      rebuildStateFromQueue();
+    }
+  };
+
+  const handleTextChanged = (id: string, newText: string) => {
+    // Track text content change
+    console.log('handleTextChanged:', { id, newText });
+    setEditingTextChanges(prev => prev?.id === id ? { ...prev, text: newText } : { id, text: newText });
+  };
+
+  const handleTextEditEnd = (id: string) => {
+    // Save all accumulated changes to queue when editing ends
+    const currentChanges = editingTextChangesRef.current;
+
+    console.log('handleTextEditEnd START:', {
+      id,
+      currentChanges
+    });
+
+    if (!currentChanges || currentChanges.id !== id) {
+      console.log('No changes to save for', id);
+      return;
+    }
+
+    // Find the LATEST version of the text from the queue (iterate backwards)
+    const queueElems = queue.current.getAll();
+    let baseText: SketchText | undefined;
+
+    // Search backwards to get the latest version
+    for (let i = queueElems.length - 1; i >= 0; i--) {
+      if (queueElems[i].type === 'text' && queueElems[i].elem?.id === id) {
+        baseText = queueElems[i].elem;
+        console.log('Found latest text in queue at index', i, baseText);
+        break;
+      }
+    }
+
+    let textToSave: SketchText;
+
+    // If not in queue, it's a brand new text - the changes ARE the complete text
+    if (!baseText) {
+      console.log('New text not in queue yet, using editingTextChanges as complete text');
+      textToSave = currentChanges as SketchText;
+    } else {
+      // Merge changes with base text from queue
+      console.log('Merging changes with base text from queue');
+      textToSave = { ...baseText, ...currentChanges };
+    }
+
+    console.log('handleTextEditEnd: saving text', {
+      id,
+      baseText,
+      changes: currentChanges,
+      textToSave
+    });
+
+    queue.current.pushText(textToSave);
+
+    console.log('QUEUE AFTER PUSH:', {
+      totalElements: queue.current.getAll().length,
+      queue: queue.current.getAll().map((qe, idx) => ({
+        index: idx,
+        type: qe.type,
+        id: qe.elem?.id,
+        text: qe.type === 'text' ? qe.elem?.text : undefined
+      }))
+    });
+
+    setEditingTextChanges(null);
+    rebuildStateFromQueue();
+  };
+
+  const handleCanvasClick = (p: SketchPoint, elem: any) => {
+    console.log('========== handleCanvasClick ==========');
+    console.log('handleCanvasClick', { mode: currentElementTypeRef.current, p, elem: elem?.id, currentEditedBefore: currentEditedRef.current });
+    console.log('currentEdited (ref):', currentEditedRef.current);
+    console.log('editingTextChanges (ref):', editingTextChangesRef.current);
+
+    // Save currently edited text before any action (regardless of mode)
+    // Use refs to avoid closure issues
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      console.log('Calling handleTextEditEnd for:', textToSave);
+      handleTextEditEnd(textToSave);
+      // Only clear currentEdited if we're not in image mode
+      // In image mode, we want to preserve the image selection
+      if (currentElementTypeRef.current !== ElementTypes.Image) {
+        setCurrentEdited({});
+      }
+    }
+
+    if (currentElementTypeRef.current === ElementTypes.Text) {
+      if (!elem) {
+        // Create new text at click position - don't commit to queue yet
+        const newTextId = getId('text');
+        const newText: SketchText = {
+          id: newTextId,
+          text: '',
+          fontSize: textSize,
+          color: textColor,
+          rtl: false,
+          alignment: 'Left',
+          x: p[0],
+          y: p[1],
+          width: 60,
+          height: 28,
+        };
+
+        console.log('Creating new text (not adding to queue yet):', newTextId);
+
+        // Add to temporary editing state so it's visible
+        setEditingTextChanges(newText);
+
+        // Mark as currently edited
+        setCurrentEdited({ textId: newTextId });
+      } else if (elem.id) {
+        // Edit existing text
+        console.log('Editing existing text:', elem.id);
+        setCurrentEdited({ textId: elem.id });
+      }
+    } else if (currentElementTypeRef.current === ElementTypes.Image && elem) {
+      const newCurrEdited = { ...currentEditedRef.current, imageId: elem.id }
+      currentEditedRef.current = newCurrEdited
+      setCurrentEdited(newCurrEdited);
+    } else if (currentElementTypeRef.current === ElementTypes.Audio) {
+      if (!elem) {
+        // Create new audio at click position
+        const newAudioId = getId('audio');
+        const newAudio: SketchElement = {
+          id: newAudioId,
+          x: p[0],
+          y: p[1],
+          type: 'audio',
+          editMode: true, // Start in record mode
+        };
+
+        // Add to state temporarily (will be persisted when recording finishes)
+        setAudios(prev => {
+          const updated = [...prev, newAudio];
+          console.log('setAudios called, new length:', updated.length);
+          return updated;
+        });
+        console.log('Created new audio for recording:', newAudioId);
+      }
+    }
+  };
+
+  // When switching to text mode, create first text element if none exist
+  const handleSetTextMode = () => {
+    setCurrentElementType(ElementTypes.Text);
+    currentElementTypeRef.current = ElementTypes.Text;
+
+    // If no texts exist, create one in the center (using canvas dimensions)
+    if (texts.length === 0 && !editingTextChanges) {
+      const centerX = canvasWidth / 2 - 30;
+      const centerY = canvasHeight / 2 - 14;
+
+      const newTextId = getId('text');
+      const newText: SketchText = {
+        id: newTextId,
+        text: '',
+        fontSize: textSize,
+        color: textColor,
+        rtl: false,
+        alignment: 'Left',
+        x: centerX,
+        y: centerY,
+        width: 60,
+        height: 28,
+      };
+
+      console.log('Creating initial text in text mode (not adding to queue yet):', newTextId);
+
+      // Add to temporary editing state so it's visible
+      setEditingTextChanges(newText);
+      setCurrentEdited({ textId: newTextId });
+    }
+  };
+
+  const handleSetSketchMode = () => {
+    // Save currently edited text before switching modes
+    if (currentEdited.textId) {
+      handleTextEditEnd(currentEdited.textId);
+    }
+
+    setCurrentElementType(ElementTypes.Sketch);
+    currentElementTypeRef.current = ElementTypes.Sketch;
+    setCurrentEdited({});
+  };
+
+  const handleSetImageMode = () => {
+    // Save currently edited text before switching modes
+    if (currentEdited.textId) {
+      handleTextEditEnd(currentEdited.textId);
+      setCurrentEdited({});
+    }
+
+    setCurrentElementType(ElementTypes.Image);
+    currentElementTypeRef.current = ElementTypes.Image;
+  };
+
+  const handleSetAudioMode = () => {
+    // Save currently edited text before switching modes
+    if (currentEdited.textId) {
+      handleTextEditEnd(currentEdited.textId);
+      setCurrentEdited({});
+    }
+
+    setCurrentElementType(ElementTypes.Audio);
+    currentElementTypeRef.current = ElementTypes.Audio;
+  };
+
+  const handleUpdateAudioFile = async (audioId: string, filePath: string) => {
+    console.log('handleUpdateAudioFile:', { audioId, filePath });
+
+    // Find the audio in state
+    const audio = audios.find(a => a.id === audioId);
+    if (audio) {
+      // Update audio with file path
+      const updatedAudio: SketchAudio = {
+        ...audio,
+        file: filePath,
+        editMode: false, // No longer in edit mode
+      };
+
+      // Save to queue
+      queue.current.pushAudio(updatedAudio);
+      rebuildStateFromQueue();
+
+      // Auto-save to disk
+      await autoSave();
+
+      console.log('Audio saved:', updatedAudio);
+    }
+  };
+
+  const handleAddImage = async () => {
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.8,
+    });
+
+    if (result.assets && result.assets[0]) {
+      const asset = result.assets[0];
+      const imageId = getId('image');
+
+      const newImage: SketchImage = {
+        id: imageId,
+        src: { uri: asset.uri },
+        x: canvasWidth / 2 - 75, // Center horizontally
+        y: canvasHeight / 2 - 75, // Center vertically
+        width: 150,
+        height: 150,
+        aspectRatio: (asset.width && asset.height) ? asset.width / asset.height : 1,
+      };
+
+      console.log('Adding new image to queue:', { id: imageId, x: newImage.x, y: newImage.y, width: newImage.width, height: newImage.height });
+
+      // Commit full image to queue
+      queue.current.pushImage(newImage);
+
+      console.log('Queue after pushImage:', queue.current.getAll().length, 'elements');
+
+      rebuildStateFromQueue();
+
+      // Auto-save to disk without closing editor
+      await autoSave();
+
+      // Set as currently edited to show handles
+      setCurrentEdited({ imageId: imageId });
+    }
+  };
+
+  const handleMoveElement = (type: any, id: string, p: SketchPoint) => {
+    const currentImages = imagesRef.current;
+    console.log('handleMoveElement:', { type, id, p, imagesCount: currentImages.length });
+
+    // For text elements, always accumulate in editing changes (even if not currently focused)
+    if (type === 'text') {
+      console.log('Moving text, accumulating in editingTextChanges');
+      setEditingTextChanges(prev => prev?.id === id ? { ...prev, x: p[0], y: p[1] } : { id, x: p[0], y: p[1] });
+    } else if (type === 'image-move' || type === 'image-resize') {
+      // For images, track move/resize separately
+      console.log('Moving/resizing image, using movingElement, images:', currentImages.map(i => ({ id: i.id, x: i.x, y: i.y })));
+
+      // Get the base image to calculate size for resize operations
+      const baseImage = currentImages.find(i => i.id === id);
+      console.log('Found baseImage:', baseImage ? { id: baseImage.id, x: baseImage.x, y: baseImage.y, width: baseImage.width, height: baseImage.height } : 'NOT FOUND');
+
+      if (baseImage) {
+        let moveData;
+        if (type === 'image-resize') {
+          // For resize, p contains the new bottom-right corner
+          const width = p[0] - baseImage.x;
+          const height = p[1] - baseImage.y;
+          moveData = { id, type, x: baseImage.x, y: baseImage.y, width, height };
+        } else {
+          // For move, p contains the new position
+          moveData = { id, type, x: p[0], y: p[1], width: baseImage.width, height: baseImage.height };
+        }
+        console.log('Setting movingElement:', moveData);
+        setMovingElement(moveData);
+        movingElementRef.current = moveData; // Set ref immediately to avoid timing issues
+        console.log('movingElementRef.current after set:', movingElementRef.current);
+      } else {
+        console.error('Base image not found in images array!');
+      }
+    } else if (type === 'elem-move') {
+      // For audio elements (generic elements)
+      console.log('Moving audio element');
+      const audio = audios.find(a => a.id === id);
+      if (audio) {
+        setAudios(prev => prev.map(a => a.id === id ? { ...a, x: p[0], y: p[1] } : a));
+      }
+    }
+  };
+
+  const handleMoveEnd = async (type: any, id: string) => {
+    const movingElem = movingElementRef.current;
+    console.log('handleMoveEnd:', { type, id, movingElement: movingElem, displayImagesCount: displayImages.length, displayImages: displayImages.map(i => ({ id: i.id, x: i.x, y: i.y })) });
+
+    // For text, don't save - just mark it as needing to be edited/saved
+    if (type === 'text') {
+      console.log('Text moved, changes will be saved when explicitly committed');
+      // If not currently being edited, mark it as edited so changes are visible
+      if (!currentEdited.textId) {
+        setCurrentEdited({ textId: id });
+      }
+      return;
+    }
+
+    // For images, save only position/size (lightweight) after move/resize
+    if (type === 'image-move' || type === 'image-resize') {
+      // Use movingElementRef if it matches, otherwise fall back to finding in displayImages
+      let positionData;
+
+      if (movingElem && movingElem.id === id) {
+        // Use the tracked changes from movingElement
+        positionData = {
+          id: movingElem.id,
+          x: movingElem.x,
+          y: movingElem.y,
+          width: movingElem.width!,
+          height: movingElem.height!,
+        };
+        console.log('Using movingElementRef data:', positionData);
+      } else {
+        // Fallback: find in displayImages
+        console.log('movingElementRef not available, falling back to displayImages');
+        const img = displayImages.find(i => i.id === id);
+        if (!img) {
+          console.error('Image not found in displayImages:', id);
+          return;
+        }
+        positionData = {
+          id: img.id,
+          x: img.x,
+          y: img.y,
+          width: img.width,
+          height: img.height,
+        };
+      }
+
+      console.log('Saving image position:', positionData);
+
+      // Save only position/size data, not the full image
+      queue.current.pushImagePosition(positionData);
+      setMovingElement(null);
+      movingElementRef.current = null; // Clear ref too
+      rebuildStateFromQueue();
+
+      // Auto-save to disk without closing editor
+      await autoSave();
+
+      // Keep image as currentEdited so handles remain visible
+      const newCurrentEdited = { imageId: id };
+      setCurrentEdited(newCurrentEdited);
+      currentEditedRef.current = newCurrentEdited; // Update ref immediately too
+      console.log('Set currentEdited after move:', newCurrentEdited);
+    } else if (type === 'elem-move') {
+      // For audio elements
+      const audio = audios.find(a => a.id === id);
+      if (audio && !audio.editMode) {
+        // Only save position if audio is not in edit mode (recording)
+        const positionData = {
+          id: audio.id,
+          x: audio.x,
+          y: audio.y,
+        };
+        queue.current.pushAudioPosition(positionData);
+        rebuildStateFromQueue();
+        await autoSave();
+        console.log('Saved audio position:', positionData);
+      }
+    }
+  };
+
+  const handleDeleteElement = (type: ElementTypes, id: string) => {
+    // Remove from state
+    if (type === ElementTypes.Text) {
+      setTexts(prev => prev.filter(t => t.id !== id));
+    } else if (type === ElementTypes.Image) {
+      setImages(prev => prev.filter(img => img.id !== id));
+    } else if (type === ElementTypes.Sketch) {
+      setPaths(prev => prev.filter(p => p.id !== id));
+    } else if (type === ElementTypes.Audio) {
+      setAudios(prev => prev.filter(a => a.id !== id));
+      queue.current.pushDeleteAudio({ id });
+      rebuildStateFromQueue();
+      autoSave();
+    }
+
+    // Remove from queue
+    const queueElems = queue.current.getAll();
+    const idx = queueElems.findIndex(qe => qe.elem?.id === id);
+    if (idx >= 0) {
+      queueElems.splice(idx, 1);
+    }
+  };
+
+  // Render callback for custom elements (audio)
+  const handleRenderElements = (elem: SketchElement) => {
+    if (elem.type === 'audio') {
+      return (
+        <AudioElement
+          audioFile={elem.file}
+          editMode={elem.editMode}
+          onUpdateAudioFile={(filePath) => handleUpdateAudioFile(elem.id, filePath)}
+          width={80}
+          height={80}
+        />
+      );
+    }
+  };
+
+  // Attributes callback for custom elements (audio)
+  const handleElementsAttr = (elem: SketchElement): SketchElementAttributes | undefined => {
+    if (elem.type === 'audio' && currentElementType === ElementTypes.Audio) {
+      return { showDelete: true };
+    }
+  };
+
+  const backgroundImage: ImageURISource | undefined = page.backgroundPath
+    ? { uri: `file://${page.backgroundPath}` }
+    : undefined;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          accessibilityLabel="חזרה לאלבום"
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons name="arrow-right" size={28} color="#007AFF" />
+        <TouchableOpacity style={styles.backButton} onPress={handleBack} accessibilityLabel="חזרה לאלבום">
+          <MyIcon info={{ size: 28, color: "#007AFF", name: "arrow-right", type: "MDI" }} />
         </TouchableOpacity>
         <Text style={styles.title}>עמוד {page.pageNumber}</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.iconButton, !queue.current.canUndo() && styles.iconButtonDisabled]}
+            onPress={handleUndo}
+            disabled={!queue.current.canUndo()}
+            accessibilityLabel="ביטול פעולה אחרונה"
+          >
+            <MyIcon info={{ name: "undo", size: 24, color: queue.current.canUndo() ? '#007AFF' : '#ccc', type: "MI" }} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconButton, !queue.current.canRedo() && styles.iconButtonDisabled]}
+            onPress={handleRedo}
+            disabled={!queue.current.canRedo()}
+            accessibilityLabel="ביצוע פעולה מחדש"
+          >
+            <MyIcon info={{ name: "redo", size: 24, color: queue.current.canRedo() ? '#007AFF' : '#ccc', type: "MI" }} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Canvas */}
       <View style={styles.canvasContainer}>
-        <View
+        {(() => {
+          console.log('Canvas positioning:', { sideMargin, canvasWidth, canvasHeight, availableWidth });
+          return null;
+        })()}
+        <Canvas
           ref={canvasRef}
-          style={styles.canvas}
-          onLayout={handleCanvasLayout}
-          {...canvasResponder.panHandlers}
-        >
-          {page.backgroundPath ? (
-            <Image
-              source={{ uri: `file://${page.backgroundPath}` }}
-              style={styles.background}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.emptyPage} />
-          )}
+          style={{
+            marginLeft: sideMargin,
+            width: canvasWidth,
+            height: canvasHeight,
+            borderWidth: 2,
+            borderColor: 'red'
+          }}
+          offset={canvasOffsetRef.current}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          ratio={ratio}
+          canvasTop={canvasTop}
+          zoom={1}
+          onZoom={() => { }} // Lock zoom - prevents pinch gesture
+          onMoveCanvas={() => { }} // Lock canvas position - prevents pan
+          sideMargin={sideMargin}
 
-          {/* Drawing layer (SVG with eraser masking) */}
-          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Defs>
-              {drawingLayers.map((layer, i) => (
-                <Mask id={`eraser-mask-${i}`} key={`mask-${i}`} maskType="luminance"
-                  maskUnits="userSpaceOnUse" x="0" y="0" width="9999" height="9999">
-                  <SvgRect x="0" y="0" width="9999" height="9999" fill="white" />
-                  {layer.eraserPaths.map((ep, j) => (
-                    <SvgPath
-                      key={`e-${i}-${j}`}
-                      d={ep.path}
-                      stroke="black"
-                      strokeWidth={ep.strokeWidth}
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ))}
-                  {currentDrawingPath && drawingToolRef.current === 'eraser' && (
-                    <SvgPath
-                      d={currentDrawingPath}
-                      stroke="black"
-                      strokeWidth={ERASER_STROKE_WIDTH}
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  )}
-                </Mask>
-              ))}
-            </Defs>
+          // Element arrays
+          paths={paths}
+          texts={displayTexts}
+          images={displayImages}
+          lines={[]} // Not using lines
+          tables={[]} // Not using tables
+          elements={audios}
+          renderElements={handleRenderElements}
+          elementsAttr={handleElementsAttr}
 
-            {drawingLayers.map((layer, i) => (
-              <G key={`layer-${i}`} mask={`url(#eraser-mask-${i})`}>
-                {layer.penPaths.map((pp, j) => (
-                  <SvgPath
-                    key={`p-${i}-${j}`}
-                    d={pp.path}
-                    stroke={pp.color}
-                    strokeWidth={pp.strokeWidth}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                ))}
-              </G>
-            ))}
+          currentEdited={currentEdited}
+          onTextChanged={handleTextChanged}
 
-            {/* In-progress pen path (unmasked, newest drawing) */}
-            {currentDrawingPath && drawingToolRef.current === 'pen' && (
-              <SvgPath
-                d={currentDrawingPath}
-                stroke={penColor}
-                strokeWidth={penStrokeWidth}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-            {/* In-progress eraser preview (semi-transparent visual feedback) */}
-            {currentDrawingPath && drawingToolRef.current === 'eraser' && (
-              <SvgPath
-                d={currentDrawingPath}
-                stroke={ERASER_PREVIEW_COLOR}
-                strokeWidth={ERASER_STROKE_WIDTH}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={0.3}
-              />
-            )}
-          </Svg>
+          // Sketch/drawing handlers
+          onSketchStart={() => { }}
+          onSketchStep={() => { }}
+          onSketchEnd={handleSketchEnd}
+          sketchColor={isEraser ? '#00000000' : sketchColor}
+          sketchStrokeWidth={isEraser ? 20 : sketchStrokeWidth}
 
-          {elements.filter(el => el.type !== 'drawing').map(element => (
-            <View
-              key={element.id}
-              style={[
-                styles.element,
-                {
-                  left: element.x,
-                  top: element.y,
-                  ...(element.type !== 'text' && { width: element.width, height: element.height }),
-                },
-                element.type === 'text' && styles.textElementAuto,
-                selectedId === element.id && styles.elementSelected,
-              ]}
-              onLayout={element.type === 'text' ? (e) => {
-                const { width, height } = e.nativeEvent.layout;
-                const cur = elementsRef.current.find(el => el.id === element.id);
-                if (cur && (Math.abs(width - cur.width) > 1 || Math.abs(height - cur.height) > 1)) {
-                  setElements(prev => prev.map(el =>
-                    el.id === element.id ? { ...el, width, height } : el,
-                  ));
-                }
-              } : undefined}
-            >
-              {/* --- Text element --- */}
-              {element.type === 'text' && editingTextId === element.id ? (
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    {
-                      fontSize: element.fontSize || TEXT_DEFAULT_FONT_SIZE,
-                      color: element.color || TEXT_DEFAULT_COLOR,
-                    },
-                  ]}
-                  autoFocus
-                  multiline
-                  value={element.content}
-                  onChangeText={text =>
-                    setElements(prev =>
-                      prev.map(el =>
-                        el.id === element.id ? { ...el, content: text } : el,
-                      ),
-                    )
-                  }
-                />
-              ) : element.type === 'text' ? (
-                <Text style={[
-                  styles.elementText,
-                  {
-                    fontSize: element.fontSize || TEXT_DEFAULT_FONT_SIZE,
-                    color: element.color || TEXT_DEFAULT_COLOR,
-                  },
-                ]}>{element.content}</Text>
-              ) : null}
+          // Click and move handlers
+          onCanvasClick={handleCanvasClick}
+          onMoveElement={handleMoveElement}
+          onMoveEnd={handleMoveEnd}
+          onDeleteElement={handleDeleteElement}
 
-              {/* --- Image element --- */}
-              {(element.type === 'image' || element.type === 'sticker') && (
-                <Image
-                  source={{ uri: `file://${element.content}` }}
-                  style={styles.elementImage}
-                  resizeMode="contain"
-                />
-              )}
+          // Background
+          imageSource={backgroundImage}
+          background={page.backgroundPath ? 0 : undefined}
 
-              {/* --- Move handle (text elements, when selected) --- */}
-              {element.type === 'text' && selectedId === element.id && (
-                <View
-                  style={styles.moveHandle}
-                  {...moveResponder.panHandlers}
-                  onStartShouldSetResponder={e => {
-                    handleCtx.current = {
-                      type: 'element-move', id: element.id,
-                      startX: element.x, startY: element.y,
-                      startW: element.width, startH: element.height,
-                    };
-                    return moveResponder.panHandlers.onStartShouldSetResponder?.(e) ?? false;
-                  }}
-                >
-                  <MaterialCommunityIcons name="cursor-move" size={20} color="#007AFF" />
-                </View>
-              )}
-
-              {/* --- Resize handle (image elements, when selected) --- */}
-              {(element.type === 'image' || element.type === 'sticker')
-                && selectedId === element.id && (
-                <View
-                  style={styles.resizeHandle}
-                  {...moveResponder.panHandlers}
-                  onStartShouldSetResponder={e => {
-                    handleCtx.current = {
-                      type: 'image-resize', id: element.id,
-                      startX: element.x, startY: element.y,
-                      startW: element.width, startH: element.height,
-                      aspectRatio: element.width / element.height,
-                    };
-                    return moveResponder.panHandlers.onStartShouldSetResponder?.(e) ?? false;
-                  }}
-                >
-                  <MaterialCommunityIcons name="resize-bottom-right" size={20} color="#007AFF" />
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
+          currentElementType={currentElementType}
+        />
       </View>
 
-      {/* Pen options panel */}
-      {activeTool === 'pen' && (
-        <View style={styles.penOptions}>
-          {/* Color row */}
-          <View style={styles.colorRow}>
-            {PRESET_COLORS.map(color => (
-              <TouchableOpacity
-                key={color}
-                style={[
-                  styles.colorSwatch,
-                  { backgroundColor: color },
-                  penColor === color && styles.colorSwatchSelected,
-                ]}
-                onPress={() => setPenColor(color)}
-                accessibilityLabel={`צבע ${color}`}
-              />
-            ))}
-            <TouchableOpacity
-              style={styles.paletteButton}
-              onPress={() => {
-                setColorPickerTarget('pen');
-                setColorPickerVisible(true);
-              }}
-              accessibilityLabel="בחירת צבע מותאם"
-            >
-              <MaterialCommunityIcons name="palette" size={24} color="#555" />
-            </TouchableOpacity>
-          </View>
+      {/* Toolbar */}
+      <View style={[styles.toolbar, { paddingBottom: insets.bottom || 12 }]}>
+        {/* Tool Selection */}
+        <View style={styles.toolsRow}>
+          <TouchableOpacity
+            style={[styles.toolButton, currentElementType === ElementTypes.Sketch && !isEraser && styles.toolButtonActive]}
+            onPress={() => {
+              handleSetSketchMode();
+              setIsEraser(false);
+            }}
+          >
+            <MyIcon info={{ name: "pencil", size: 28, color: currentElementType === ElementTypes.Sketch && !isEraser ? '#007AFF' : '#555', type: "MDI" }} />
+            <Text style={[styles.toolLabel, currentElementType === ElementTypes.Sketch && !isEraser && styles.toolLabelActive]}>עט</Text>
+          </TouchableOpacity>
 
-          {/* Stroke width slider */}
-          <View style={styles.widthRow}>
-            <View
-              ref={sliderRef}
-              style={styles.sliderTrack}
-              onStartShouldSetResponder={() => true}
-              onMoveShouldSetResponder={() => true}
-              onResponderGrant={(e) => handleSliderTouch(e.nativeEvent.pageX)}
-              onResponderMove={(e) => handleSliderTouch(e.nativeEvent.pageX)}
-              onLayout={() => {
-                sliderRef.current?.measure((_x, _y, width, _h, pageX) => {
-                  sliderLayoutRef.current = { pageX, width };
-                });
-              }}
-            >
-              <View
-                style={[
-                  styles.sliderFill,
-                  {
-                    width: `${((penStrokeWidth - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100}%`,
-                    backgroundColor: penColor,
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.sliderThumb,
-                  {
-                    left: `${((penStrokeWidth - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100}%`,
-                  },
-                ]}
-              />
-            </View>
-            {/* Live preview */}
-            <View style={styles.widthPreview}>
-              <View
-                style={{
-                  width: Math.max(penStrokeWidth, 4),
-                  height: Math.max(penStrokeWidth, 4),
-                  borderRadius: penStrokeWidth / 2,
-                  backgroundColor: penColor,
-                }}
-              />
-            </View>
-          </View>
+          <TouchableOpacity
+            style={[styles.toolButton, currentElementType === ElementTypes.Sketch && isEraser && styles.toolButtonActive]}
+            onPress={() => {
+              console.log('Eraser button clicked, setting isEraser to true');
+              handleSetSketchMode();
+              setIsEraser(true);
+            }}
+          >
+            <MyIcon info={{ name: "eraser", size: 28, color: currentElementType === ElementTypes.Sketch && isEraser ? '#007AFF' : '#555', type: "MDI" }} />
+            <Text style={[styles.toolLabel, currentElementType === ElementTypes.Sketch && isEraser && styles.toolLabelActive]}>מחק</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toolButton, currentElementType === ElementTypes.Text && styles.toolButtonActive]}
+            onPress={handleSetTextMode}
+          >
+            <MyIcon info={{ name: "format-text", size: 28, color: currentElementType === ElementTypes.Text ? '#007AFF' : '#555', type: "MDI" }} />
+            <Text style={[styles.toolLabel, currentElementType === ElementTypes.Text && styles.toolLabelActive]}>טקסט</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toolButton, currentElementType === ElementTypes.Image && styles.toolButtonActive]}
+            onPress={handleSetImageMode}
+          >
+            <MyIcon info={{ name: "image", size: 28, color: currentElementType === ElementTypes.Image ? '#007AFF' : '#555', type: "MDI" }} />
+            <Text style={[styles.toolLabel, currentElementType === ElementTypes.Image && styles.toolLabelActive]}>תמונה</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toolButton, currentElementType === ElementTypes.Audio && styles.toolButtonActive]}
+            onPress={handleSetAudioMode}
+          >
+            <MyIcon info={{ name: "microphone", size: 28, color: currentElementType === ElementTypes.Audio ? '#007AFF' : '#555', type: "MDI" }} />
+            <Text style={[styles.toolLabel, currentElementType === ElementTypes.Audio && styles.toolLabelActive]}>הקלטה</Text>
+          </TouchableOpacity>
         </View>
-      )}
 
-      {/* Text options panel */}
-      {(activeTool === 'text' || (selectedId && elements.find(el => el.id === selectedId)?.type === 'text')) && (
-        <View style={styles.penOptions}>
-          {/* Color row */}
-          <View style={styles.colorRow}>
-            {PRESET_COLORS.map(color => (
-              <TouchableOpacity
-                key={color}
-                style={[
-                  styles.colorSwatch,
-                  { backgroundColor: color },
-                  textColor === color && styles.colorSwatchSelected,
-                ]}
-                onPress={() => {
-                  setTextColor(color);
-                  if (selectedId) {
-                    setElements(prev => prev.map(el =>
-                      el.id === selectedId ? { ...el, color } : el,
-                    ));
-                  }
-                }}
-                accessibilityLabel={`צבע טקסט ${color}`}
-              />
-            ))}
-            <TouchableOpacity
-              style={styles.paletteButton}
-              onPress={() => {
-                setColorPickerTarget('text');
-                setColorPickerVisible(true);
-              }}
-              accessibilityLabel="בחירת צבע טקסט מותאם"
-            >
-              <MaterialCommunityIcons name="palette" size={24} color="#555" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Font size row */}
-          <View style={styles.fontSizeRow}>
-            {FONT_SIZE_PRESETS.map(size => (
-              <TouchableOpacity
-                key={size}
-                style={[
-                  styles.fontSizeChip,
-                  textFontSize === size && styles.fontSizeChipSelected,
-                ]}
-                onPress={() => {
-                  setTextFontSize(size);
-                  if (selectedId) {
-                    setElements(prev => prev.map(el =>
-                      el.id === selectedId ? { ...el, fontSize: size } : el,
-                    ));
-                  }
-                }}
-                accessibilityLabel={`גודל גופן ${size}`}
-              >
-                <Text style={[
-                  styles.fontSizeChipText,
-                  textFontSize === size && styles.fontSizeChipTextSelected,
-                ]}>{size}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Color picker modal */}
-      <Modal
-        visible={colorPickerVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setColorPickerVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.colorPickerOverlay}
-          activeOpacity={1}
-          onPress={() => setColorPickerVisible(false)}
-        >
-          <View style={styles.colorPickerContainer}>
-            <Text style={styles.colorPickerTitle}>בחירת צבע</Text>
-            <View style={styles.colorPickerGrid}>
-              {COLOR_PICKER_COLORS.map(color => {
-                const isSelected = colorPickerTarget === 'pen' ? penColor === color : textColor === color;
+        {/* Mode-specific controls */}
+        {currentElementType === ElementTypes.Sketch && (
+          <>
+            {/* Color Picker for Pen/Eraser */}
+            <View style={styles.colorRow}>
+              {COLORS.map(color => {
+                const isActive = sketchColor === color;
                 return (
                   <TouchableOpacity
                     key={color}
-                    style={[
-                      styles.colorPickerSwatch,
-                      { backgroundColor: color },
-                      color === '#FFFFFF' && styles.colorPickerSwatchWhite,
-                      isSelected && styles.colorSwatchSelected,
-                    ]}
+                    style={[styles.colorSwatch, { backgroundColor: color }, isActive && styles.colorSwatchActive]}
+                    onPress={() => setSketchColor(color)}
+                  />
+                );
+              })}
+            </View>
+
+            {/* Size Picker for Pen */}
+            <View style={styles.sizeRow}>
+              {PEN_SIZES.map(size => {
+                const isActive = sketchStrokeWidth === size;
+                return (
+                  <TouchableOpacity
+                    key={size}
+                    style={[styles.sizeButton, isActive && styles.sizeButtonActive]}
+                    onPress={() => setSketchStrokeWidth(size)}
+                  >
+                    <Text style={[styles.sizeText, isActive && styles.sizeTextActive]}>{size}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {currentElementType === ElementTypes.Text && (
+          <>
+            {/* Color Picker for Text */}
+            <View style={styles.colorRow}>
+              {COLORS.map(color => {
+                const isActive = textColor === color;
+                return (
+                  <TouchableOpacity
+                    key={color}
+                    style={[styles.colorSwatch, { backgroundColor: color }, isActive && styles.colorSwatchActive]}
                     onPress={() => {
-                      if (colorPickerTarget === 'pen') {
-                        setPenColor(color);
-                      } else {
-                        setTextColor(color);
-                        if (selectedId) {
-                          setElements(prev => prev.map(el =>
-                            el.id === selectedId ? { ...el, color } : el,
-                          ));
-                        }
+                      setTextColor(color);
+                      // Update currently edited text if any - accumulate in editing changes
+                      if (currentEdited.textId) {
+                        setEditingTextChanges(prev =>
+                          prev?.id === currentEdited.textId
+                            ? { ...prev, color }
+                            : { id: currentEdited.textId!, color }
+                        );
                       }
-                      setColorPickerVisible(false);
                     }}
                   />
                 );
               })}
             </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
-      {/* Toolbar */}
-      <View style={[styles.toolbar, { paddingBottom: insets.bottom || 12 }]}>
-        {TOOLS.map(tool => {
-          const isActive = activeTool === tool.type;
-          return (
-            <TouchableOpacity
-              key={tool.type}
-              style={[styles.toolButton, isActive && styles.toolButtonActive]}
-              onPress={() => {
-                finalizeTextEditing();
-                setSelectedId(null);
-                setActiveTool(isActive ? null : tool.type);
-              }}
-              accessibilityLabel={tool.accessibilityLabel}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-            >
-              <MaterialCommunityIcons
-                name={tool.icon}
-                size={32}
-                color={isActive ? '#007AFF' : '#555'}
-              />
-              <Text style={[styles.toolLabel, isActive && styles.toolLabelActive]}>
-                {tool.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+            {/* Size Picker for Text */}
+            <View style={styles.sizeRow}>
+              {TEXT_SIZES.map(size => {
+                const isActive = textSize === size;
+                return (
+                  <TouchableOpacity
+                    key={size}
+                    style={[styles.sizeButton, isActive && styles.sizeButtonActive]}
+                    onPress={() => {
+                      setTextSize(size);
+                      // Update currently edited text if any - accumulate in editing changes
+                      if (currentEdited.textId) {
+                        setEditingTextChanges(prev =>
+                          prev?.id === currentEdited.textId
+                            ? { ...prev, fontSize: size }
+                            : { id: currentEdited.textId!, fontSize: size }
+                        );
+                      }
+                    }}
+                  >
+                    <Text style={[styles.sizeText, isActive && styles.sizeTextActive]}>{size}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {currentElementType === ElementTypes.Image && (
+          <>
+            {/* Image actions */}
+            <View style={styles.imageActionsRow}>
+              <TouchableOpacity
+                style={styles.imageActionButton}
+                onPress={handleAddImage}
+              >
+                <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
+                <Text style={styles.imageActionText}>מגלריה</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.imageActionButton}
+                onPress={() => {/* TODO: Camera */ }}
+              >
+                <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
+                <Text style={styles.imageActionText}>מצלמה</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -900,31 +1015,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 40,
-  },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  iconButtonDisabled: { opacity: 0.3 },
   canvasContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    backgroundColor: '#f5f5f5',
   },
   canvas: {
-    width: '100%',
-    aspectRatio: 4 / 3,
     backgroundColor: '#fff',
     borderRadius: 8,
     shadowColor: '#000',
@@ -934,65 +1036,25 @@ const styles = StyleSheet.create({
     elevation: 5,
     overflow: 'hidden',
   },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  emptyPage: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#fafafa',
-  },
-  element: {
-    position: 'absolute',
-  },
-  textElementAuto: {
-    minWidth: 60,
-    minHeight: 28,
-  },
-  elementSelected: {
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
-  },
-  elementText: {
-  },
-  textInput: {
-    padding: 0,
-    margin: 0,
-    minWidth: 60,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-  },
-  elementImage: {
-    width: '100%',
-    height: '100%',
-  },
-  moveHandle: {
-    position: 'absolute',
-    left: -28,
-    top: 0,
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  resizeHandle: {
-    position: 'absolute',
-    right: -12,
-    bottom: -12,
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
   toolbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     paddingTop: 8,
+    paddingHorizontal: 12,
+    minHeight: 80,
+    zIndex: 999
+  },
+  toolsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
   },
   toolButton: {
     alignItems: 'center',
@@ -1003,147 +1065,78 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 12,
   },
-  toolButtonActive: {
-    backgroundColor: '#E8F0FE',
-  },
-  toolLabel: {
-    fontSize: 13,
-    color: '#555',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  toolLabelActive: {
-    color: '#007AFF',
-  },
-  penOptions: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
+  toolButtonActive: { backgroundColor: '#E8F0FE' },
+  toolLabel: { fontSize: 13, color: '#555', marginTop: 4, fontWeight: '500' },
+  toolLabelActive: { color: '#007AFF' },
   colorRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
     gap: 8,
+    marginBottom: 8,
   },
   colorSwatch: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
   },
-  colorSwatchSelected: {
+  colorSwatchActive: {
+    borderColor: '#007AFF',
     borderWidth: 3,
-    borderColor: '#007AFF',
   },
-  paletteButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-  },
-  widthRow: {
+  sizeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  sliderTrack: {
-    flex: 1,
-    height: 28,
     justifyContent: 'center',
-    borderRadius: 4,
-    backgroundColor: '#e0e0e0',
-  },
-  sliderFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 4,
-    opacity: 0.3,
-  },
-  sliderThumb: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    marginLeft: -11,
-    top: 3,
-  },
-  widthPreview: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fontSizeRow: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 8,
   },
-  fontSizeChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#f0f0f0',
+  sizeButton: {
     minWidth: 40,
-    alignItems: 'center',
-  },
-  fontSizeChipSelected: {
-    backgroundColor: '#007AFF',
-  },
-  fontSizeChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
-  },
-  fontSizeChipTextSelected: {
-    color: '#fff',
-  },
-  colorPickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    height: 32,
+    paddingHorizontal: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  colorPickerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    width: 280,
-  },
-  colorPickerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  colorPickerGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  colorPickerSwatch: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
   },
-  colorPickerSwatchWhite: {
-    borderColor: '#ccc',
+  sizeButtonActive: {
+    backgroundColor: '#E8F0FE',
+    borderColor: '#007AFF',
     borderWidth: 2,
+  },
+  sizeText: {
+    fontSize: 14,
+    color: '#555',
+    fontWeight: '500',
+  },
+  sizeTextActive: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  imageActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+    marginVertical: 8,
+  },
+  imageActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#E8F0FE',
+    borderRadius: 8,
+  },
+  imageActionText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });

@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  FlatList,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -63,9 +63,12 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handlePagePress = (page: AlbumPage) => {
-    if (isEditMode) {
-      setEditingPage(page);
-    }
+    // In view mode, just preview (could add a viewer later)
+    // In edit mode, clicking does nothing (use menu or edit button)
+  };
+
+  const handleEditPage = (page: AlbumPage) => {
+    setEditingPage(page);
   };
 
   const handleEditorSave = async (updatedPage: AlbumPage) => {
@@ -115,6 +118,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     return (
       <PageEditorScreen
         page={editingPage}
+        albumId={album.id}
         onSave={handleEditorSave}
         onDiscard={handleEditorDiscard}
       />
@@ -143,27 +147,29 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           <Text style={styles.loadingText}>טוען עמודים...</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {pages.map((page) => (
+        <FlatList
+          data={pages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
             <PageCard
-              key={page.id}
-              page={page}
+              page={item}
               isEditMode={isEditMode}
               onPress={handlePagePress}
+              onEdit={handleEditPage}
               onDelete={handleDeletePage}
             />
-          ))}
-          {isEditMode && (
-            <TouchableOpacity style={styles.addPageButton} onPress={handleAddPage}>
-              <Text style={styles.addPageIcon}>+</Text>
-              <Text style={styles.addPageText}>הוספת עמוד</Text>
-            </TouchableOpacity>
           )}
-        </ScrollView>
+          ListFooterComponent={
+            isEditMode ? (
+              <TouchableOpacity style={styles.addPageButton} onPress={handleAddPage}>
+                <Text style={styles.addPageIcon}>+</Text>
+                <Text style={styles.addPageText}>הוספת עמוד</Text>
+              </TouchableOpacity>
+            ) : null
+          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
       )}
 
       <Modal
@@ -252,10 +258,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
+  listContent: {
     paddingVertical: 12,
   },
   addPageButton: {
