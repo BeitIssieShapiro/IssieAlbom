@@ -231,6 +231,9 @@ export function AudioWordMappingModal({
     setWordTimings(updatedTimings);
     setDraggingIndex(null);
     draggingTimingsRef.current = [];
+
+    // Mark that user has manually adjusted timings - don't auto-redistribute
+    hasAppliedHeuristicsRef.current = true;
   };
 
   const handleClose = async () => {

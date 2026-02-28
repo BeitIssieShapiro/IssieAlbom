@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useMemo, useState, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
 import {
   Dimensions,
   ImageURISource,

@@ -33,8 +33,6 @@ export function AudioElement({
   const [recordSecs, setRecordSecs] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
 
-  // console.log('AudioElement render:', { audioFile, editMode, width, height, autoPlay, wordTimings: wordTimings?.length });
-
   // Auto-play effect
   useEffect(() => {
     if (autoPlay && audioFile && !playing) {

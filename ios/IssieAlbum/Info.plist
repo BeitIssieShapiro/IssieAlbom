@@ -45,6 +45,8 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSCameraUsageDescription</key>
+	<string>IssieAlbum needs access to your camera to take photos for your albums.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>IssieAlbum needs access to your microphone to record audio notes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

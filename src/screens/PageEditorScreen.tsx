@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   ImageURISource,
   StyleSheet,
@@ -25,6 +26,7 @@ import Canvas from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
 import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
 import { BackgroundSettingsModal } from '../components/BackgroundSettingsModal';
+import { CameraModal } from '../components/CameraModal';
 import { PageCard, PageCardRef } from '../components/PageCard';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PageService } from '../services/PageService';
@@ -155,6 +157,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [showBackgroundModal, setShowBackgroundModal] = useState(false);
   const [showEmojiKeyboard, setShowEmojiKeyboard] = useState(false);
   const [currentEmojiId, setCurrentEmojiId] = useState<string | null>(null); // Track selected emoji
+  const [loadingImagePicker, setLoadingImagePicker] = useState(false); // Track image picker loading
+  const [showCameraModal, setShowCameraModal] = useState(false); // Track camera modal
 
   // Thumbnail capture state
   const [capturingThumbnail, setCapturingThumbnail] = useState(false);
@@ -232,17 +236,27 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   // Computed texts array that includes editing changes and move changes
   const displayTexts = useMemo(() => {
+    console.log('displayTexts recomputing, emojiRotation:', emojiRotation, 'currentEmojiId:', currentEmojiId, 'editingTextChanges:', editingTextChanges);
     const result = texts.map(t => {
       // Apply editing changes (text, color, size, position)
       if (editingTextChanges?.id === t.id) {
-        return { ...t, ...editingTextChanges };
+        console.log('Applying editingTextChanges to', t.id, editingTextChanges);
+        const changes = { ...t, ...editingTextChanges };
+        // ALSO apply temporary rotation if this is a selected emoji
+        if (t.isEmoji && t.id === currentEmojiId && emojiRotation !== undefined) {
+          console.log('ALSO applying rotation to edited emoji:', emojiRotation);
+          changes.rotation = emojiRotation;
+        }
+        return changes;
       }
       // Apply move changes (only for non-edited texts)
       if (movingElement?.type === 'text' && movingElement.id === t.id && !editingTextChanges) {
         return { ...t, x: movingElement.x, y: movingElement.y };
       }
       // Apply temporary rotation for selected emoji ONLY
+      console.log("rotation change?", t.id, t.isEmoji, currentEmojiId, emojiRotation)
       if (t.isEmoji && t.id === currentEmojiId && emojiRotation != undefined) {
+        console.log("rotation change!", emojiRotation)
         return { ...t, rotation: emojiRotation };
       }
       return t;
@@ -838,7 +852,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       // Create new title at top center
       const centerX = canvasWidth / 2 - 100;
       const topY = 50;
-      const defaultTitleSize = 36;
+      const defaultTitleSize = 72;
 
       const newTitle: SketchText = {
         id: TITLE_TEXT_ID,
@@ -850,7 +864,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         x: centerX,
         y: topY,
         width: 200,
-        height: 40,
+        height: 80,
       };
 
       setEditingTextChanges(newTitle);
@@ -1213,19 +1227,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleEmojiClick = (emojiId: string) => {
-    // Toggle selection
-    if (currentEmojiId === emojiId) {
+    // Toggle selection - use ref to avoid stale closure
+    if (currentEmojiIdRef.current === emojiId) {
       setCurrentEmojiId(null);
     } else {
       setCurrentEmojiId(emojiId);
       // Load current rotation from the base texts array (which comes from queue)
-      const emoji = texts.find(t => t.id === emojiId);
+      // Use ref to avoid stale closure after emoji moves
+      const emoji = textsRef.current.find(t => t.id === emojiId);
       setEmojiRotation(emoji?.rotation);
     }
   };
 
   const handleEmojiRotationChange = (rotation: number) => {
     // Update temporary rotation state for preview
+    console.log("rotation slider change", rotation)
     setEmojiRotation(rotation);
   };
 
@@ -1301,52 +1317,107 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
 
   const handleAddImage = async () => {
-    const result = await launchImageLibrary({
-      mediaType: 'photo',
-      quality: 0.8,
-    });
+    try {
+      setLoadingImagePicker(true);
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+      });
 
-    if (result.assets && result.assets[0]) {
-      const asset = result.assets[0];
+      if (result.assets && result.assets[0]) {
+        const asset = result.assets[0];
 
-      if (!asset.uri) {
-        console.error('No URI in asset');
-        return;
+        if (!asset.uri) {
+          console.error('No URI in asset');
+          return;
+        }
+
+        try {
+          // Save image to attachments directory and get relative path
+          const relativePath = await AttachmentService.saveImageAttachment(albumId, asset.uri);
+
+          const imageId = getId('image');
+          const aspectRatio = (asset.width && asset.height) ? asset.width / asset.height : 1;
+
+          // Set image to 45% of canvas width
+          const imageWidth = canvasWidth * 0.45;
+          const imageHeight = imageWidth / aspectRatio;
+
+          const newImage: SketchImage = {
+            id: imageId,
+            imagePath: relativePath, // Store relative path
+            x: canvasWidth / 2 - imageWidth / 2,
+            y: canvasHeight / 2 - imageHeight / 2,
+            width: imageWidth,
+            height: imageHeight,
+            aspectRatio: aspectRatio,
+          };
+
+          console.log('Adding new image to queue:', { id: imageId, imagePath: relativePath });
+
+          // Commit full image to queue
+          queue.current.pushImage(newImage);
+
+          console.log('Queue after pushImage:', queue.current.getAll().length, 'elements');
+
+          rebuildStateFromQueue();
+
+          // Auto-save to disk without closing editor
+          await autoSave();
+
+          // Set as currently edited to show handles
+          setCurrentEdited({ imageId: imageId });
+        } catch (error) {
+          console.error('Failed to save image attachment:', error);
+          Alert.alert('שגיאה', 'שמירת התמונה נכשלה');
+        }
       }
+    } finally {
+      setLoadingImagePicker(false);
+    }
+  };
 
-      try {
-        // Save image to attachments directory and get relative path
-        const relativePath = await AttachmentService.saveImageAttachment(albumId, asset.uri);
+  const handleCameraCapture = async (uri: string) => {
+    try {
+      setShowCameraModal(false);
 
-        const imageId = getId('image');
-        const newImage: SketchImage = {
-          id: imageId,
-          imagePath: relativePath, // Store relative path
-          x: canvasWidth / 2 - 75,
-          y: canvasHeight / 2 - 75,
-          width: 150,
-          height: 150,
-          aspectRatio: (asset.width && asset.height) ? asset.width / asset.height : 1,
-        };
+      // Save image to attachments directory and get relative path
+      const relativePath = await AttachmentService.saveImageAttachment(albumId, uri);
 
-        console.log('Adding new image to queue:', { id: imageId, imagePath: relativePath });
+      // Get image dimensions (we'll use a default aspect ratio for camera photos)
+      const aspectRatio = 4 / 3; // Standard camera aspect ratio
 
-        // Commit full image to queue
-        queue.current.pushImage(newImage);
+      const imageId = getId('image');
 
-        console.log('Queue after pushImage:', queue.current.getAll().length, 'elements');
+      // Set image to 45% of canvas width
+      const imageWidth = canvasWidth * 0.45;
+      const imageHeight = imageWidth / aspectRatio;
 
-        rebuildStateFromQueue();
+      const newImage: SketchImage = {
+        id: imageId,
+        imagePath: relativePath,
+        x: canvasWidth / 2 - imageWidth / 2,
+        y: canvasHeight / 2 - imageHeight / 2,
+        width: imageWidth,
+        height: imageHeight,
+        aspectRatio: aspectRatio,
+      };
 
-        // Auto-save to disk without closing editor
-        await autoSave();
+      console.log('Adding camera image to queue:', { id: imageId, imagePath: relativePath });
 
-        // Set as currently edited to show handles
-        setCurrentEdited({ imageId: imageId });
-      } catch (error) {
-        console.error('Failed to save image attachment:', error);
-        Alert.alert('שגיאה', 'שמירת התמונה נכשלה');
-      }
+      // Commit full image to queue
+      queue.current.pushImage(newImage);
+
+      rebuildStateFromQueue();
+
+      // Auto-save to disk without closing editor
+      await autoSave();
+
+      // Set as currently edited to show handles
+      setCurrentEdited({ imageId: imageId });
+    } catch (error) {
+      console.error('Failed to save camera image:', error);
+      Alert.alert('שגיאה', 'שמירת התמונה נכשלה');
     }
   };
 
@@ -1891,12 +1962,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
             {!audioMode && currentElementType === ElementTypes.Image && (
               <View style={styles.optionsSection}>
-                <TouchableOpacity style={styles.optionButton} onPress={handleAddImage}>
-                  <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
+                <TouchableOpacity
+                  style={styles.optionButton}
+                  onPress={handleAddImage}
+                  disabled={loadingImagePicker}
+                >
+                  {loadingImagePicker ? (
+                    <ActivityIndicator size="small" color="#007AFF" />
+                  ) : (
+                    <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
+                  )}
                   <Text style={styles.optionLabel}>מגלריה</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.optionButton} onPress={() => {/* TODO: Camera */}}>
+                <TouchableOpacity
+                  style={styles.optionButton}
+                  onPress={() => setShowCameraModal(true)}
+                >
                   <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
                   <Text style={styles.optionLabel}>מצלמה</Text>
                 </TouchableOpacity>
@@ -2046,6 +2128,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         currentPattern={backgroundPattern}
         onApply={handleApplyBackground}
         onClose={() => setShowBackgroundModal(false)}
+      />
+
+      {/* Camera Modal */}
+      <CameraModal
+        visible={showCameraModal}
+        onCapture={handleCameraCapture}
+        onCancel={() => setShowCameraModal(false)}
       />
 
       {/* Emoji Picker */}
