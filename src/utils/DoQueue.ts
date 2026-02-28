@@ -33,6 +33,11 @@ export default class DoQueue {
     this.clearUndo();
   }
 
+  pushTextDelete(id: string) {
+    this.add({ elem: { id }, type: 'textDelete' });
+    this.clearUndo();
+  }
+
   pushImage(elem: any) {
     this.add({ elem, type: 'image' });
     this.clearUndo();
@@ -88,6 +93,11 @@ export default class DoQueue {
 
   pushTableCellText(elem: any) {
     this.add({ elem, type: 'tableCellText' });
+    this.clearUndo();
+  }
+
+  pushBackgroundPattern(elem: any) {
+    this.add({ elem, type: 'backgroundPattern' });
     this.clearUndo();
   }
 

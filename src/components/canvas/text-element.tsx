@@ -1,6 +1,6 @@
 // TextElement.tsx
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import { View, Text, TextInput, StyleSheet, LayoutChangeEvent, TextInputProps, ViewProps, ColorValue } from "react-native";
+import { View, Text, TextInput, StyleSheet, LayoutChangeEvent, TextInputProps, ViewProps, ColorValue, TouchableOpacity } from "react-native";
 import { SketchText, MoveTypes, SketchPoint, SketchTable } from "./types";
 import { calcEffectiveHorizontalLines, tableColWidth, tableRowHeight } from "./utils";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -26,6 +26,9 @@ interface TextElementProps {
     canvasHeight: number;
     currentWordIndex?: number; // For highlighting during audio playback
     wordTimings?: WordTiming[]; // Word timings for highlighting
+    isViewMode?: boolean; // True when in PageCard view (no editing/moving)
+    currentEmojiId?: string | null; // Selected emoji ID
+    onEmojiClick?: (emojiId: string) => void; // Click handler for emojis
 }
 
 function TextElement({
@@ -43,6 +46,9 @@ function TextElement({
     handleCursorPositionChange,
     currentWordIndex = -1,
     wordTimings,
+    isViewMode = false,
+    currentEmojiId,
+    onEmojiClick,
 }: TextElementProps, ref: any) {
     const [revision, setRevision] = useState<number>(0)
     //console.log("text ratio", ratio, actualWidth, text.fontSize)
@@ -210,6 +216,75 @@ function TextElement({
             </>
         );
     };
+
+    // For emojis, render with move responder to make them draggable (but not in view mode)
+    if (text.isEmoji && !editMode && !isViewMode) {
+        const isSelected = currentEmojiId === text.id;
+        const rotationDegrees = text.rotation || 0;
+        console.log('TextElement [edit mode] - emoji:', text.id, 'rotation:', text.rotation, 'rotationDegrees:', rotationDegrees);
+
+        return (
+            <Animated.View
+                key={text.id}
+                style={[
+                    posStyle,
+                    { zIndex: 3000 },
+                    isSelected && {
+                        borderWidth: 2,
+                        borderColor: '#007AFF',
+                        borderRadius: 8,
+                        padding: 4,
+                        backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                    }
+                ]}
+                {...moveResponder.panHandlers}
+                onStartShouldSetResponder={(e) => {
+                    moveContext.current = { type: MoveTypes.Text, id: text.id, offsetX: 15, offsetY: -15 };
+                    return moveResponder.panHandlers?.onStartShouldSetResponder?.(e) || false;
+                }}
+            >
+                <AnimatedIcon
+                    style={[moveIconStyle, visibleAnimatedStyle]}
+                    info={{ type: "Ionicons", name: "move", size: 20, color: "blue" }}
+                />
+                <Text
+                    allowFontScaling={false}
+                    style={[
+                        styles.textStyle,
+                        style,
+                        {
+                            transform: [{ rotate: `${rotationDegrees}deg` }],
+                        }
+                    ]}
+                    onPress={() => onEmojiClick?.(text.id)}
+                >
+                    {text.text}
+                </Text>
+            </Animated.View>
+        );
+    }
+
+    // For emojis in view mode, just render the emoji without move icon
+    if (text.isEmoji && isViewMode) {
+        const rotationDegrees = text.rotation || 0;
+        console.log('TextElement [view mode] - emoji:', text.id, 'rotation:', text.rotation, 'rotationDegrees:', rotationDegrees);
+        return (
+            <View key={text.id} style={posStyle}>
+                <Text
+                    allowFontScaling={false}
+                    style={[
+                        styles.textStyle,
+                        style,
+                        {
+                            transform: [{ rotate: `${rotationDegrees}deg` }],
+                        }
+                    ]}
+                >
+                    {text.text}
+                </Text>
+            </View>
+        );
+    }
 
     return (
         <View key={text.id} style={posStyle}>

@@ -10,6 +10,7 @@ import {
   SketchImage,
   SketchAudio,
   SketchLine,
+  BackgroundPattern,
 } from '../types/Album';
 import DoQueue from './DoQueue';
 
@@ -210,12 +211,14 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
   images: SketchImage[];
   audios: SketchAudio[];
   lines: SketchLine[];
+  backgroundPattern: BackgroundPattern | undefined;
 } {
   const pathsMap = new Map<string, SketchPath>();
   const textsMap = new Map<string, SketchText>();
   const imagesMap = new Map<string, SketchImage>();
   const audiosMap = new Map<string, SketchAudio>();
   const linesMap = new Map<string, SketchLine>();
+  let backgroundPattern: BackgroundPattern | undefined = undefined;
 
   // Process queue from start to end, later versions overwrite earlier ones
   for (const qe of queueElements) {
@@ -263,6 +266,9 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
       linesMap.set(qe.elem.id, qe.elem);
     } else if (qe.type === 'lineDelete' && qe.elem) {
       linesMap.delete(qe.elem.id);
+    } else if (qe.type === 'backgroundPattern' && qe.elem) {
+      // Background pattern - latest one wins, undefined clears it
+      backgroundPattern = qe.elem.pattern;
     }
   }
 
@@ -272,5 +278,6 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
     images: Array.from(imagesMap.values()),
     audios: Array.from(audiosMap.values()),
     lines: Array.from(linesMap.values()),
+    backgroundPattern,
   };
 }

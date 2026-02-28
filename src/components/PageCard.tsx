@@ -62,14 +62,15 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlay
   const leftMargin = (AVAILABLE_WIDTH - displayWidth) / 2;
 
   // Compile queue elements into final arrays using shared utility
-  const { paths, texts, images, audios } = useMemo(() => {
+  const { paths, texts, images, audios, backgroundPattern } = useMemo(() => {
     const result = compileQueueToElements(v2Page.elements);
     console.log('PageCard - compileQueueToElements result:', {
       paths: result.paths.length,
       texts: result.texts.length,
       images: result.images.length,
       audios: result.audios.length,
-      audiosDetail: result.audios.map(a => ({ id: a.id, file: a.file, x: a.x, y: a.y }))
+      audiosDetail: result.audios.map(a => ({ id: a.id, file: a.file, x: a.x, y: a.y })),
+      backgroundPattern: result.backgroundPattern
     });
     return result;
   }, [v2Page.elements]);
@@ -148,12 +149,16 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlay
             // Background
             imageSource={backgroundImage}
             background={page.backgroundPath ? 0 : undefined}
+            backgroundPattern={backgroundPattern}
 
             currentElementType={ElementTypes.Sketch}
 
             // Word highlighting for audio playback
             currentWordIndex={currentWordIndex}
             wordTimings={pageAudio?.wordTimings}
+
+            // View mode - no editing/moving UI
+            isViewMode={true}
           />
         </View>
 

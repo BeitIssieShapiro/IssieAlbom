@@ -56,6 +56,8 @@ export interface SketchText extends ElementBase {
     height?: number;
     pendingPageHeightIncrease?: number;
     tempTop2CursorHeight?: number;
+    isEmoji?: boolean; // Flag to mark emojis as directly draggable
+    rotation?: number; // Rotation in degrees (0-360)
 }
 
 export interface SketchImage extends ElementBase {

@@ -79,6 +79,8 @@ export interface SketchText extends ElementBase {
   height?: number;
   pendingPageHeightIncrease?: number;
   tempTop2CursorHeight?: number;
+  isEmoji?: boolean; // Flag to mark emojis as directly draggable
+  rotation?: number; // Rotation in degrees (0-360)
 }
 
 export interface SketchImage extends ElementBase {
@@ -117,6 +119,19 @@ export interface SketchAudio extends ElementBase {
 export interface WordTiming {
   word: string;
   startTime: number; // in seconds
+}
+
+export interface BackgroundPattern {
+  type: 'solid' | 'pattern';
+
+  // For solid colors
+  color?: string;
+
+  // For patterns
+  patternType?: 'dots' | 'stripes' | 'grid' | 'diagonal';
+  patternColor?: string;
+  backgroundColor?: string;
+  patternScale?: number;
 }
 
 export interface SketchElementAttributes {

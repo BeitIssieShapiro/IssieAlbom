@@ -16,6 +16,7 @@ import Svg, { Path } from "react-native-svg";
 import {
     Canvas as SkiaCanvas,
     Path as SkiaPath,
+    Rect,
     useCanvasRef,
     Skia,
     SkPath,
@@ -70,7 +71,8 @@ import { MyIcon } from "../../common/icons";
 import { FileSystem } from "../../filesystem";
 import { trace } from "../../log";
 
-import { WordTiming } from "../../types/Album";
+import { WordTiming, BackgroundPattern } from "../../types/Album";
+import { generatePatternPaths } from "../../utils/backgroundPatterns";
 
 const TEXT_SEARCH_MARGIN = 0; // 15;
 const TABLE_LINE_THRESHOLD = 7;
@@ -144,6 +146,16 @@ interface CanvasProps {
     currentWordIndex?: number;
     wordTimings?: WordTiming[];
 
+    // Background pattern
+    backgroundPattern?: BackgroundPattern;
+
+    // View mode flag (for PageCard - disables editing/moving UI)
+    isViewMode?: boolean;
+
+    // Current emoji (for selection/editing)
+    currentEmojiId?: string | null;
+    onEmojiClick?: (emojiId: string) => void;
+
     //viewShotRef: any;
 }
 
@@ -201,6 +213,16 @@ function Canvas({
     // Word highlighting
     currentWordIndex,
     wordTimings,
+
+    // Background pattern
+    backgroundPattern,
+
+    // View mode
+    isViewMode = false,
+
+    // Current emoji
+    currentEmojiId,
+    onEmojiClick,
 
 }: CanvasProps, ref: any) {
     // Refs & State
@@ -796,6 +818,48 @@ function Canvas({
             <View style={{ direction: "ltr", flex: 1, backgroundColor: "white" }} collapsable={false} ref={viewShotRef}
             >
 
+                {/* Background Pattern - Rendered FIRST, below everything */}
+                {backgroundPattern && (
+                    <SkiaCanvas
+                        style={{
+                            position: "absolute",
+                            width: "100%",
+                            height: "100%",
+                            zIndex: -1,
+                        }}
+                    >
+                        {/* Solid color or pattern background color */}
+                        <Rect
+                            x={0}
+                            y={0}
+                            width={canvasWidth}
+                            height={canvasHeight}
+                            color={
+                                backgroundPattern.type === 'solid'
+                                    ? backgroundPattern.color || '#FFFFFF'
+                                    : backgroundPattern.backgroundColor || '#FFFFFF'
+                            }
+                        />
+
+                        {/* Pattern paths */}
+                        {backgroundPattern.type === 'pattern' && (() => {
+                            const patternPaths = generatePatternPaths(
+                                backgroundPattern,
+                                canvasWidth,
+                                canvasHeight
+                            );
+                            return patternPaths.map((path, index) => (
+                                <SkiaPath
+                                    key={`pattern-${index}`}
+                                    path={path}
+                                    color={backgroundPattern.patternColor || '#000000'}
+                                    style="fill"
+                                />
+                            ));
+                        })()}
+                    </SkiaCanvas>
+                )}
+
                 {/* Background Image */}
                 {imageSource && (
                     <Image
@@ -878,6 +942,9 @@ function Canvas({
                         canvasHeight={canvasHeight / ratio}
                         currentWordIndex={shouldHighlight ? currentWordIndex : undefined}
                         wordTimings={shouldHighlight ? wordTimings : undefined}
+                        isViewMode={isViewMode}
+                        currentEmojiId={currentEmojiId}
+                        onEmojiClick={onEmojiClick}
                     />
                 })}
 

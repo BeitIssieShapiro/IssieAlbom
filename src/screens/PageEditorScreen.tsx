@@ -10,17 +10,21 @@ import {
   Platform,
   PermissionsAndroid,
   Alert,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PathCommand } from '@shopify/react-native-skia';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Sound from 'react-native-nitro-sound';
-import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming } from '../types/Album';
+import EmojiPicker from 'rn-emoji-keyboard';
+import type { EmojiType } from 'rn-emoji-keyboard';
+import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
 import Canvas from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
 import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
+import { BackgroundSettingsModal } from '../components/BackgroundSettingsModal';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PageService } from '../services/PageService';
 import { MyIcon } from '../common/icons';
@@ -29,6 +33,85 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const HEADER_HEIGHT = 60;
 const TOOLBAR_WIDTH = 90;
+
+// Rotation Slider Component
+interface RotationSliderProps {
+  value: number; // 0-360
+  onChange: (value: number) => void;
+  onRelease: () => void;
+}
+
+function RotationSlider({ value, onChange, onRelease }: RotationSliderProps) {
+  const sliderWidth = 250;
+  const knobSize = 40;
+  const trackHeight = 8;
+  const startValueRef = useRef(0);
+  const valueRef = useRef(value);
+
+  // Keep valueRef in sync with value prop
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => {
+        // Store the starting value when gesture begins
+        startValueRef.current = valueRef.current;
+        // Calculate position from touch
+        const touchX = e.nativeEvent.locationX;
+        const newValue = Math.max(0, Math.min(360, (touchX / sliderWidth) * 360));
+        onChange(newValue);
+      },
+      onPanResponderMove: (e, gestureState) => {
+        // Calculate position from starting value + gesture delta
+        const startPosition = (startValueRef.current / 360) * sliderWidth;
+        const position = startPosition + gestureState.dx;
+        const newValue = Math.max(0, Math.min(360, (position / sliderWidth) * 360));
+        onChange(newValue);
+      },
+      onPanResponderRelease: () => {
+        onRelease();
+      },
+    })
+  ).current;
+
+  const knobPosition = (value / 360) * (sliderWidth - knobSize);
+
+  return (
+    <View style={styles.rotationSliderContainer}>
+      {/* Track */}
+      <View style={[styles.rotationTrack, { width: sliderWidth, height: trackHeight }]}>
+        {/* Filled portion */}
+        <View
+          style={[
+            styles.rotationTrackFilled,
+            { width: (value / 360) * sliderWidth, height: trackHeight },
+          ]}
+        />
+      </View>
+
+      {/* Knob */}
+      <View
+        style={[styles.rotationKnob, { left: knobPosition, width: knobSize, height: knobSize }]}
+        {...panResponder.panHandlers}
+      >
+        <MyIcon info={{ name: "rotate-right", size: 24, color: '#007AFF', type: "MDI" }} />
+      </View>
+
+      {/* Degree markers */}
+      <View style={[styles.rotationMarkers, { width: sliderWidth }]}>
+        <Text style={styles.markerText}>0°</Text>
+        <Text style={styles.markerText}>90°</Text>
+        <Text style={styles.markerText}>180°</Text>
+        <Text style={styles.markerText}>270°</Text>
+        <Text style={styles.markerText}>360°</Text>
+      </View>
+    </View>
+  );
+}
 
 interface PageEditorScreenProps {
   page: AlbumPage;
@@ -56,6 +139,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [pageAudioDuration, setPageAudioDuration] = useState<number | undefined>(undefined);
   const [pageAudioWordTimings, setPageAudioWordTimings] = useState<WordTiming[]>([]);
   const [showWordMappingModal, setShowWordMappingModal] = useState(false);
+  const [showBackgroundModal, setShowBackgroundModal] = useState(false);
+  const [showEmojiKeyboard, setShowEmojiKeyboard] = useState(false);
+  const [currentEmojiId, setCurrentEmojiId] = useState<string | null>(null); // Track selected emoji
+  const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
+  const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
   const [currentEdited, setCurrentEdited] = useState<CurrentEdited>({});
   const [currentElementType, setCurrentElementType] = useState<ElementTypes>(ElementTypes.Sketch);
 
@@ -75,6 +163,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const pageAudioFileRef = useRef<string | undefined>(undefined);
   const pageAudioDurationRef = useRef<number | undefined>(undefined);
   const pageAudioWordTimingsRef = useRef<WordTiming[]>([]);
+  const textsRef = useRef<SketchText[]>([]);
+  const currentEmojiIdRef = useRef<string | null>(null);
+  const emojiRotationRef = useRef<number | undefined>(undefined);
 
   // Sync refs with state
   useEffect(() => {
@@ -109,6 +200,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     pageAudioWordTimingsRef.current = pageAudioWordTimings;
   }, [pageAudioWordTimings]);
 
+  useEffect(() => {
+    textsRef.current = texts;
+  }, [texts]);
+
+  useEffect(() => {
+    currentEmojiIdRef.current = currentEmojiId;
+  }, [currentEmojiId]);
+
+  useEffect(() => {
+    emojiRotationRef.current = emojiRotation;
+  }, [emojiRotation]);
+
   // Computed texts array that includes editing changes and move changes
   const displayTexts = useMemo(() => {
     const result = texts.map(t => {
@@ -120,6 +223,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       if (movingElement?.type === 'text' && movingElement.id === t.id && !editingTextChanges) {
         return { ...t, x: movingElement.x, y: movingElement.y };
       }
+      // Apply temporary rotation for selected emoji ONLY
+      if (t.isEmoji && t.id === currentEmojiId && emojiRotation != undefined) {
+        return { ...t, rotation: emojiRotation };
+      }
       return t;
     });
 
@@ -129,7 +236,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
 
     return result;
-  }, [texts, editingTextChanges, movingElement]);
+  }, [texts, editingTextChanges, movingElement, currentEmojiId, emojiRotation]);
 
   // Computed images array that includes move/resize changes
   const displayImages = useMemo(() => {
@@ -196,12 +303,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }).start();
   }, [showToolOptions, slideAnim]);
 
+  // Auto-open tool options when emoji is selected
+  useEffect(() => {
+    if (currentEmojiId) {
+      setShowToolOptions(true);
+    }
+  }, [currentEmojiId]);
+
   // Color presets
   const COLORS = ['#000000', '#333333', '#FF0000', '#0000FF', '#00FF00', '#FFFF00', '#FF00FF', '#00FFFF'];
   const ERASER_COLOR = '#ERASER'; // Special marker for eraser
   const PEN_SIZES = [2, 3, 5, 8];
   const TITLE_TEXT_SIZES = [28, 36, 48, 64];
   const BODY_TEXT_SIZES = [16, 20, 24, 28];
+  const EMOJI_PRESET_SIZES = [50, 75, 100]; // Preset emoji sizes
+  const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
 
   // Calculate available space for canvas (subtracting toolbar width from the right)
   const availableWidth = SCREEN_WIDTH - TOOLBAR_WIDTH;
@@ -259,24 +375,37 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         queue.current.add(elem);
       }
 
-      // Build state from queue
+      // Build state from queue (including background pattern)
       rebuildStateFromQueue();
     } else {
       // Initialize with background if needed
       if (page.backgroundPath) {
         queue.current.add({ type: 'background', elem: { path: page.backgroundPath } });
       }
+      setBackgroundPattern(undefined);
     }
   }, [page.id]);
 
   // Rebuild paths/texts/images/audios arrays from queue using shared utility
   const rebuildStateFromQueue = () => {
     const queueElements = queue.current.getAll();
-    const { paths: rebuiltPaths, texts: rebuiltTexts, images: rebuiltImages, audios: rebuiltAudios } = compileQueueToElements(queueElements);
+    console.log('rebuildStateFromQueue - raw queue:', JSON.stringify(queueElements, null, 2));
+
+    const {
+      paths: rebuiltPaths,
+      texts: rebuiltTexts,
+      images: rebuiltImages,
+      audios: rebuiltAudios,
+      backgroundPattern: rebuiltBackgroundPattern
+    } = compileQueueToElements(queueElements);
+
+    // Log emoji rotations
+    console.log('rebuildStateFromQueue - rebuiltTexts emojis:', rebuiltTexts.filter(t => t.isEmoji).map(t => ({ id: t.id, rotation: t.rotation })));
 
     setPaths(rebuiltPaths);
     setTexts(rebuiltTexts);
     setImages(rebuiltImages);
+    setBackgroundPattern(rebuiltBackgroundPattern);
 
     // Extract page-level audio (hardcoded ID)
     const pageAudio = rebuiltAudios.find(a => a.id === PAGE_AUDIO_ID);
@@ -407,6 +536,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     if (queue.current.undo()) {
       rebuildStateFromQueue();
+
+      // If an emoji is selected, reload its rotation from the undone state
+      const currentId = currentEmojiIdRef.current;
+      if (currentId) {
+        const emoji = textsRef.current.find(t => t.id === currentId);
+        setEmojiRotation(emoji?.rotation);
+      }
     }
   };
 
@@ -422,6 +558,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     if (queue.current.redo()) {
       rebuildStateFromQueue();
+
+      // If an emoji is selected, reload its rotation from the redone state
+      const currentId = currentEmojiIdRef.current;
+      if (currentId) {
+        const emoji = textsRef.current.find(t => t.id === currentId);
+        setEmojiRotation(emoji?.rotation);
+      }
     }
   };
 
@@ -910,6 +1053,136 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     await autoSave();
   };
 
+  const handleApplyBackground = async (pattern: BackgroundPattern | undefined) => {
+    // Push background pattern to queue (undefined to clear)
+    queue.current.pushBackgroundPattern({ pattern });
+
+    // Rebuild state from queue (this will update backgroundPattern state)
+    rebuildStateFromQueue();
+
+    // Auto-save to disk
+    await autoSave();
+  };
+
+  const handleEmojiPick = (emojiObject: EmojiType) => {
+    // Create emoji as a text element with large font size
+    const emojiId = getId('text'); // Use 'text' prefix so canvas treats it as text
+    const emojiSize = 60; // Default emoji size
+
+    const newEmoji: SketchText = {
+      id: emojiId,
+      text: emojiObject.emoji,
+      fontSize: emojiSize,
+      color: '#000000', // Color doesn't matter for emojis
+      rtl: false,
+      alignment: 'Left',
+      x: canvasWidth / 2 - 30, // Center horizontally
+      y: canvasHeight / 2 - 30, // Center vertically
+      isEmoji: true, // Mark as emoji for special handling
+    };
+
+    // Add to queue
+    queue.current.pushText(newEmoji);
+    rebuildStateFromQueue();
+
+    // Auto-save
+    autoSave();
+
+    // Close emoji keyboard
+    setShowEmojiKeyboard(false);
+  };
+
+  const handleOpenEmojiKeyboard = () => {
+    setShowEmojiKeyboard(true);
+  };
+
+  const handleEmojiClick = (emojiId: string) => {
+    // Toggle selection
+    if (currentEmojiId === emojiId) {
+      setCurrentEmojiId(null);
+    } else {
+      setCurrentEmojiId(emojiId);
+      // Load current rotation from the base texts array (which comes from queue)
+      const emoji = texts.find(t => t.id === emojiId);
+      setEmojiRotation(emoji?.rotation);
+    }
+  };
+
+  const handleEmojiRotationChange = (rotation: number) => {
+    // Update temporary rotation state for preview
+    setEmojiRotation(rotation);
+  };
+
+  const handleEmojiRotationEnd = () => {
+    // Save rotation to queue when user releases slider
+    const currentId = currentEmojiIdRef.current;
+    const rotation = emojiRotationRef.current;
+
+    if (!currentId) return;
+
+    // Get the base emoji from texts (not displayTexts) to preserve all original properties
+    const emoji = textsRef.current.find(t => t.id === currentId);
+    if (!emoji) return;
+
+    console.log('handleEmojiRotationEnd - saving emoji:', emoji.id, 'old rotation:', emoji.rotation, 'new rotation:', rotation);
+    const updatedEmoji = { ...emoji, rotation };
+    console.log('handleEmojiRotationEnd - updatedEmoji:', JSON.stringify(updatedEmoji, null, 2));
+    queue.current.pushText(updatedEmoji);
+    rebuildStateFromQueue();
+
+    // Check what we got after rebuild
+    const rebuiltEmoji = textsRef.current.find(t => t.id === currentId);
+    console.log('handleEmojiRotationEnd - after rebuild, emoji rotation:', rebuiltEmoji?.rotation);
+
+    autoSave();
+
+    // IMPORTANT: Clear temporary rotation state after committing to queue
+    // The queue now owns the rotation value, not the component state
+    // This ensures undo/redo works correctly
+    //setEmojiRotation(0);
+  };
+
+  const handleEmojiDelete = () => {
+    const currentId = currentEmojiIdRef.current;
+    if (!currentId) return;
+
+    // Push delete action to queue (undoable)
+    queue.current.pushTextDelete(currentId);
+    rebuildStateFromQueue();
+    setCurrentEmojiId(null);
+    autoSave();
+  };
+
+  const handleEmojiResize = (newSize: number) => {
+    const currentId = currentEmojiIdRef.current;
+    if (!currentId) return;
+
+    const emoji = textsRef.current.find(t => t.id === currentId);
+    if (!emoji) return;
+
+    const updatedEmoji = { ...emoji, fontSize: newSize };
+
+    queue.current.pushText(updatedEmoji);
+    rebuildStateFromQueue();
+    autoSave();
+  };
+
+  const handleEmojiAdjustSize = (delta: number) => {
+    const currentId = currentEmojiIdRef.current;
+    if (!currentId) return;
+
+    const emoji = textsRef.current.find(t => t.id === currentId);
+    if (!emoji) return;
+
+    // Adjust size with min/max bounds
+    const newSize = Math.max(20, Math.min(150, emoji.fontSize + delta));
+    const updatedEmoji = { ...emoji, fontSize: newSize };
+
+    queue.current.pushText(updatedEmoji);
+    rebuildStateFromQueue();
+    autoSave();
+  };
+
 
   const handleAddImage = async () => {
     const result = await launchImageLibrary({
@@ -964,24 +1237,31 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const baseImage = currentImages.find(i => i.id === id);
       console.log('Found baseImage:', baseImage ? { id: baseImage.id, x: baseImage.x, y: baseImage.y, width: baseImage.width, height: baseImage.height } : 'NOT FOUND');
 
-      if (baseImage) {
-        let moveData;
-        if (type === 'image-resize') {
-          // For resize, p contains the new bottom-right corner
-          const width = p[0] - baseImage.x;
-          const height = p[1] - baseImage.y;
-          moveData = { id, type, x: baseImage.x, y: baseImage.y, width, height };
-        } else {
-          // For move, p contains the new position
-          moveData = { id, type, x: p[0], y: p[1], width: baseImage.width, height: baseImage.height };
+      if (!baseImage) {
+        console.error('Base image not found in images array for id:', id);
+        // Check if this is actually a text element (like an old emoji with wrong ID)
+        const textElem = texts.find(t => t.id === id);
+        if (textElem) {
+          console.log('Found as text element instead, treating as text');
+          setEditingTextChanges(prev => prev?.id === id ? { ...prev, x: p[0], y: p[1] } : { id, x: p[0], y: p[1] });
         }
-        console.log('Setting movingElement:', moveData);
-        setMovingElement(moveData);
-        movingElementRef.current = moveData; // Set ref immediately to avoid timing issues
-        console.log('movingElementRef.current after set:', movingElementRef.current);
-      } else {
-        console.error('Base image not found in images array!');
+        return;
       }
+
+      let moveData;
+      if (type === 'image-resize') {
+        // For resize, p contains the new bottom-right corner
+        const width = p[0] - baseImage.x;
+        const height = p[1] - baseImage.y;
+        moveData = { id, type, x: baseImage.x, y: baseImage.y, width, height };
+      } else {
+        // For move, p contains the new position
+        moveData = { id, type, x: p[0], y: p[1], width: baseImage.width, height: baseImage.height };
+      }
+      console.log('Setting movingElement:', moveData);
+      setMovingElement(moveData);
+      movingElementRef.current = moveData; // Set ref immediately to avoid timing issues
+      console.log('movingElementRef.current after set:', movingElementRef.current);
     } else if (type === 'elem-move') {
       // For audio elements (generic elements)
       console.log('Moving audio element');
@@ -996,8 +1276,22 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const movingElem = movingElementRef.current;
     console.log('handleMoveEnd:', { type, id, movingElement: movingElem, displayImagesCount: displayImages.length, displayImages: displayImages.map(i => ({ id: i.id, x: i.x, y: i.y })) });
 
-    // For text, don't save - just mark it as needing to be edited/saved
+    // For text, check if it's an emoji first
     if (type === 'text') {
+      const textElem = displayTexts.find(t => t.id === id);
+
+      // For emojis, save immediately like images
+      if (textElem?.isEmoji && editingTextChanges?.id === id) {
+        console.log('Emoji moved, saving immediately');
+        const emojiToSave = { ...textElem, ...editingTextChanges };
+        queue.current.pushText(emojiToSave);
+        setEditingTextChanges(null);
+        rebuildStateFromQueue();
+        await autoSave();
+        return;
+      }
+
+      // For regular text, don't save - just mark it as needing to be edited/saved
       console.log('Text moved, changes will be saved when explicitly committed');
       // If not currently being edited, mark it as edited so changes are visible
       if (!currentEdited.textId) {
@@ -1169,7 +1463,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               width: canvasWidth,
               height: canvasHeight,
               borderWidth: 2,
-              borderColor: 'red'
+              //borderColor: 'red'
             }}
             offset={canvasOffsetRef.current}
             canvasWidth={canvasWidth}
@@ -1210,24 +1504,36 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             // Background
             imageSource={backgroundImage}
             background={page.backgroundPath ? 0 : undefined}
+            backgroundPattern={backgroundPattern}
 
             currentElementType={currentElementType}
+
+            // Emoji selection
+            currentEmojiId={currentEmojiId}
+            onEmojiClick={handleEmojiClick}
           />
 
-          {/* Page Audio Indicator - only show when audio exists, for playback only */}
-          {pageAudioFile && (
-            <View style={[styles.pageAudioContainer, {
-              left: sideMargin + 20,
-              top: 60 * ratio,
-            }]}>
-              <AudioElement
-                audioFile={pageAudioFile}
-                editMode={false}
-                width={35}
-                height={35}
-              />
-            </View>
-          )}
+          {/* Page Audio Indicator - render to the left of title text */}
+          {pageAudioFile && (() => {
+            // Find title text element
+            const titleText = displayTexts.find(t => t.id === TITLE_TEXT_ID);
+            if (!titleText) return null;
+
+            // Position audio to the left of title, using same coordinate system as canvas elements
+            return (
+              <View style={[styles.pageAudioContainer, {
+                left: titleText.x - 60,
+                top: titleText.y - 30,
+              }]}>
+                <AudioElement
+                  audioFile={pageAudioFile}
+                  editMode={false}
+                  width={40}
+                  height={40}
+                />
+              </View>
+            );
+          })()}
         </View>
 
         {/* Toolbar Level 1 - Right Side - Always Visible */}
@@ -1261,6 +1567,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             }}
           >
             <MyIcon info={{ name: "pencil", size: 42, color: currentElementType === ElementTypes.Sketch ? '#007AFF' : '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.mainToolButton}
+            onPress={() => {
+              console.log('Background button pressed');
+              setShowBackgroundModal(true);
+            }}
+          >
+            <MyIcon info={{ name: "format-color-fill", size: 42, color: '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.mainToolButton}
+            onPress={handleOpenEmojiKeyboard}
+          >
+            <MyIcon info={{ name: "emoticon-happy-outline", size: 42, color: '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           {/* Spacer to push new page button to bottom */}
@@ -1476,6 +1799,68 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Emoji Options - shown when emoji is selected */}
+            {currentEmojiId && (
+              <View style={styles.optionsSection}>
+                <Text style={styles.sectionLabel}>גודל אימוג'י</Text>
+
+                {/* Size adjustment row: (-) presets (+) */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {/* Minus button */}
+                  <TouchableOpacity
+                    style={styles.adjustButton}
+                    onPress={() => handleEmojiAdjustSize(-EMOJI_SIZE_STEP)}
+                  >
+                    <MyIcon info={{ name: "minus", size: 20, color: '#007AFF', type: "MDI" }} />
+                  </TouchableOpacity>
+
+                  {/* Preset sizes */}
+                  <View style={styles.sizeGrid}>
+                    {EMOJI_PRESET_SIZES.map(size => {
+                      const currentEmoji = displayTexts.find(t => t.id === currentEmojiId);
+                      const isActive = currentEmoji?.fontSize === size;
+                      return (
+                        <TouchableOpacity
+                          key={size}
+                          style={[styles.sizeButton, isActive && styles.sizeButtonActive]}
+                          onPress={() => handleEmojiResize(size)}
+                        >
+                          <Text style={[styles.sizeText, isActive && styles.sizeTextActive]}>{size}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Plus button */}
+                  <TouchableOpacity
+                    style={styles.adjustButton}
+                    onPress={() => handleEmojiAdjustSize(EMOJI_SIZE_STEP)}
+                  >
+                    <MyIcon info={{ name: "plus", size: 20, color: '#007AFF', type: "MDI" }} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Rotation Control */}
+                <View style={{ marginTop: 20 }}>
+                  <Text style={styles.sectionLabel}>סיבוב: {Math.round(emojiRotation)}°</Text>
+                  <RotationSlider
+                    value={emojiRotation}
+                    onChange={handleEmojiRotationChange}
+                    onRelease={handleEmojiRotationEnd}
+                  />
+                </View>
+
+                {/* Delete Button */}
+                <TouchableOpacity
+                  style={[styles.optionButton, styles.optionButtonDestructive]}
+                  onPress={handleEmojiDelete}
+                >
+                  <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
+                  <Text style={styles.optionLabel}>מחק אימוג'י</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </Animated.View>
         )}
       </View>
@@ -1509,6 +1894,36 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           />
         );
       })()}
+
+      {/* Background Settings Modal */}
+      <BackgroundSettingsModal
+        visible={showBackgroundModal}
+        currentPattern={backgroundPattern}
+        onApply={handleApplyBackground}
+        onClose={() => setShowBackgroundModal(false)}
+      />
+
+      {/* Emoji Picker */}
+      <EmojiPicker
+        onEmojiSelected={handleEmojiPick}
+        open={showEmojiKeyboard}
+        onClose={() => setShowEmojiKeyboard(false)}
+        allowMultipleSelections={false}
+        emojiSize={48}
+        defaultHeight="50%"
+        enableSearchBar={true}
+        enableSearchAnimation={true}
+        styles={{
+          category: {
+            icon: { width:50 }, // Larger emoji icons for categories
+            container: {
+              padding: 10,
+              minWidth: "50%",
+              minHeight: 25,
+            },
+          },
+        }}
+      />
     </View>
   );
 }
@@ -1726,5 +2141,53 @@ const styles = StyleSheet.create({
   sizeTextActive: {
     color: '#007AFF',
     fontWeight: '600',
+  },
+  adjustButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  rotationSliderContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  rotationTrack: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  rotationTrackFilled: {
+    backgroundColor: '#007AFF',
+    borderRadius: 4,
+  },
+  rotationKnob: {
+    position: 'absolute',
+    top: -16,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  rotationMarkers: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  markerText: {
+    fontSize: 10,
+    color: '#888',
   },
 });
