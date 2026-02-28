@@ -52,16 +52,6 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     init();
   }, [loadPages, isFirstOpen, album.id]);
 
-  const handleAddPage = async () => {
-    try {
-      await PageService.createPage(album.id);
-      await loadPages();
-    } catch (error) {
-      console.error('Failed to create page:', error);
-      Alert.alert('שגיאה', 'יצירת העמוד נכשלה');
-    }
-  };
-
   const handlePagePress = (page: AlbumPage) => {
     // In view mode, just preview (could add a viewer later)
     // In edit mode, clicking does nothing (use menu or edit button)
@@ -74,12 +64,35 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const handleEditorSave = async (updatedPage: AlbumPage) => {
     try {
       await PageService.updatePage(album.id, updatedPage);
+      await loadPages();
     } catch (error) {
       console.error('Failed to save page:', error);
       Alert.alert('שגיאה', 'שמירת העמוד נכשלה');
     }
-    setEditingPage(null);
-    await loadPages();
+  };
+
+  const handleNavigatePage = async (pageId: string) => {
+    // Save current page first (done in PageEditorScreen)
+    const newPage = pages.find(p => p.id === pageId);
+    if (newPage) {
+      setEditingPage(newPage);
+    }
+  };
+
+  const handleCreatePageFromEditor = async () => {
+    try {
+      const newPage = await PageService.createPage(album.id);
+      await loadPages();
+      // Navigate to the new page
+      const refreshedPages = await PageService.getPages(album.id);
+      const createdPage = refreshedPages.find(p => p.id === newPage.id);
+      if (createdPage) {
+        setEditingPage(createdPage);
+      }
+    } catch (error) {
+      console.error('Failed to create page:', error);
+      Alert.alert('שגיאה', 'יצירת העמוד נכשלה');
+    }
   };
 
   const handleEditorDiscard = () => {
@@ -121,6 +134,9 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         albumId={album.id}
         onSave={handleEditorSave}
         onDiscard={handleEditorDiscard}
+        pages={pages}
+        onNavigatePage={handleNavigatePage}
+        onCreatePage={handleCreatePageFromEditor}
       />
     );
   }
@@ -159,14 +175,6 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               onDelete={handleDeletePage}
             />
           )}
-          ListFooterComponent={
-            isEditMode ? (
-              <TouchableOpacity style={styles.addPageButton} onPress={handleAddPage}>
-                <Text style={styles.addPageIcon}>+</Text>
-                <Text style={styles.addPageText}>הוספת עמוד</Text>
-              </TouchableOpacity>
-            ) : null
-          }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -260,29 +268,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: 12,
-  },
-  addPageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingVertical: 20,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
-  },
-  addPageIcon: {
-    fontSize: 24,
-    color: '#999',
-    marginRight: 8,
-  },
-  addPageText: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,
