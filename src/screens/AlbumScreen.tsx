@@ -25,12 +25,13 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const insets = useSafeAreaInsets();
   const [pages, setPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditMode, setIsEditMode] = useState(isFirstOpen);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [editingPage, setEditingPage] = useState<AlbumPage | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [displayPageIndex, setDisplayPageIndex] = useState(0);
   const screenWidth = Dimensions.get('window').width;
   const translateX = useRef(new Animated.Value(0)).current;
+  const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
 
   const loadPages = useCallback(async () => {
     try {
@@ -47,6 +48,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       setIsLoading(true);
       await loadPages();
       setIsLoading(false);
+
       // Mark album as viewed after first open
       if (isFirstOpen) {
         await AlbumService.markAlbumAsViewed(album.id);
@@ -54,6 +56,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     };
     init();
   }, [loadPages, isFirstOpen, album.id]);
+
+  // Open first page in editor on first open (only once)
+  useEffect(() => {
+    if (isFirstOpen && pages.length > 0 && !editingPage && !hasAutoOpenedRef.current) {
+      console.log('[AlbumScreen] First open - opening first page in editor');
+      setEditingPage(pages[0]);
+      setIsEditMode(false); // Don't show edit mode UI, go straight to editor
+      hasAutoOpenedRef.current = true; // Mark that we've auto-opened
+    }
+  }, [isFirstOpen, pages, editingPage]);
 
   const handlePagePress = (page: AlbumPage) => {
     // In view mode, open editor for this page
