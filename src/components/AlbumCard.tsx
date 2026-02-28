@@ -45,7 +45,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete }: AlbumCardProps
       <View style={styles.imageContainer}>
         {album.previewImagePath ? (
           <Image
-            source={{ uri: `file://${album.previewImagePath}` }}
+            source={{ uri: `file://${album.previewImagePath}?t=${album.updatedAt}` }}
             style={styles.previewImage}
             resizeMode="cover"
           />

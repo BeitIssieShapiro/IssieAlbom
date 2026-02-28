@@ -7,4 +7,6 @@
  - improve auto mapping hueristics
 
 
+- after album creation - page in edit but not really
+
 

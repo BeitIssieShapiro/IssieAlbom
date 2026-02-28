@@ -48,14 +48,22 @@ export const AlbumService = {
             const metadataContent = await RNFS.readFile(metadataPath, 'utf8');
             const metadata: AlbumMetadata = JSON.parse(metadataContent);
 
-            const previewPath = `${folder.path}/preview.jpg`;
-            const previewExists = await RNFS.exists(previewPath);
+            // Check if thumbnail exists
+            let previewImagePath: string | null = null;
+            if (metadata.thumbnailPath) {
+              const thumbnailFullPath = `${folder.path}/${metadata.thumbnailPath}`;
+              const thumbnailExists = await RNFS.exists(thumbnailFullPath);
+              if (thumbnailExists) {
+                previewImagePath = thumbnailFullPath;
+              }
+            }
 
             albums.push({
               id: metadata.id,
               name: metadata.name,
               createdAt: metadata.createdAt,
-              previewImagePath: previewExists ? previewPath : null,
+              updatedAt: metadata.updatedAt,
+              previewImagePath,
               path: folder.path,
             });
           }
@@ -116,6 +124,7 @@ export const AlbumService = {
       id,
       name,
       createdAt: metadata.createdAt,
+      updatedAt: metadata.updatedAt,
       previewImagePath: null,
       path: albumPath,
     };
@@ -182,5 +191,47 @@ export const AlbumService = {
       metadata.hasBeenViewed = true;
       await RNFS.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
     }
+  },
+
+  /**
+   * Generate thumbnail for an album from a screenshot URI
+   * Deletes old thumbnails and creates a new one with timestamp
+   */
+  async generateThumbnail(albumId: string, screenshotUri: string): Promise<void> {
+    console.log('[AlbumService] generateThumbnail called for album:', albumId);
+    console.log('[AlbumService] screenshotUri:', screenshotUri);
+
+    const albumPath = `${ALBUMS_ROOT}/${albumId}`;
+    const metadataPath = `${albumPath}/metadata.json`;
+
+    // Delete old thumbnails
+    console.log('[AlbumService] Reading album directory for old thumbnails...');
+    const files = await RNFS.readDir(albumPath);
+    for (const file of files) {
+      if (file.name.startsWith('thumbnail_') && file.name.endsWith('.jpg')) {
+        console.log('[AlbumService] Deleting old thumbnail:', file.name);
+        await RNFS.unlink(file.path);
+      }
+    }
+
+    // Generate new thumbnail filename with timestamp
+    const timestamp = Date.now();
+    const thumbnailFilename = `thumbnail_${timestamp}.jpg`;
+    const thumbnailPath = `${albumPath}/${thumbnailFilename}`;
+
+    console.log('[AlbumService] Copying screenshot to:', thumbnailPath);
+    // Copy screenshot to album directory
+    const cleanScreenshotUri = screenshotUri.replace('file://', '');
+    await RNFS.copyFile(cleanScreenshotUri, thumbnailPath);
+
+    // Update metadata
+    console.log('[AlbumService] Updating metadata...');
+    const content = await RNFS.readFile(metadataPath, 'utf8');
+    const metadata: AlbumMetadata = JSON.parse(content);
+    metadata.thumbnailPath = thumbnailFilename;
+    metadata.updatedAt = timestamp;
+    await RNFS.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
+
+    console.log('[AlbumService] Generated thumbnail:', thumbnailFilename);
   },
 };

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   Dimensions,
   ImageURISource,
@@ -15,10 +15,15 @@ import { AttachmentService } from '../services/AttachmentService';
 import Canvas from './canvas/canvas';
 import { AudioElement } from './AudioElement';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const PAGE_MARGIN = 16;
+
+export interface PageCardRef {
+  captureScreenshot: () => Promise<string>;
+}
 
 interface PageCardProps {
   page: AlbumPage;
@@ -30,11 +35,30 @@ interface PageCardProps {
   autoPlayAudio?: boolean; // Auto-play audio when card is shown
 }
 
-export function PageCard({ page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false }: PageCardProps) {
+export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard(
+  { page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false },
+  ref
+) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const canvasRef = useRef<any>(null);
+  const viewShotRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
+
+  // Expose captureScreenshot method via ref
+  useImperativeHandle(ref, () => ({
+    captureScreenshot: async () => {
+      if (!viewShotRef.current) {
+        throw new Error('ViewShot ref not available');
+      }
+      const uri = await captureRef(viewShotRef, {
+        format: 'jpg',
+        quality: 0.6,
+      });
+      console.log('[PageCard] Captured screenshot:', uri);
+      return uri;
+    },
+  }));
 
   // Hardcoded audio ID
   const PAGE_AUDIO_ID = 'page_audio';
@@ -121,10 +145,13 @@ export function PageCard({ page, albumId, isEditMode, onPress, onEdit, onDelete,
       onPress={() => onPress(page)}
       activeOpacity={0.9}
     >
-      <View style={[styles.pageContent, {
-        width: displayWidth,
-        height: displayHeight,
-      }]}>
+      <View
+        ref={viewShotRef}
+        style={[styles.pageContent, {
+          width: displayWidth,
+          height: displayHeight,
+        }]}
+      >
         <View pointerEvents="box-none" style={styles.canvas}>
           <Canvas
             ref={canvasRef}
@@ -243,7 +270,7 @@ export function PageCard({ page, albumId, isEditMode, onPress, onEdit, onDelete,
       </Modal>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

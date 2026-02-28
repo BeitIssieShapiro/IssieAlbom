@@ -5,6 +5,7 @@ export interface Album {
   id: string;
   name: string;
   createdAt: number;
+  updatedAt: number;
   previewImagePath: string | null;
   path: string;
 }
@@ -213,6 +214,7 @@ export interface AlbumMetadata {
   updatedAt: number;
   pageCount: number;
   hasBeenViewed?: boolean;
+  thumbnailPath?: string; // Relative path to thumbnail (e.g., "thumbnail_1234567890.jpg")
 }
 
 // Type guards

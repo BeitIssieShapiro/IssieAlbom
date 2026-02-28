@@ -25,9 +25,11 @@ import Canvas from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
 import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
 import { BackgroundSettingsModal } from '../components/BackgroundSettingsModal';
+import { PageCard, PageCardRef } from '../components/PageCard';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
+import { AlbumService } from '../services/AlbumService';
 import { MyIcon } from '../common/icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -138,6 +140,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
   }));
 
+  // Track if page was modified (for thumbnail generation)
+  const pageModifiedRef = useRef(false);
+
   // Canvas state (external to Canvas component)
   const [paths, setPaths] = useState<SketchPath[]>([]);
   const [texts, setTexts] = useState<SketchText[]>([]);
@@ -150,6 +155,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [showBackgroundModal, setShowBackgroundModal] = useState(false);
   const [showEmojiKeyboard, setShowEmojiKeyboard] = useState(false);
   const [currentEmojiId, setCurrentEmojiId] = useState<string | null>(null); // Track selected emoji
+
+  // Thumbnail capture state
+  const [capturingThumbnail, setCapturingThumbnail] = useState(false);
+  const [thumbnailPage, setThumbnailPage] = useState<AlbumPageV2 | null>(null);
+  const thumbnailCardRef = useRef<PageCardRef>(null);
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
   const [currentEdited, setCurrentEdited] = useState<CurrentEdited>({});
@@ -442,6 +452,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   // Auto-save to disk without closing editor (for during-edit saves like image moves)
   const autoSave = async () => {
+    // Mark page as modified for thumbnail generation
+    pageModifiedRef.current = true;
+    console.log('[PageEditorScreen] autoSave called, pageModifiedRef set to true');
+
     const savedPage: AlbumPageV2 = {
       id: page.id,
       pageNumber: page.pageNumber,
@@ -460,7 +474,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
+    console.log('[PageEditorScreen] handleBack called');
+    console.log('[PageEditorScreen] page.pageNumber:', page.pageNumber);
+    console.log('[PageEditorScreen] pageModifiedRef.current:', pageModifiedRef.current);
+
     // Save currently edited text before exiting
     if (currentEdited.textId) {
       const text = displayTexts.find(t => t.id === currentEdited.textId);
@@ -470,9 +488,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
 
     // Clear undo queue to delete unreachable attachments
-    queue.current.clearUndo();
+    await queue.current.clearUndo();
 
-    // Auto-save on exit - changes are saved on every action
+    // Build saved page data
     const savedPage: AlbumPageV2 = {
       id: page.id,
       pageNumber: page.pageNumber,
@@ -482,6 +500,57 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       canvasWidth: pageWidth,
       canvasHeight: pageHeight,
     };
+
+    // Generate thumbnail BEFORE navigating away (if needed)
+    if (page.pageNumber === 1) {
+      console.log('[PageEditorScreen] This is first page, checking if thumbnail needed...');
+
+      // Check if thumbnail exists
+      const metadata = await AlbumService.getAlbumMetadata(albumId);
+      const hasThumbnail = !!metadata.thumbnailPath;
+      console.log('[PageEditorScreen] hasThumbnail:', hasThumbnail);
+
+      const shouldGenerateThumbnail = pageModifiedRef.current || !hasThumbnail;
+      console.log('[PageEditorScreen] shouldGenerateThumbnail:', shouldGenerateThumbnail);
+
+      if (shouldGenerateThumbnail) {
+        console.log('[PageEditorScreen] Generating thumbnail BEFORE navigation...');
+        setThumbnailPage(savedPage);
+        setCapturingThumbnail(true);
+
+        // Wait for PageCard to render and capture
+        await new Promise<void>((resolve) => {
+          setTimeout(async () => {
+            console.log('[PageEditorScreen] Timeout finished, starting capture...');
+            try {
+              if (thumbnailCardRef.current) {
+                console.log('[PageEditorScreen] Calling captureScreenshot...');
+                const screenshotUri = await thumbnailCardRef.current.captureScreenshot();
+                console.log('[PageEditorScreen] Screenshot captured:', screenshotUri);
+                await AlbumService.generateThumbnail(albumId, screenshotUri);
+                console.log('[PageEditorScreen] Thumbnail generated successfully');
+              } else {
+                console.log('[PageEditorScreen] ERROR: thumbnailCardRef is null');
+              }
+            } catch (error) {
+              console.error('[PageEditorScreen] Failed to generate thumbnail:', error);
+            } finally {
+              console.log('[PageEditorScreen] Cleaning up thumbnail capture state');
+              setCapturingThumbnail(false);
+              setThumbnailPage(null);
+              pageModifiedRef.current = false;
+              resolve();
+            }
+          }, 500);
+        });
+      } else {
+        console.log('[PageEditorScreen] Skipping thumbnail - already exists and not modified');
+      }
+    } else {
+      console.log('[PageEditorScreen] Skipping thumbnail - not first page');
+    }
+
+    // Now save and navigate
     onSave(savedPage);
   };
 
@@ -619,6 +688,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
       queue.current.pushPath(pathElem);
       rebuildStateFromQueue();
+      autoSave();
     }
   };
 
@@ -1459,6 +1529,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Off-screen thumbnail capture component */}
+      {capturingThumbnail && thumbnailPage && (
+        <View style={{ position: 'absolute', left: -10000, top: -10000 }}>
+          <PageCard
+            ref={thumbnailCardRef}
+            page={thumbnailPage}
+            albumId={albumId}
+            isEditMode={false}
+            onPress={() => {}}
+            autoPlayAudio={false}
+          />
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.doneButton} onPress={handleBack} accessibilityLabel="סיום עריכה">
