@@ -7,10 +7,14 @@ import {
   TouchableOpacity,
   View,
   Animated,
+  Platform,
+  PermissionsAndroid,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PathCommand } from '@shopify/react-native-skia';
 import { launchImageLibrary } from 'react-native-image-picker';
+import Sound from 'react-native-nitro-sound';
 import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
@@ -47,6 +51,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [texts, setTexts] = useState<SketchText[]>([]);
   const [images, setImages] = useState<SketchImage[]>([]);
   const [audios, setAudios] = useState<SketchElement[]>([]);
+  const [pageAudioFile, setPageAudioFile] = useState<string | undefined>(undefined);
   const [currentEdited, setCurrentEdited] = useState<CurrentEdited>({});
   const [currentElementType, setCurrentElementType] = useState<ElementTypes>(ElementTypes.Sketch);
 
@@ -134,10 +139,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [textSize, setTextSize] = useState(20);
   const [showToolOptions, setShowToolOptions] = useState(false); // Track if tool options panel is visible
   const [textMode, setTextMode] = useState<'title' | 'body'>('body'); // Track if editing title or body
+  const [audioMode, setAudioMode] = useState(false); // Track if audio mode is active
+  const [isRecording, setIsRecording] = useState(false); // Track if currently recording audio
 
-  // Hardcoded text IDs
+  // Hardcoded element IDs
   const TITLE_TEXT_ID = 'page_title_text';
   const BODY_TEXT_ID = 'page_body_text';
+  const PAGE_AUDIO_ID = 'page_audio';
 
   // Animation for sliding panel
   const slideAnim = useRef(new Animated.Value(240)).current; // Start off-screen (width + offset)
@@ -147,6 +155,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     isEraserRef.current = isEraser;
     console.log('isEraser state changed:', isEraser, 'ref updated to:', isEraserRef.current);
   }, [isEraser]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (isRecording) {
+        Sound.stopRecorder().catch(console.error);
+        Sound.removeRecordBackListener();
+      }
+      Sound.stopPlayer().catch(console.error);
+      Sound.removePlayBackListener();
+    };
+  }, [isRecording]);
 
   // Animate tool options panel
   useEffect(() => {
@@ -243,8 +263,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setPaths(rebuiltPaths);
     setTexts(rebuiltTexts);
     setImages(rebuiltImages);
-    // Convert SketchAudio to SketchElement
-    setAudios(rebuiltAudios.map(a => ({ ...a, type: 'audio' })));
+
+    // Extract page-level audio (hardcoded ID)
+    const pageAudio = rebuiltAudios.find(a => a.id === PAGE_AUDIO_ID);
+    setPageAudioFile(pageAudio?.file);
+
+    // Other audios are not used anymore (we only have one page audio)
+    setAudios([]);
   };
 
   // Auto-save to disk without closing editor (for during-edit saves like image moves)
@@ -504,26 +529,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const newCurrEdited = { ...currentEditedRef.current, imageId: elem.id }
       currentEditedRef.current = newCurrEdited
       setCurrentEdited(newCurrEdited);
-    } else if (currentElementTypeRef.current === ElementTypes.Audio) {
-      if (!elem) {
-        // Create new audio at click position
-        const newAudioId = getId('audio');
-        const newAudio: SketchElement = {
-          id: newAudioId,
-          x: p[0],
-          y: p[1],
-          type: 'audio',
-          editMode: true, // Start in record mode
-        };
-
-        // Add to state temporarily (will be persisted when recording finishes)
-        setAudios(prev => {
-          const updated = [...prev, newAudio];
-          console.log('setAudios called, new length:', updated.length);
-          return updated;
-        });
-        console.log('Created new audio for recording:', newAudioId);
-      }
     }
   };
 
@@ -532,6 +537,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setCurrentElementType(ElementTypes.Text);
     currentElementTypeRef.current = ElementTypes.Text;
     setShowToolOptions(true);
+    setAudioMode(false); // Exit audio mode
 
     // Don't auto-create text when switching to text mode
     // Text will be created/edited when user clicks title or body button in options
@@ -632,6 +638,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setCurrentElementType(ElementTypes.Sketch);
     currentElementTypeRef.current = ElementTypes.Sketch;
     setShowToolOptions(true);
+    setAudioMode(false); // Exit audio mode
   };
 
   const handleSetImageMode = () => {
@@ -644,6 +651,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setCurrentElementType(ElementTypes.Image);
     currentElementTypeRef.current = ElementTypes.Image;
     setShowToolOptions(true);
+    setAudioMode(false); // Exit audio mode
   };
 
   const handleSetAudioMode = () => {
@@ -653,34 +661,148 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited({});
     }
 
-    setCurrentElementType(ElementTypes.Audio);
-    currentElementTypeRef.current = ElementTypes.Audio;
-    setShowToolOptions(true); // Show options for audio
+    // Show audio options in toolbar
+    setAudioMode(true);
+    setShowToolOptions(true);
+
+    // Clear current element type so no other tool appears active
+    setCurrentElementType(ElementTypes.Text); // Use Text as neutral since it won't show options in audio mode
+    currentElementTypeRef.current = ElementTypes.Text;
   };
 
-  const handleUpdateAudioFile = async (audioId: string, filePath: string) => {
-    console.log('handleUpdateAudioFile:', { audioId, filePath });
+  const checkAudioPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        ]);
 
-    // Find the audio in state
-    const audio = audios.find(a => a.id === audioId);
-    if (audio) {
-      // Update audio with file path
-      const updatedAudio: SketchAudio = {
-        ...audio,
-        file: filePath,
-        editMode: false, // No longer in edit mode
+        if (
+          grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED &&
+          grants['android.permission.WRITE_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED &&
+          grants['android.permission.READ_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          return true;
+        } else {
+          Alert.alert('הרשאות', 'יש לאפשר הרשאות הקלטה ושמירת קבצים');
+          return false;
+        }
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleStartRecording = async () => {
+    const hasPermission = await checkAudioPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const audioConfig = {
+        AudioSamplingRate: 44100,
+        AudioEncodingBitRate: 128000,
+        AudioChannels: 1,
       };
 
-      // Save to queue
-      queue.current.pushAudio(updatedAudio);
-      rebuildStateFromQueue();
-
-      // Auto-save to disk
-      await autoSave();
-
-      console.log('Audio saved:', updatedAudio);
+      await Sound.startRecorder(undefined, audioConfig, true);
+      Sound.addRecordBackListener((e) => {
+        console.log('Recording progress:', e.currentPosition);
+      });
+      setIsRecording(true);
+      console.log('Recording started from toolbar');
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      Alert.alert('שגיאה', 'ההקלטה נכשלה');
     }
   };
+
+  const handleStopRecording = async () => {
+    if (!isRecording) return;
+
+    try {
+      const result = await Sound.stopRecorder();
+      Sound.removeRecordBackListener();
+      setIsRecording(false);
+      console.log('Recording stopped, file:', result);
+
+      // Save the audio file
+      await handleUpdatePageAudio(result);
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      Alert.alert('שגיאה', 'עצירת ההקלטה נכשלה');
+    }
+  };
+
+  const handlePlayAudio = async () => {
+    if (!pageAudioFile) return;
+
+    try {
+      const filePath = pageAudioFile.startsWith('file://') ? pageAudioFile : `file://${pageAudioFile}`;
+      console.log('Playing audio from toolbar:', filePath);
+      await Sound.startPlayer(filePath);
+      Sound.addPlayBackListener((e) => {
+        if (e.currentPosition >= e.duration && e.duration > 0) {
+          Sound.stopPlayer().catch(console.error);
+          Sound.removePlayBackListener();
+        }
+      });
+    } catch (error) {
+      console.error('Failed to play audio:', error);
+      Alert.alert('שגיאה', 'הפעלת ההקלטה נכשלה');
+    }
+  };
+
+  const handleUpdatePageAudio = async (filePath: string) => {
+    console.log('handleUpdatePageAudio:', filePath);
+
+    // Update page audio file
+    setPageAudioFile(filePath);
+
+    // Save to queue with hardcoded ID
+    const pageAudio: SketchAudio = {
+      id: PAGE_AUDIO_ID,
+      file: filePath,
+      x: 0, // Position doesn't matter for page audio
+      y: 0,
+    };
+
+    queue.current.pushAudio(pageAudio);
+    rebuildStateFromQueue();
+
+    // Auto-save to disk
+    await autoSave();
+
+    console.log('Page audio saved:', pageAudio);
+  };
+
+  const handleClearPageAudio = async () => {
+    console.log('handleClearPageAudio');
+
+    // Stop any playing audio first
+    try {
+      await Sound.stopPlayer();
+      Sound.removePlayBackListener();
+    } catch (error) {
+      // Ignore if not playing
+      console.log('No audio playing to stop');
+    }
+
+    // Remove from queue
+    queue.current.pushDeleteAudio({ id: PAGE_AUDIO_ID });
+
+    // Rebuild state from queue (this will clear pageAudioFile)
+    rebuildStateFromQueue();
+
+    // Auto-save to disk
+    await autoSave();
+
+    console.log('Page audio cleared');
+  };
+
 
   const handleAddImage = async () => {
     const result = await launchImageLibrary({
@@ -851,11 +973,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setImages(prev => prev.filter(img => img.id !== id));
     } else if (type === ElementTypes.Sketch) {
       setPaths(prev => prev.filter(p => p.id !== id));
-    } else if (type === ElementTypes.Audio) {
-      setAudios(prev => prev.filter(a => a.id !== id));
-      queue.current.pushDeleteAudio({ id });
-      rebuildStateFromQueue();
-      autoSave();
     }
 
     // Remove from queue
@@ -866,26 +983,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
   };
 
-  // Render callback for custom elements (audio)
+  // Render callback for custom elements - not used anymore
   const handleRenderElements = (elem: SketchElement) => {
-    if (elem.type === 'audio') {
-      return (
-        <AudioElement
-          audioFile={elem.file}
-          editMode={elem.editMode}
-          onUpdateAudioFile={(filePath) => handleUpdateAudioFile(elem.id, filePath)}
-          width={80}
-          height={80}
-        />
-      );
-    }
+    return null;
   };
 
-  // Attributes callback for custom elements (audio)
+  // Attributes callback for custom elements - not used anymore
   const handleElementsAttr = (elem: SketchElement): SketchElementAttributes | undefined => {
-    if (elem.type === 'audio' && currentElementType === ElementTypes.Audio) {
-      return { showDelete: true };
-    }
+    return undefined;
   };
 
   const backgroundImage: ImageURISource | undefined = page.backgroundPath
@@ -896,8 +1001,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} accessibilityLabel="חזרה לאלבום">
-          <MyIcon info={{ size: 28, color: "#007AFF", name: "arrow-right", type: "MDI" }} />
+        <TouchableOpacity style={styles.doneButton} onPress={handleBack} accessibilityLabel="סיום עריכה">
+          <Text style={styles.doneButtonText}>סיום</Text>
         </TouchableOpacity>
         <Text style={styles.title}>עמוד {page.pageNumber}</Text>
 
@@ -1001,6 +1106,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
             currentElementType={currentElementType}
           />
+
+          {/* Page Audio Indicator - only show when audio exists, for playback only */}
+          {pageAudioFile && (
+            <View style={[styles.pageAudioContainer, {
+              left: sideMargin + 20,
+              top: 60 * ratio,
+            }]}>
+              <AudioElement
+                audioFile={pageAudioFile}
+                editMode={false}
+                width={35}
+                height={35}
+              />
+            </View>
+          )}
         </View>
 
         {/* Toolbar Level 1 - Right Side - Always Visible */}
@@ -1020,10 +1140,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Audio && styles.mainToolButtonActive]}
+            style={[styles.mainToolButton, audioMode && styles.mainToolButtonActive]}
             onPress={handleSetAudioMode}
           >
-            <MyIcon info={{ name: "microphone", size: 42, color: currentElementType === ElementTypes.Audio ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "microphone", size: 42, color: audioMode ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1073,7 +1193,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             >
               <MyIcon info={{ name: "close", size: 24, color: '#666', type: "MI" }} />
             </TouchableOpacity>
-            {currentElementType === ElementTypes.Sketch && (
+
+            {!audioMode && currentElementType === ElementTypes.Sketch && (
               <>
                 {/* Color Picker with Eraser */}
                 <View style={styles.optionsSection}>
@@ -1127,7 +1248,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               </>
             )}
 
-            {currentElementType === ElementTypes.Text && (
+            {!audioMode && currentElementType === ElementTypes.Text && (
               <>
                 {/* Title/Body Buttons */}
                 <View style={styles.optionsSection}>
@@ -1194,7 +1315,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               </>
             )}
 
-            {currentElementType === ElementTypes.Image && (
+            {!audioMode && currentElementType === ElementTypes.Image && (
               <View style={styles.optionsSection}>
                 <TouchableOpacity style={styles.optionButton} onPress={handleAddImage}>
                   <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
@@ -1208,23 +1329,34 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               </View>
             )}
 
-            {currentElementType === ElementTypes.Audio && (
+            {audioMode && (
               <View style={styles.optionsSection}>
                 <Text style={styles.sectionLabel}>הקלטה</Text>
 
-                <TouchableOpacity style={styles.optionButton} onPress={() => {/* TODO: Start Recording */}}>
-                  <MyIcon info={{ name: "record", size: 24, color: '#FF0000', type: "MDI" }} />
-                  <Text style={styles.optionLabel}>התחל הקלטה</Text>
+                <TouchableOpacity
+                  style={[styles.optionButton, isRecording && styles.optionButtonActive]}
+                  onPress={isRecording ? handleStopRecording : handleStartRecording}
+                >
+                  <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
+                  <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? 'עצור הקלטה' : 'התחל הקלטה'}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.optionButton} onPress={() => {/* TODO: Play Audio */}}>
-                  <MyIcon info={{ name: "play", size: 24, color: '#007AFF', type: "MDI" }} />
-                  <Text style={styles.optionLabel}>השמע</Text>
+                <TouchableOpacity
+                  style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
+                  onPress={handlePlayAudio}
+                  disabled={!pageAudioFile}
+                >
+                  <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
+                  <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>השמע</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.optionButton} onPress={() => {/* TODO: Clear Recording */}}>
-                  <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
-                  <Text style={styles.optionLabel}>מחק הקלטה</Text>
+                <TouchableOpacity
+                  style={[styles.optionButton, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
+                  onPress={handleClearPageAudio}
+                  disabled={!pageAudioFile}
+                >
+                  <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
+                  <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מחק הקלטה</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1247,6 +1379,17 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  doneButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
   title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
   headerActions: { flexDirection: 'row', gap: 8 },
   pageNavigation: { flexDirection: 'row', gap: 4, marginRight: 8 },
@@ -1261,6 +1404,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     backgroundColor: '#f5f5f5',
+  },
+  pageAudioContainer: {
+    position: 'absolute',
+    zIndex: 1000,
   },
   canvas: {
     backgroundColor: '#fff',
@@ -1355,7 +1502,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionButtonActive: {
-    backgroundColor: '#E8F0FE',
+    backgroundColor: '#FF0000',
   },
   optionLabel: {
     fontSize: 14,
@@ -1363,7 +1510,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   optionLabelActive: {
-    color: '#007AFF',
+    color: '#fff',
+  },
+  optionButtonDestructive: {
+    backgroundColor: '#FFE5E5',
+  },
+  optionButtonDisabled: {
+    opacity: 0.4,
+  },
+  optionLabelDisabled: {
+    color: '#ccc',
+  },
+  audioHint: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontStyle: 'italic',
   },
   colorGrid: {
     flexDirection: 'row',

@@ -25,12 +25,16 @@ interface PageCardProps {
   onPress: (page: AlbumPage) => void;
   onEdit?: (page: AlbumPage) => void;
   onDelete?: (page: AlbumPage) => void;
+  autoPlayAudio?: boolean; // Auto-play audio when card is shown
 }
 
-export function PageCard({ page, isEditMode, onPress, onEdit, onDelete }: PageCardProps) {
+export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false }: PageCardProps) {
   const [menuVisible, setMenuVisible] = useState(false);
   const canvasRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
+
+  // Hardcoded audio ID
+  const PAGE_AUDIO_ID = 'page_audio';
 
   // Load page with migration and convert to V2 format
   const v2Page = useMemo(() => loadPageWithMigration(page), [page]);
@@ -69,26 +73,16 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete }: PageCa
     return result;
   }, [v2Page.elements]);
 
-  // Convert audios to SketchElements
-  const audioElements: SketchElement[] = useMemo(() => {
-    const elements = audios.map(a => ({ ...a, type: 'audio' }));
-    console.log('PageCard - audioElements:', elements.map(e => ({ id: e.id, file: e.file, x: e.x, y: e.y })));
-    return elements;
+  // Extract page-level audio
+  const pageAudio = useMemo(() => {
+    return audios.find(a => a.id === PAGE_AUDIO_ID);
   }, [audios]);
 
-  // Render callback for custom elements (audio)
+  // No longer using audio elements on canvas
+  const audioElements: SketchElement[] = [];
+
+  // Render callback for custom elements - not used anymore
   const handleRenderElements = (elem: SketchElement) => {
-    console.log('PageCard - handleRenderElements:', { type: elem.type, id: elem.id, file: elem.file });
-    if (elem.type === 'audio' && elem.file) {
-      return (
-        <AudioElement
-          audioFile={elem.file}
-          editMode={false}
-          width={80}
-          height={80}
-        />
-      );
-    }
     return null;
   };
 
@@ -114,7 +108,6 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete }: PageCa
       <View style={[styles.pageContent, {
         width: displayWidth,
         height: displayHeight,
-        marginLeft: leftMargin + PAGE_MARGIN
       }]}>
         <View pointerEvents="box-none" style={styles.canvas}>
           <Canvas
@@ -159,6 +152,19 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete }: PageCa
           />
         </View>
 
+        {/* Page Audio - hidden in view, only plays audio */}
+        {pageAudio?.file && autoPlayAudio && (
+          <View style={{ width: 0, height: 0, overflow: 'hidden' }}>
+            <AudioElement
+              audioFile={pageAudio.file}
+              editMode={false}
+              autoPlay={autoPlayAudio}
+              width={1}
+              height={1}
+            />
+          </View>
+        )}
+
         {isEditMode && (
           <TouchableOpacity
             style={styles.menuButton}
@@ -166,16 +172,6 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete }: PageCa
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.menuDots}>•••</Text>
-          </TouchableOpacity>
-        )}
-
-        {!isEditMode && (
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => onEdit?.(page)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.editButtonText}>✎</Text>
           </TouchableOpacity>
         )}
 
@@ -224,8 +220,9 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete }: PageCa
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: PAGE_MARGIN,
-    marginVertical: 12,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   pageContent: {
     backgroundColor: '#fff',
@@ -240,6 +237,10 @@ const styles = StyleSheet.create({
   canvas: {
     width: '100%',
     height: '100%',
+  },
+  pageAudioContainer: {
+    position: 'absolute',
+    zIndex: 999,
   },
   menuButton: {
     position: 'absolute',

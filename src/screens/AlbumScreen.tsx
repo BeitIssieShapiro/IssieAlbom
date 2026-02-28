@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Alert,
-  FlatList,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Album, AlbumPage } from '../types/Album';
@@ -26,8 +26,11 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [pages, setPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(isFirstOpen);
-  const [menuVisible, setMenuVisible] = useState(false);
   const [editingPage, setEditingPage] = useState<AlbumPage | null>(null);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [displayPageIndex, setDisplayPageIndex] = useState(0);
+  const screenWidth = Dimensions.get('window').width;
+  const translateX = useRef(new Animated.Value(0)).current;
 
   const loadPages = useCallback(async () => {
     try {
@@ -53,8 +56,11 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   }, [loadPages, isFirstOpen, album.id]);
 
   const handlePagePress = (page: AlbumPage) => {
-    // In view mode, just preview (could add a viewer later)
-    // In edit mode, clicking does nothing (use menu or edit button)
+    // In view mode, open editor for this page
+    if (!isEditMode) {
+      handleEditPage(page);
+    }
+    // In edit mode, clicking does nothing (use menu for actions)
   };
 
   const handleEditPage = (page: AlbumPage) => {
@@ -69,6 +75,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       console.error('Failed to save page:', error);
       Alert.alert('שגיאה', 'שמירת העמוד נכשלה');
     }
+    // Exit edit mode after saving
+    setEditingPage(null);
   };
 
   const handleNavigatePage = async (pageId: string) => {
@@ -123,8 +131,45 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handleToggleEditMode = () => {
-    setMenuVisible(false);
-    setIsEditMode(!isEditMode);
+    if (!isEditMode) {
+      // Entering edit mode - open the current page in editor
+      if (pages.length > 0) {
+        handleEditPage(pages[currentPageIndex]);
+      }
+    } else {
+      // Exiting edit mode
+      setIsEditMode(false);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPageIndex > 0) {
+      setDisplayPageIndex(currentPageIndex - 1);
+      translateX.setValue(0);
+      Animated.timing(translateX, {
+        toValue: screenWidth,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentPageIndex(currentPageIndex - 1);
+        translateX.setValue(0);
+      });
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPageIndex < pages.length - 1) {
+      setDisplayPageIndex(currentPageIndex + 1);
+      translateX.setValue(0);
+      Animated.timing(translateX, {
+        toValue: -screenWidth,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentPageIndex(currentPageIndex + 1);
+        translateX.setValue(0);
+      });
+    }
   };
 
   if (editingPage) {
@@ -151,10 +196,10 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           {album.name}
         </Text>
         <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setMenuVisible(true)}
+          style={styles.editButton}
+          onPress={handleToggleEditMode}
         >
-          <Text style={styles.menuDots}>•••</Text>
+          <Text style={styles.editButtonText}>{isEditMode ? 'סיום' : 'ערוך'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -162,54 +207,66 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>טוען עמודים...</Text>
         </View>
-      ) : (
-        <FlatList
-          data={pages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <PageCard
-              page={item}
-              isEditMode={isEditMode}
-              onPress={handlePagePress}
-              onEdit={handleEditPage}
-              onDelete={handleDeletePage}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      ) : pages.length > 0 ? (
+        <View style={styles.carouselContainer}>
+          <Animated.View
+            style={[
+              styles.carouselRow,
+              {
+                transform: [{ translateX }],
+              },
+            ]}
+          >
+            {/* Previous page peek (on left edge) */}
+            {displayPageIndex > 0 && (
+              <TouchableOpacity
+                style={styles.peekPage}
+                onPress={handlePrevPage}
+                activeOpacity={0.7}
+              >
+                <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
+                  <PageCard
+                    page={pages[displayPageIndex - 1]}
+                    isEditMode={false}
+                    onPress={() => {}}
+                    autoPlayAudio={false}
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
 
-      <Modal
-        visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>{album.name}</Text>
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={handleToggleEditMode}
-            >
-              <Text style={styles.modalItemText}>
-                {isEditMode ? 'מעבר למצב צפייה' : 'מעבר למצב עריכה'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalItem, styles.modalItemCancel]}
-              onPress={() => setMenuVisible(false)}
-            >
-              <Text style={styles.modalItemTextCancel}>ביטול</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+            {/* Current page (centered with full view) */}
+            <View style={styles.currentPage}>
+              <PageCard
+                page={pages[displayPageIndex]}
+                isEditMode={isEditMode}
+                onPress={handlePagePress}
+                onEdit={handleEditPage}
+                onDelete={handleDeletePage}
+                autoPlayAudio={currentPageIndex === displayPageIndex}
+              />
+            </View>
+
+            {/* Next page peek (on right edge) */}
+            {displayPageIndex < pages.length - 1 && (
+              <TouchableOpacity
+                style={styles.peekPage}
+                onPress={handleNextPage}
+                activeOpacity={0.7}
+              >
+                <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
+                  <PageCard
+                    page={pages[displayPageIndex + 1]}
+                    isEditMode={false}
+                    onPress={() => {}}
+                    autoPlayAudio={false}
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
+          </Animated.View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -239,23 +296,23 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '300',
   },
+  editButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
   title: {
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
-  },
-  menuButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuDots: {
-    fontSize: 16,
-    color: '#007AFF',
-    letterSpacing: -1,
   },
   loadingContainer: {
     flex: 1,
@@ -266,47 +323,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
-  listContent: {
-    paddingVertical: 12,
-  },
-  modalOverlay: {
+  carouselContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    width: 280,
+  carouselRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: '90%',
+    width: '100%',
+  },
+  peekPage: {
+    width: 50,
+    height: '100%',
     overflow: 'hidden',
   },
-  modalTitle: {
-    fontSize: 13,
-    color: '#888',
-    textAlign: 'center',
+  currentPage: {
+    flex: 1,
+    height: '100%',
+    marginHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContent: {
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-  },
-  modalItem: {
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-  },
-  modalItemText: {
-    fontSize: 18,
-    color: '#007AFF',
-    textAlign: 'center',
-  },
-  modalItemCancel: {
-    borderBottomWidth: 0,
-    backgroundColor: '#f8f8f8',
-  },
-  modalItemTextCancel: {
-    fontSize: 18,
-    color: '#007AFF',
-    textAlign: 'center',
-    fontWeight: '600',
   },
 });

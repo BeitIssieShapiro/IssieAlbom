@@ -9,6 +9,7 @@ interface AudioElementProps {
   onUpdateAudioFile?: (filePath: string) => void;
   width?: number;
   height?: number;
+  autoPlay?: boolean; // Auto-play audio when component mounts
 }
 
 export function AudioElement({
@@ -17,12 +18,21 @@ export function AudioElement({
   onUpdateAudioFile,
   width = 80,
   height = 80,
+  autoPlay = false,
 }: AudioElementProps) {
   const [recording, setRecording] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
 
-  console.log('AudioElement render:', { audioFile, editMode, width, height });
+  console.log('AudioElement render:', { audioFile, editMode, width, height, autoPlay });
+
+  // Auto-play effect
+  useEffect(() => {
+    if (autoPlay && audioFile && !playing) {
+      console.log('Auto-playing audio:', audioFile);
+      onStartPlay();
+    }
+  }, [autoPlay, audioFile]);
 
   useEffect(() => {
     return () => {
@@ -144,13 +154,13 @@ export function AudioElement({
       {editMode && !audioFile ? (
         // Recording mode
         <TouchableOpacity
-          style={[styles.button, recording && styles.recordingButton]}
+          style={[styles.button, recording && styles.recordingButton, { width: width * 0.7, height: height * 0.7, borderRadius: width * 0.35 }]}
           onPress={recording ? onStopRecord : onStartRecord}
         >
           <MyIcon
             info={{
               name: recording ? 'stop' : 'microphone',
-              size: 36,
+              size: width * 0.45,
               color: recording ? '#fff' : '#C8572A',
               type: 'MDI',
             }}
@@ -159,13 +169,13 @@ export function AudioElement({
       ) : audioFile ? (
         // Playback mode - only show if there's an audio file
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, { width: width * 0.7, height: height * 0.7, borderRadius: width * 0.35 }]}
           onPress={playing ? onStopPlay : onStartPlay}
         >
           <MyIcon
             info={{
               name: playing ? 'pause' : 'play',
-              size: 36,
+              size: width * 0.45,
               color: '#C8572A',
               type: 'MDI',
             }}
@@ -189,9 +199,6 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   button: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
