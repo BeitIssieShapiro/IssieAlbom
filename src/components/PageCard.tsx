@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AlbumPage, AlbumPageV2, ElementTypes } from '../types/Album';
+import { AlbumPage, AlbumPageV2, ElementTypes, WordTiming } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from './canvas/types';
 import { loadPageWithMigration, compileQueueToElements } from '../utils/pageUtils';
 import Canvas from './canvas/canvas';
@@ -30,6 +30,7 @@ interface PageCardProps {
 
 export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false }: PageCardProps) {
   const [menuVisible, setMenuVisible] = useState(false);
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const canvasRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
 
@@ -149,6 +150,10 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlay
             background={page.backgroundPath ? 0 : undefined}
 
             currentElementType={ElementTypes.Sketch}
+
+            // Word highlighting for audio playback
+            currentWordIndex={currentWordIndex}
+            wordTimings={pageAudio?.wordTimings}
           />
         </View>
 
@@ -161,6 +166,8 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlay
               autoPlay={autoPlayAudio}
               width={1}
               height={1}
+              wordTimings={pageAudio.wordTimings}
+              onWordChange={setCurrentWordIndex}
             />
           </View>
         )}

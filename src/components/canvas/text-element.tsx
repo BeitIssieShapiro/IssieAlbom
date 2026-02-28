@@ -5,6 +5,7 @@ import { SketchText, MoveTypes, SketchPoint, SketchTable } from "./types";
 import { calcEffectiveHorizontalLines, tableColWidth, tableRowHeight } from "./utils";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { MyIcon } from "../../common/icons";
+import { WordTiming } from "../../types/Album";
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const AnimatedIcon = Animated.createAnimatedComponent(MyIcon);
@@ -23,6 +24,8 @@ interface TextElementProps {
     tables?: SketchTable[];
     texts: SketchText[];
     canvasHeight: number;
+    currentWordIndex?: number; // For highlighting during audio playback
+    wordTimings?: WordTiming[]; // Word timings for highlighting
 }
 
 function TextElement({
@@ -37,7 +40,9 @@ function TextElement({
     tables,
     texts,
     canvasHeight,
-    handleCursorPositionChange
+    handleCursorPositionChange,
+    currentWordIndex = -1,
+    wordTimings,
 }: TextElementProps, ref: any) {
     const [revision, setRevision] = useState<number>(0)
     //console.log("text ratio", ratio, actualWidth, text.fontSize)
@@ -182,6 +187,30 @@ function TextElement({
         );
     }
 
+    // Split text into words for highlighting
+    const renderTextWithHighlight = () => {
+        if (!wordTimings || wordTimings.length === 0 || currentWordIndex < 0) {
+            return text.text;
+        }
+
+        const words = text.text.split(/\s+/);
+        return (
+            <>
+                {words.map((word, index) => {
+                    const isHighlighted = index === currentWordIndex;
+                    return (
+                        <Text
+                            key={index}
+                            style={isHighlighted ? { backgroundColor: '#FFD700', color: '#000' } : undefined}
+                        >
+                            {word}{index < words.length - 1 ? ' ' : ''}
+                        </Text>
+                    );
+                })}
+            </>
+        );
+    };
+
     return (
         <View key={text.id} style={posStyle}>
             <Text
@@ -193,7 +222,7 @@ function TextElement({
                 ]}
                 onLayout={(e) => handleTextLayout(e, text)}
             >
-                {text.text}
+                {renderTextWithHighlight()}
             </Text>
         </View>
     );

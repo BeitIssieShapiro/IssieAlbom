@@ -70,6 +70,8 @@ import { MyIcon } from "../../common/icons";
 import { FileSystem } from "../../filesystem";
 import { trace } from "../../log";
 
+import { WordTiming } from "../../types/Album";
+
 const TEXT_SEARCH_MARGIN = 0; // 15;
 const TABLE_LINE_THRESHOLD = 7;
 
@@ -138,6 +140,10 @@ interface CanvasProps {
     originalBgImageHeight?: number;
     currentElementType: ElementTypes;
 
+    // Word highlighting for audio playback
+    currentWordIndex?: number;
+    wordTimings?: WordTiming[];
+
     //viewShotRef: any;
 }
 
@@ -191,6 +197,10 @@ function Canvas({
     canvasWidth,
     canvasHeight,
     currentElementType,
+
+    // Word highlighting
+    currentWordIndex,
+    wordTimings,
 
 }: CanvasProps, ref: any) {
     // Refs & State
@@ -847,6 +857,10 @@ function Canvas({
                 {texts?.map((text) => {
                     const editMode = (currentElementType == ElementTypes.Text || currentElementType == ElementTypes.Table)
                         && text.id == currentEdited.textId
+
+                    // Only apply word highlighting to title text (id: 'page_title_text')
+                    const shouldHighlight = text.id === 'page_title_text';
+
                     return <TextElement
                         ref={editMode ? editTextRef : undefined}
                         key={text.id}
@@ -862,6 +876,8 @@ function Canvas({
                         handleTextLayout={handleTextLayout}
                         handleCursorPositionChange={handleCursorPositionChange}
                         canvasHeight={canvasHeight / ratio}
+                        currentWordIndex={shouldHighlight ? currentWordIndex : undefined}
+                        wordTimings={shouldHighlight ? wordTimings : undefined}
                     />
                 })}
 

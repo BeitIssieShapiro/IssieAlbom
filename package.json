@@ -17,6 +17,7 @@
     "@react-native-vector-icons/material-icons": "^12.3.0",
     "@react-native/new-app-screen": "0.83.1",
     "@shopify/react-native-skia": "^2.4.21",
+    "@simform_solutions/react-native-audio-waveform": "^2.1.6",
     "@types/react-native-vector-icons": "^6.4.18",
     "react": "19.2.0",
     "react-native": "0.83.1",

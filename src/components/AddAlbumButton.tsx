@@ -1,5 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const NUM_COLUMNS = 2;
+const CARD_MARGIN = 8;
+const LIST_PADDING = 8;
+const CARD_WIDTH = (SCREEN_WIDTH - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
 
 interface AddAlbumButtonProps {
   onPress: () => void;
@@ -22,8 +28,8 @@ export function AddAlbumButton({ onPress }: AddAlbumButtonProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    margin: 8,
+    width: CARD_WIDTH,
+    margin: CARD_MARGIN,
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 2,

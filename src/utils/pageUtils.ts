@@ -202,7 +202,7 @@ export function getId(prefix: string = 'elem'): string {
 
 /**
  * Compiles queue elements into final element arrays
- * Handles deduplication and merging of position updates
+ * Handles deduplication, merging of position updates, and deletions
  */
 export function compileQueueToElements(queueElements: QueueElement[]): {
   paths: SketchPath[];
@@ -221,11 +221,17 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
   for (const qe of queueElements) {
     if (qe.type === 'path' && qe.elem) {
       pathsMap.set(qe.elem.id, qe.elem);
+    } else if (qe.type === 'pathDelete' && qe.elem) {
+      pathsMap.delete(qe.elem.id);
     } else if (qe.type === 'text' && qe.elem) {
       textsMap.set(qe.elem.id, qe.elem);
+    } else if (qe.type === 'textDelete' && qe.elem) {
+      textsMap.delete(qe.elem.id);
     } else if (qe.type === 'image' && qe.elem) {
       // Full image with all data
       imagesMap.set(qe.elem.id, qe.elem);
+    } else if (qe.type === 'imageDelete' && qe.elem) {
+      imagesMap.delete(qe.elem.id);
     } else if (qe.type === 'imagePosition' && qe.elem) {
       // Lightweight position/size update - merge onto existing image
       const existingImage = imagesMap.get(qe.elem.id);
@@ -241,6 +247,8 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
     } else if (qe.type === 'audio' && qe.elem) {
       // Full audio with all data
       audiosMap.set(qe.elem.id, qe.elem);
+    } else if (qe.type === 'audioDelete' && qe.elem) {
+      audiosMap.delete(qe.elem.id);
     } else if (qe.type === 'audioPosition' && qe.elem) {
       // Lightweight position update - merge onto existing audio
       const existingAudio = audiosMap.get(qe.elem.id);
@@ -253,6 +261,8 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
       }
     } else if (qe.type === 'line' && qe.elem) {
       linesMap.set(qe.elem.id, qe.elem);
+    } else if (qe.type === 'lineDelete' && qe.elem) {
+      linesMap.delete(qe.elem.id);
     }
   }
 

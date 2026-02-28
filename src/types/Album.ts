@@ -111,6 +111,12 @@ export interface SketchAudio extends ElementBase {
   y: number;
   file?: string; // Audio file path
   duration?: number; // Duration in milliseconds
+  wordTimings?: WordTiming[]; // Word-to-audio mappings
+}
+
+export interface WordTiming {
+  word: string;
+  startTime: number; // in seconds
 }
 
 export interface SketchElementAttributes {

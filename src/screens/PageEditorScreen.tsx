@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   ImageURISource,
@@ -15,11 +15,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PathCommand } from '@shopify/react-native-skia';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Sound from 'react-native-nitro-sound';
-import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio } from '../types/Album';
+import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
 import Canvas from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
+import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PageService } from '../services/PageService';
 import { MyIcon } from '../common/icons';
@@ -52,6 +53,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [images, setImages] = useState<SketchImage[]>([]);
   const [audios, setAudios] = useState<SketchElement[]>([]);
   const [pageAudioFile, setPageAudioFile] = useState<string | undefined>(undefined);
+  const [pageAudioDuration, setPageAudioDuration] = useState<number | undefined>(undefined);
+  const [pageAudioWordTimings, setPageAudioWordTimings] = useState<WordTiming[]>([]);
+  const [showWordMappingModal, setShowWordMappingModal] = useState(false);
   const [currentEdited, setCurrentEdited] = useState<CurrentEdited>({});
   const [currentElementType, setCurrentElementType] = useState<ElementTypes>(ElementTypes.Sketch);
 
@@ -68,6 +72,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const movingElementRef = useRef<{ id: string; type: string; x: number; y: number; width?: number; height?: number } | null>(null);
   const imagesRef = useRef<SketchImage[]>([]);
   const audiosRef = useRef<SketchElement[]>([]);
+  const pageAudioFileRef = useRef<string | undefined>(undefined);
+  const pageAudioDurationRef = useRef<number | undefined>(undefined);
+  const pageAudioWordTimingsRef = useRef<WordTiming[]>([]);
 
   // Sync refs with state
   useEffect(() => {
@@ -90,8 +97,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     audiosRef.current = audios;
   }, [audios]);
 
+  useEffect(() => {
+    pageAudioFileRef.current = pageAudioFile;
+  }, [pageAudioFile]);
+
+  useEffect(() => {
+    pageAudioDurationRef.current = pageAudioDuration;
+  }, [pageAudioDuration]);
+
+  useEffect(() => {
+    pageAudioWordTimingsRef.current = pageAudioWordTimings;
+  }, [pageAudioWordTimings]);
+
   // Computed texts array that includes editing changes and move changes
-  const displayTexts = React.useMemo(() => {
+  const displayTexts = useMemo(() => {
     const result = texts.map(t => {
       // Apply editing changes (text, color, size, position)
       if (editingTextChanges?.id === t.id) {
@@ -113,7 +132,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   }, [texts, editingTextChanges, movingElement]);
 
   // Computed images array that includes move/resize changes
-  const displayImages = React.useMemo(() => {
+  const displayImages = useMemo(() => {
     return images.map(img => {
       if (movingElement && (movingElement.type === 'image-move' || movingElement.type === 'image-resize') && movingElement.id === img.id) {
         return {
@@ -208,23 +227,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   // Calculate canvas top position
   const canvasTop = HEADER_HEIGHT + insets.top;
 
-  console.log('Render calculations:', {
-    screenWidth: SCREEN_WIDTH,
-    screenHeight: SCREEN_HEIGHT,
-    toolbarWidth: TOOLBAR_WIDTH,
-    headerHeight: HEADER_HEIGHT,
-    insetsTop: insets.top,
-    insetsBottom: insets.bottom,
-    availableWidth,
-    availableHeight,
-    pageWidth,
-    pageHeight,
-    ratio,
-    canvasWidth,
-    canvasHeight,
-    sideMargin,
-    canvasTop
-  });
+  // console.log('Render calculations:', {
+  //   screenWidth: SCREEN_WIDTH,
+  //   screenHeight: SCREEN_HEIGHT,
+  //   toolbarWidth: TOOLBAR_WIDTH,
+  //   headerHeight: HEADER_HEIGHT,
+  //   insetsTop: insets.top,
+  //   insetsBottom: insets.bottom,
+  //   availableWidth,
+  //   availableHeight,
+  //   pageWidth,
+  //   pageHeight,
+  //   ratio,
+  //   canvasWidth,
+  //   canvasHeight,
+  //   sideMargin,
+  //   canvasTop
+  // });
 
   // Keep offset stable - use ref to prevent re-renders
   const canvasOffsetRef = useRef({ x: 0, y: 0 });
@@ -253,12 +272,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   // Rebuild paths/texts/images/audios arrays from queue using shared utility
   const rebuildStateFromQueue = () => {
     const queueElements = queue.current.getAll();
-    console.log('rebuildStateFromQueue: processing', queueElements.length, 'queue elements');
-
     const { paths: rebuiltPaths, texts: rebuiltTexts, images: rebuiltImages, audios: rebuiltAudios } = compileQueueToElements(queueElements);
-
-    console.log('Rebuilt from queue:', { paths: rebuiltPaths.length, texts: rebuiltTexts.length, images: rebuiltImages.length, audios: rebuiltAudios.length });
-    console.log('Rebuilt images:', rebuiltImages.map(i => ({ id: i.id, x: i.x, y: i.y, width: i.width, height: i.height })));
 
     setPaths(rebuiltPaths);
     setTexts(rebuiltTexts);
@@ -267,6 +281,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     // Extract page-level audio (hardcoded ID)
     const pageAudio = rebuiltAudios.find(a => a.id === PAGE_AUDIO_ID);
     setPageAudioFile(pageAudio?.file);
+    setPageAudioWordTimings(pageAudio?.wordTimings || []);
+
+    // Extract and convert duration from milliseconds to seconds
+    if (pageAudio?.duration !== undefined) {
+      setPageAudioDuration(pageAudio.duration / 1000);
+    } else {
+      setPageAudioDuration(undefined);
+    }
 
     // Other audios are not used anymore (we only have one page audio)
     setAudios([]);
@@ -729,8 +751,35 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setIsRecording(false);
       console.log('Recording stopped, file:', result);
 
-      // Save the audio file
-      await handleUpdatePageAudio(result);
+      // Get audio duration by playing it briefly
+      let duration: number | undefined;
+      try {
+        const filePath = result.startsWith('file://') ? result : `file://${result}`;
+        await Sound.startPlayer(filePath);
+
+        // Wait for duration info
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => {
+            resolve();
+          }, 1000);
+
+          Sound.addPlayBackListener((e) => {
+            if (e.duration > 0) {
+              duration = e.duration / 1000; // Convert to seconds
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
+        });
+
+        await Sound.stopPlayer();
+        Sound.removePlayBackListener();
+      } catch (error) {
+        console.error('Failed to get audio duration:', error);
+      }
+
+      // Save the audio file with duration
+      await handleUpdatePageAudio(result, duration);
     } catch (error) {
       console.error('Failed to stop recording:', error);
       Alert.alert('שגיאה', 'עצירת ההקלטה נכשלה');
@@ -756,11 +805,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
   };
 
-  const handleUpdatePageAudio = async (filePath: string) => {
-    console.log('handleUpdatePageAudio:', filePath);
+  const handleUpdatePageAudio = async (filePath: string, duration?: number) => {
+    console.log('handleUpdatePageAudio:', filePath, 'duration:', duration);
 
-    // Update page audio file
+    // Update page audio file and duration
     setPageAudioFile(filePath);
+    if (duration !== undefined) {
+      setPageAudioDuration(duration);
+    }
+
+    // Use ref to get current word timings (avoid closure trap)
+    const currentWordTimings = pageAudioWordTimingsRef.current;
 
     // Save to queue with hardcoded ID
     const pageAudio: SketchAudio = {
@@ -768,6 +823,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       file: filePath,
       x: 0, // Position doesn't matter for page audio
       y: 0,
+      duration: duration !== undefined ? duration * 1000 : undefined, // Store in milliseconds
+      wordTimings: currentWordTimings.length > 0 ? currentWordTimings : undefined,
     };
 
     queue.current.pushAudio(pageAudio);
@@ -779,9 +836,61 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     console.log('Page audio saved:', pageAudio);
   };
 
-  const handleClearPageAudio = async () => {
-    console.log('handleClearPageAudio');
+  const handleOpenWordMapping = () => {
+    setShowWordMappingModal(true);
+  };
 
+  const handleWordTimingsChange = async (wordTimings: WordTiming[]) => {
+    console.log('handleWordTimingsChange:', wordTimings);
+
+    // Use refs to avoid closure trap
+    const currentFile = pageAudioFileRef.current;
+    const currentDuration = pageAudioDurationRef.current;
+
+    if (!currentFile) {
+      console.error('No audio file to update');
+      return;
+    }
+
+    // Update the audio in queue with word timings
+    const pageAudio: SketchAudio = {
+      id: PAGE_AUDIO_ID,
+      file: currentFile,
+      x: 0,
+      y: 0,
+      duration: currentDuration !== undefined ? currentDuration * 1000 : undefined, // Store in milliseconds
+      wordTimings,
+    };
+
+    queue.current.pushAudio(pageAudio);
+    rebuildStateFromQueue();
+
+    // Auto-save to disk
+    await autoSave();
+  };
+
+  const handleDeletePageAudio = async () => {
+    console.log('handleDeletePageAudio');
+
+    // Delete the audio from queue
+    queue.current.pushDeleteAudio({ id: PAGE_AUDIO_ID });
+    rebuildStateFromQueue();
+
+    // Auto-save to disk
+    await autoSave();
+
+    // Close modal
+    setShowWordMappingModal(false);
+  };
+
+  const handleReRecordFromWordMapping = async () => {
+    setShowWordMappingModal(false);
+    // Clear current audio and start recording
+    await handleClearPageAudio();
+    await handleStartRecording();
+  };
+
+  const handleClearPageAudio = async () => {
     // Stop any playing audio first
     try {
       await Sound.stopPlayer();
@@ -799,8 +908,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // Auto-save to disk
     await autoSave();
-
-    console.log('Page audio cleared');
   };
 
 
@@ -1052,7 +1159,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       <View style={styles.editorContainer}>
         <View style={styles.canvasContainer}>
           {(() => {
-            console.log('Canvas positioning:', { sideMargin, canvasWidth, canvasHeight, availableWidth });
+            //console.log('Canvas positioning:', { sideMargin, canvasWidth, canvasHeight, availableWidth });
             return null;
           })()}
           <Canvas
@@ -1351,6 +1458,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
+                  onPress={handleOpenWordMapping}
+                  disabled={!pageAudioFile}
+                >
+                  <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
+                  <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מיפוי מילים</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={[styles.optionButton, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
                   onPress={handleClearPageAudio}
                   disabled={!pageAudioFile}
@@ -1363,6 +1479,36 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           </Animated.View>
         )}
       </View>
+
+      {/* Audio Word Mapping Modal */}
+      {showWordMappingModal && pageAudioFile && (() => {
+        // Get title text from queue directly
+        const queueElements = queue.current.getAll();
+        let titleText = '';
+
+        for (const qe of queueElements) {
+          if ((qe.type === 'textAdd' || qe.type === 'text') && qe.elem?.id === 'page_title_text') {
+            titleText = qe.elem.text || '';
+            break;
+          }
+        }
+
+        return (
+          <AudioWordMappingModal
+            visible={showWordMappingModal}
+            audioFile={pageAudioFile}
+            titleText={titleText}
+            audioDuration={pageAudioDuration}
+            initialWordTimings={pageAudioWordTimings}
+            onClose={(wordTimings) => {
+              handleWordTimingsChange(wordTimings);
+              setShowWordMappingModal(false);
+            }}
+            onReRecord={handleReRecordFromWordMapping}
+            onDelete={handleDeletePageAudio}
+          />
+        );
+      })()}
     </View>
   );
 }

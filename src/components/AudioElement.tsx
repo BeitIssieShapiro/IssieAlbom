@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, PermissionsAndroid, Alert } from 'react-native';
 import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
+import { WordTiming } from '../types/Album';
 
 interface AudioElementProps {
   audioFile?: string;
@@ -10,6 +11,8 @@ interface AudioElementProps {
   width?: number;
   height?: number;
   autoPlay?: boolean; // Auto-play audio when component mounts
+  wordTimings?: WordTiming[]; // Word timings for highlighting
+  onWordChange?: (wordIndex: number) => void; // Callback when current word changes
 }
 
 export function AudioElement({
@@ -19,12 +22,15 @@ export function AudioElement({
   width = 80,
   height = 80,
   autoPlay = false,
+  wordTimings = [],
+  onWordChange,
 }: AudioElementProps) {
   const [recording, setRecording] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
 
-  console.log('AudioElement render:', { audioFile, editMode, width, height, autoPlay });
+  // console.log('AudioElement render:', { audioFile, editMode, width, height, autoPlay, wordTimings: wordTimings?.length });
 
   // Auto-play effect
   useEffect(() => {
@@ -125,8 +131,28 @@ export function AudioElement({
       console.log('Starting playback for:', filePath);
       await Sound.startPlayer(filePath);
       Sound.addPlayBackListener((e) => {
+        const currentTimeSec = e.currentPosition / 1000;
+
+        // Update current word based on playback position
+        if (wordTimings && wordTimings.length > 0) {
+          let wordIndex = -1;
+          for (let i = wordTimings.length - 1; i >= 0; i--) {
+            if (currentTimeSec >= wordTimings[i].startTime) {
+              wordIndex = i;
+              break;
+            }
+          }
+          if (wordIndex !== currentWordIndex) {
+            setCurrentWordIndex(wordIndex);
+            if (onWordChange) {
+              onWordChange(wordIndex);
+            }
+          }
+        }
+
         if (e.currentPosition >= e.duration && e.duration > 0) {
           setPlaying(false);
+          setCurrentWordIndex(-1);
           Sound.stopPlayer().catch(console.error);
         }
       });
@@ -143,6 +169,7 @@ export function AudioElement({
       await Sound.stopPlayer();
       Sound.removePlayBackListener();
       setPlaying(false);
+      setCurrentWordIndex(-1);
       console.log('Playback stopped');
     } catch (error) {
       console.error('Failed to stop playback:', error);
