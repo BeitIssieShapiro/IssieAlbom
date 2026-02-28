@@ -209,7 +209,6 @@ export interface AlbumPageLegacy {
 
 export interface AlbumMetadata {
   id: string;
-  name: string;
   createdAt: number;
   updatedAt: number;
   pageCount: number;

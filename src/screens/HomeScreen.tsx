@@ -75,7 +75,8 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
       onOpenAlbum(newAlbum);
     } catch (error) {
       console.error('Failed to create album:', error);
-      Alert.alert('שגיאה', 'יצירת האלבום נכשלה');
+      const errorMessage = error instanceof Error ? error.message : 'יצירת האלבום נכשלה';
+      Alert.alert('שגיאה', errorMessage);
     }
   };
 
@@ -117,7 +118,8 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
             await loadAlbums();
           } catch (error) {
             console.error('Failed to rename album:', error);
-            Alert.alert('שגיאה', 'שינוי שם האלבום נכשל');
+            const errorMessage = error instanceof Error ? error.message : 'שינוי שם האלבום נכשל';
+            Alert.alert('שגיאה', errorMessage);
           }
         }
       },

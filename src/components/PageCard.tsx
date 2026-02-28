@@ -140,17 +140,14 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   };
 
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={() => onPress(page)}
-      activeOpacity={0.9}
-    >
+    <View style={styles.container} pointerEvents={isEditMode ? "auto" : "box-none"}>
       <View
         ref={viewShotRef}
         style={[styles.pageContent, {
           width: displayWidth,
           height: displayHeight,
         }]}
+        pointerEvents={isEditMode ? "auto" : "box-none"}
       >
         <View pointerEvents="box-none" style={styles.canvas}>
           <Canvas
@@ -268,7 +265,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           </View>
         </TouchableOpacity>
       </Modal>
-    </TouchableOpacity>
+    </View>
   );
 });
 

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Alert,
+  PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,6 +15,7 @@ import { AlbumService } from '../services/AlbumService';
 import { PageService } from '../services/PageService';
 import { PageCard } from '../components/PageCard';
 import { PageEditorScreen } from './PageEditorScreen';
+import { MyIcon } from '../common/icons';
 
 interface AlbumScreenProps {
   album: Album;
@@ -32,6 +34,10 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const screenWidth = Dimensions.get('window').width;
   const translateX = useRef(new Animated.Value(0)).current;
   const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
+
+  // Refs for handler functions to avoid stale closures in PanResponder
+  const handlePrevPageRef = useRef<() => void>();
+  const handleNextPageRef = useRef<() => void>();
 
   const loadPages = useCallback(async () => {
     try {
@@ -168,6 +174,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       });
     }
   };
+  handlePrevPageRef.current = handlePrevPage;
 
   const handleNextPage = () => {
     if (currentPageIndex < pages.length - 1) {
@@ -183,6 +190,26 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       });
     }
   };
+  handleNextPageRef.current = handleNextPage;
+
+  // PanResponder for swipe gestures
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !isEditMode,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return !isEditMode && Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const swipeThreshold = 50;
+
+        if (gestureState.dx > swipeThreshold) {
+          handlePrevPageRef.current?.();
+        } else if (gestureState.dx < -swipeThreshold) {
+          handleNextPageRef.current?.();
+        }
+      },
+    })
+  ).current;
 
   if (editingPage) {
     return (
@@ -202,7 +229,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>{'<'}</Text>
+          <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: "#007AFF" }} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>
           {album.name}
@@ -220,7 +247,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           <Text style={styles.loadingText}>טוען עמודים...</Text>
         </View>
       ) : pages.length > 0 ? (
-        <View style={styles.carouselContainer}>
+        <View style={styles.carouselContainer} {...panResponder.panHandlers}>
           <Animated.View
             style={[
               styles.carouselRow,
@@ -305,11 +332,6 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#007AFF',
-    fontWeight: '300',
   },
   editButton: {
     paddingHorizontal: 12,

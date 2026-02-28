@@ -263,6 +263,7 @@ function Canvas({
 
     const currentElementTypeRef = useRef<ElementTypes>(ElementTypes.Sketch);
     const moveContext = useRef<MoveContext | null>(null);
+    const isViewModeRef = useRef(isViewMode);
 
     const textsRef = useRef(texts || []);
     const imagesRef = useRef<SketchImage[]>(images || []);
@@ -302,8 +303,9 @@ function Canvas({
         ratioSV.value = ratio; // Sync shared value for worklets
         canvasHeightRef.current = canvasHeight;
         sideMarginRef.current = sideMargin;
+        isViewModeRef.current = isViewMode;
         canvasTopRef.current = canvasTop;
-    }, [zoom, ratio, canvasHeight, sideMargin, canvasTop]);
+    }, [zoom, ratio, canvasHeight, sideMargin, canvasTop, isViewMode]);
 
     useEffect(() => {
         console.log("offset change", isMoving.current, moveContext.current, moveContext.current?.lastPt)
@@ -411,10 +413,12 @@ function Canvas({
     const sketchResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: (e) => {
+                if (isViewModeRef.current) return false; // Disable sketching in view mode
                 if (isMoving.current) return false;
                 return !isTouchOnInteractive(e.nativeEvent.pageX, e.nativeEvent.pageY);
             },
             onMoveShouldSetPanResponder: (e) => {
+                if (isViewModeRef.current) return false; // Disable sketching in view mode
                 if (isMoving.current) return false;
                 return !isTouchOnInteractive(e.nativeEvent.pageX, e.nativeEvent.pageY);
             },
@@ -813,7 +817,7 @@ function Canvas({
             //         }), 500)
             // }}
 
-            {...sketchResponder.panHandlers}
+            {...(!isViewMode ? sketchResponder.panHandlers : {})}
         >
             <View style={{ direction: "ltr", flex: 1, backgroundColor: "white" }} collapsable={false} ref={viewShotRef}
             >

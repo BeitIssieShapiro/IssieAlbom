@@ -1,5 +1,6 @@
 import RNFS from 'react-native-fs';
 import { Album, AlbumMetadata, AlbumPage } from '../types/Album';
+import { validateAlbumName, getFolderName } from '../utils/albumNameValidator';
 
 const ALBUMS_ROOT = `${RNFS.DocumentDirectoryPath}/albums`;
 
@@ -32,6 +33,12 @@ export const AlbumService = {
     }
   },
 
+  async albumExists(name: string): Promise<boolean> {
+    const folderName = getFolderName(name);
+    const albumPath = `${ALBUMS_ROOT}/${folderName}`;
+    return await RNFS.exists(albumPath);
+  },
+
   async getAllAlbums(): Promise<Album[]> {
     await this.ensureAlbumsDirectory();
 
@@ -60,7 +67,7 @@ export const AlbumService = {
 
             albums.push({
               id: metadata.id,
-              name: metadata.name,
+              name: metadata.id,
               createdAt: metadata.createdAt,
               updatedAt: metadata.updatedAt,
               previewImagePath,
@@ -79,8 +86,23 @@ export const AlbumService = {
   async createAlbum(name: string): Promise<Album> {
     await this.ensureAlbumsDirectory();
 
-    const id = `album_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const albumPath = `${ALBUMS_ROOT}/${id}`;
+    // Validate name
+    const validation = validateAlbumName(name);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    // Get folder name (trimmed)
+    const folderName = getFolderName(name);
+
+    // Check for duplicates
+    if (await this.albumExists(folderName)) {
+      throw new Error('אלבום עם שם זה כבר קיים');
+    }
+
+    // Use folder name as ID
+    const id = folderName;
+    const albumPath = `${ALBUMS_ROOT}/${folderName}`;
 
     // Create album folder structure
     await RNFS.mkdir(albumPath);
@@ -92,8 +114,7 @@ export const AlbumService = {
     await RNFS.mkdir(`${albumPath}/resources/recordings`);
 
     const metadata: AlbumMetadata = {
-      id,
-      name,
+      id: folderName,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       pageCount: 1,
@@ -121,8 +142,8 @@ export const AlbumService = {
     );
 
     return {
-      id,
-      name,
+      id: folderName,
+      name: folderName,
       createdAt: metadata.createdAt,
       updatedAt: metadata.updatedAt,
       previewImagePath: null,
@@ -140,15 +161,35 @@ export const AlbumService = {
   },
 
   async updateAlbumName(albumId: string, newName: string): Promise<void> {
-    const albumPath = `${ALBUMS_ROOT}/${albumId}`;
-    const metadataPath = `${albumPath}/metadata.json`;
+    // Validate new name
+    const validation = validateAlbumName(newName);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
 
-    const metadataContent = await RNFS.readFile(metadataPath, 'utf8');
-    const metadata: AlbumMetadata = JSON.parse(metadataContent);
+    const newFolderName = getFolderName(newName);
+    const oldPath = `${ALBUMS_ROOT}/${albumId}`;
+    const newPath = `${ALBUMS_ROOT}/${newFolderName}`;
 
-    metadata.name = newName;
+    // Skip if name didn't actually change
+    if (oldPath === newPath) {
+      return;
+    }
+
+    // Check for duplicates
+    if (await RNFS.exists(newPath)) {
+      throw new Error('אלבום עם שם זה כבר קיים');
+    }
+
+    // Rename folder
+    await RNFS.moveFile(oldPath, newPath);
+
+    // Update metadata
+    const metadataPath = `${newPath}/metadata.json`;
+    const content = await RNFS.readFile(metadataPath, 'utf8');
+    const metadata: AlbumMetadata = JSON.parse(content);
+    metadata.id = newFolderName;
     metadata.updatedAt = Date.now();
-
     await RNFS.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
   },
 
