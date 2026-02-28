@@ -323,17 +323,16 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     console.log('isEraser state changed:', isEraser, 'ref updated to:', isEraserRef.current);
   }, [isEraser]);
 
-  // Cleanup audio on unmount
+  // Cleanup audio on unmount only
   useEffect(() => {
     return () => {
-      if (isRecording) {
-        Sound.stopRecorder().catch(console.error);
-        Sound.removeRecordBackListener();
-      }
-      Sound.stopPlayer().catch(console.error);
+      // Only cleanup if component is unmounting, not on every isRecording change
+      Sound.stopRecorder().catch(() => {}); // Ignore errors if no recorder
+      Sound.removeRecordBackListener();
+      Sound.stopPlayer().catch(() => {}); // Ignore errors if no player
       Sound.removePlayBackListener();
     };
-  }, [isRecording]);
+  }, []); // Empty deps - only run on mount/unmount
 
   // Animate tool options panel
   useEffect(() => {
@@ -1016,18 +1015,25 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       // Get audio duration by playing it briefly
       let duration: number | undefined;
       try {
+        console.log('[handleStopRecording] Attempting to get audio duration from file:', result);
         const filePath = result.startsWith('file://') ? result : `file://${result}`;
+
+        // Add small delay to ensure recorder is fully stopped
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 200));
+
         await Sound.startPlayer(filePath);
 
         // Wait for duration info
         await new Promise<void>((resolve) => {
           const timeout = setTimeout(() => {
+            console.log('[handleStopRecording] Timeout reached, duration not obtained');
             resolve();
-          }, 1000);
+          }, 2000); // Increase timeout to 2 seconds
 
           Sound.addPlayBackListener((e) => {
             if (e.duration > 0) {
               duration = e.duration / 1000; // Convert to seconds
+              console.log('[handleStopRecording] Duration obtained:', duration, 'seconds');
               clearTimeout(timeout);
               resolve();
             }
@@ -1040,6 +1046,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         console.error('Failed to get audio duration:', error);
       }
 
+      console.log('[handleStopRecording] Final duration value:', duration);
       // Save the audio file with duration
       await handleUpdatePageAudio(result, duration);
     } catch (error) {

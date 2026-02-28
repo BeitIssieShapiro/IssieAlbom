@@ -24,6 +24,164 @@ export interface WordTiming {
   startTime: number; // in seconds
 }
 
+/**
+ * Apply smart heuristics to map words to waveform data
+ *
+ * Algorithm:
+ * 1. If waveform data exists, detect speech bursts (high amplitude regions)
+ * 2. Start first word at 0.5s (typical speech delay)
+ * 3. Map words to speech bursts, accounting for word length:
+ *    - Short words (1-2 chars like "I", "a", "an") get less time
+ *    - Longer words get more time within their burst
+ * 4. Fall back to even distribution if no waveform data
+ */
+function applyWaveformHeuristics(
+  words: string[],
+  duration: number,
+  waveformData: number[]
+): WordTiming[] {
+  const SPEECH_START_DELAY = 0.5; // Start first word at 0.5s
+  const SILENCE_THRESHOLD = 0.15; // Amplitude below this is considered silence
+  const MIN_BURST_DURATION = 0.1; // Minimum duration for a speech burst (seconds)
+
+  // If no waveform data, use simple distribution starting at 0.5s
+  if (!waveformData || waveformData.length === 0) {
+    console.log('[Heuristics] No waveform data, using simple distribution');
+    const availableTime = duration - SPEECH_START_DELAY;
+    return words.map((word, index) => ({
+      word,
+      startTime: SPEECH_START_DELAY + (index / words.length) * availableTime,
+    }));
+  }
+
+  console.log('[Heuristics] Analyzing waveform data, samples:', waveformData.length);
+
+  // Detect speech bursts from waveform
+  interface SpeechBurst {
+    startTime: number;
+    endTime: number;
+    avgAmplitude: number;
+  }
+
+  const bursts: SpeechBurst[] = [];
+  let inBurst = false;
+  let burstStart = 0;
+  let burstAmplitudes: number[] = [];
+
+  waveformData.forEach((amplitude, index) => {
+    const time = (index / waveformData.length) * duration;
+
+    if (amplitude > SILENCE_THRESHOLD) {
+      if (!inBurst) {
+        // Start new burst
+        inBurst = true;
+        burstStart = time;
+        burstAmplitudes = [amplitude];
+      } else {
+        burstAmplitudes.push(amplitude);
+      }
+    } else if (inBurst) {
+      // End current burst
+      const burstDuration = time - burstStart;
+      if (burstDuration >= MIN_BURST_DURATION) {
+        const avgAmplitude = burstAmplitudes.reduce((a, b) => a + b, 0) / burstAmplitudes.length;
+        bursts.push({
+          startTime: burstStart,
+          endTime: time,
+          avgAmplitude,
+        });
+      }
+      inBurst = false;
+    }
+  });
+
+  // Close final burst if still open
+  if (inBurst && burstAmplitudes.length > 0) {
+    const avgAmplitude = burstAmplitudes.reduce((a, b) => a + b, 0) / burstAmplitudes.length;
+    bursts.push({
+      startTime: burstStart,
+      endTime: duration,
+      avgAmplitude,
+    });
+  }
+
+  console.log('[Heuristics] Detected speech bursts:', bursts.length);
+
+  // If no bursts detected or too few, fall back to simple distribution
+  if (bursts.length === 0) {
+    console.log('[Heuristics] No speech bursts detected, using simple distribution');
+    const availableTime = duration - SPEECH_START_DELAY;
+    return words.map((word, index) => ({
+      word,
+      startTime: SPEECH_START_DELAY + (index / words.length) * availableTime,
+    }));
+  }
+
+  // Ensure first burst starts at least at SPEECH_START_DELAY
+  const adjustedBursts = bursts.map(burst => ({
+    ...burst,
+    startTime: Math.max(burst.startTime, SPEECH_START_DELAY),
+  }));
+
+  // Calculate relative weights for words (short words get less weight)
+  const wordWeights = words.map(word => {
+    const len = word.length;
+    if (len <= 2) return 0.5; // Short words like "I", "a", "an"
+    if (len <= 4) return 1.0; // Medium words
+    return 1.5; // Longer words
+  });
+  const totalWeight = wordWeights.reduce((a, b) => a + b, 0);
+
+  // Map words to time positions based on bursts
+  const timings: WordTiming[] = [];
+
+  if (adjustedBursts.length >= words.length) {
+    // More bursts than words - assign one word per burst
+    words.forEach((word, index) => {
+      timings.push({
+        word,
+        startTime: adjustedBursts[index].startTime,
+      });
+    });
+  } else {
+    // Fewer bursts than words - distribute words across bursts
+    let wordIndex = 0;
+
+    adjustedBursts.forEach((burst, burstIndex) => {
+      const burstDuration = burst.endTime - burst.startTime;
+
+      // Calculate how many words to fit in this burst
+      const remainingWords = words.length - wordIndex;
+      const remainingBursts = adjustedBursts.length - burstIndex;
+      const wordsInBurst = Math.ceil(remainingWords / remainingBursts);
+
+      // Distribute words within this burst based on their weights
+      const wordsForBurst = words.slice(wordIndex, wordIndex + wordsInBurst);
+      const weightsForBurst = wordWeights.slice(wordIndex, wordIndex + wordsInBurst);
+      const burstTotalWeight = weightsForBurst.reduce((a, b) => a + b, 0);
+
+      let accumulatedWeight = 0;
+      wordsForBurst.forEach((word, i) => {
+        const wordWeight = weightsForBurst[i];
+        const relativePosition = accumulatedWeight / burstTotalWeight;
+        const wordTime = burst.startTime + relativePosition * burstDuration;
+
+        timings.push({
+          word,
+          startTime: Math.max(SPEECH_START_DELAY, wordTime),
+        });
+
+        accumulatedWeight += wordWeight;
+      });
+
+      wordIndex += wordsInBurst;
+    });
+  }
+
+  console.log('[Heuristics] Final timings:', timings);
+  return timings;
+}
+
 interface AudioWordMappingModalProps {
   visible: boolean;
   audioFile: string; // Relative path to audio file
@@ -47,6 +205,8 @@ export function AudioWordMappingModal({
   onReRecord,
   onDelete,
 }: AudioWordMappingModalProps) {
+  console.log('[AudioWordMappingModal] Component initialized with propDuration:', propDuration);
+
   // Simple state - single source of truth
   const [audioDuration, setAudioDuration] = useState(propDuration || 10);
   const [playing, setPlaying] = useState(false);
@@ -54,11 +214,13 @@ export function AudioWordMappingModal({
   const [wordTimings, setWordTimings] = useState<WordTiming[]>([]);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [draggingX, setDraggingX] = useState<number>(0);
+  const [waveformData, setWaveformData] = useState<number[]>([]); // Waveform amplitude data
   const draggingTimingsRef = useRef<WordTiming[]>([]);
 
   // Refs to avoid closure traps
   const audioDurationRef = useRef(audioDuration);
   const wordTimingsRef = useRef<WordTiming[]>([]);
+  const waveformDataRef = useRef<number[]>([]);
 
   // Simple flags
   const initializedRef = useRef(false);
@@ -73,6 +235,10 @@ export function AudioWordMappingModal({
   useEffect(() => {
     wordTimingsRef.current = wordTimings;
   }, [wordTimings]);
+
+  useEffect(() => {
+    waveformDataRef.current = waveformData;
+  }, [waveformData]);
 
   // Use prop duration if provided
   useEffect(() => {
@@ -114,18 +280,32 @@ export function AudioWordMappingModal({
   }, []);
 
   const handleAudioLoad = (duration: number) => {
-    console.log('[AudioWordMappingModal] handleAudioLoad called - duration:', duration, 'propDuration:', propDuration, 'hasAppliedHeuristics:', hasAppliedHeuristicsRef.current);
+    console.log('[AudioWordMappingModal] handleAudioLoad called - duration:', duration, 'propDuration:', propDuration, 'hasAppliedHeuristics:', hasAppliedHeuristicsRef.current, 'current audioDuration:', audioDuration);
     console.log('[AudioWordMappingModal] wordTimings state length:', wordTimings.length, 'wordTimings ref length:', wordTimingsRef.current.length);
 
     // If we already have the correct duration from props, don't do anything
     if (propDuration && Math.abs(propDuration - duration) < 0.1) {
-      // Duration matches what we already know, mark as applied and don't re-distribute
       console.log('[AudioWordMappingModal] Duration matches prop, skipping re-distribution');
       hasAppliedHeuristicsRef.current = true;
       return;
     }
 
-    // Update duration if it changed
+    // If duration is changing significantly, we need to re-scale existing timings
+    const oldDuration = audioDurationRef.current;
+    if (Math.abs(oldDuration - duration) > 0.1 && wordTimingsRef.current.length > 0) {
+      console.log('[AudioWordMappingModal] Duration changed significantly from', oldDuration, 'to', duration);
+
+      // Re-scale existing timings to new duration
+      const scaledTimings = wordTimingsRef.current.map(wt => ({
+        ...wt,
+        startTime: (wt.startTime / oldDuration) * duration,
+      }));
+      console.log('[AudioWordMappingModal] Re-scaled timings:', scaledTimings);
+      setWordTimings(scaledTimings);
+      wordTimingsRef.current = scaledTimings;
+    }
+
+    // Update duration
     console.log('[AudioWordMappingModal] Updating audioDuration to:', duration);
     setAudioDuration(duration);
 
@@ -134,18 +314,29 @@ export function AudioWordMappingModal({
 
     // Apply heuristics if we haven't already and no initial mappings existed
     if (!hasAppliedHeuristicsRef.current && currentWordTimings.length > 0) {
-      // TODO: In the future, use waveform timing data if available
-      // For now, re-distribute based on actual duration (simple even distribution)
       const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
-      const optimizedTimings: WordTiming[] = parsedWords.map((word, index) => ({
-        word,
-        startTime: (index / parsedWords.length) * duration,
-      }));
-      console.log('[AudioWordMappingModal] Re-distributing with new duration:', optimizedTimings);
+      const currentWaveformData = waveformDataRef.current;
+      const optimizedTimings = applyWaveformHeuristics(parsedWords, duration, currentWaveformData);
+      console.log('[AudioWordMappingModal] Applied waveform heuristics:', optimizedTimings);
       setWordTimings(optimizedTimings);
       hasAppliedHeuristicsRef.current = true;
     } else {
-      console.log('[AudioWordMappingModal] Skipping re-distribution - hasAppliedHeuristics:', hasAppliedHeuristicsRef.current, 'currentWordTimings.length:', currentWordTimings.length);
+      console.log('[AudioWordMappingModal] Skipping heuristics - hasAppliedHeuristics:', hasAppliedHeuristicsRef.current, 'currentWordTimings.length:', currentWordTimings.length);
+    }
+  };
+
+  const handleWaveformData = (data: number[]) => {
+    console.log('[AudioWordMappingModal] Waveform data received, samples:', data.length);
+    setWaveformData(data);
+
+    // If we haven't applied heuristics yet and have word timings, re-run with waveform data
+    if (!hasAppliedHeuristicsRef.current && wordTimingsRef.current.length > 0) {
+      const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
+      const duration = audioDurationRef.current;
+      const optimizedTimings = applyWaveformHeuristics(parsedWords, duration, data);
+      console.log('[AudioWordMappingModal] Re-applied heuristics with new waveform data:', optimizedTimings);
+      setWordTimings(optimizedTimings);
+      hasAppliedHeuristicsRef.current = true;
     }
   };
 
@@ -164,10 +355,16 @@ export function AudioWordMappingModal({
         await Sound.startPlayer(filePath);
 
         Sound.addPlayBackListener((e) => {
-          // Get actual duration from the first event
+          // Get actual duration from the first event - but only if we don't have a good duration yet
           if (e.duration > 0 && audioDuration === 10) {
             const durationInSeconds = e.duration / 1000;
-            setAudioDuration(durationInSeconds);
+            console.log('[AudioWordMappingModal handlePlay] Got duration from playback:', durationInSeconds, 'current duration:', audioDuration);
+
+            // Only update if we still have the default 10s duration (meaning AudioWaveform didn't provide real duration yet)
+            if (Math.abs(audioDuration - 10) < 0.1) {
+              console.log('[AudioWordMappingModal handlePlay] Updating duration from', audioDuration, 'to', durationInSeconds);
+              setAudioDuration(durationInSeconds);
+            }
           }
 
           setCurrentTime(e.currentPosition / 1000); // Convert to seconds
@@ -326,6 +523,7 @@ export function AudioWordMappingModal({
                   width={MODAL_WIDTH - 40}
                   height={WAVEFORM_HEIGHT}
                   onLoad={handleAudioLoad}
+                  onWaveformData={handleWaveformData}
                 />
 
                 {/* Word marker lines */}
