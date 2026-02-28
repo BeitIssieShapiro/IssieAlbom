@@ -2,9 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Waveform } from '@simform_solutions/react-native-audio-waveform';
 import Sound from 'react-native-nitro-sound';
+import { AttachmentService } from '../services/AttachmentService';
 
 interface AudioWaveformProps {
-  audioFile: string;
+  audioFile: string; // Relative path to audio file
+  albumId: string; // Album ID for path conversion
   width: number;
   height: number;
   color?: string;
@@ -14,6 +16,7 @@ interface AudioWaveformProps {
 
 export function AudioWaveform({
   audioFile,
+  albumId,
   width,
   height,
   color = '#007AFF',
@@ -31,7 +34,9 @@ export function AudioWaveform({
 
     const loadDuration = async () => {
       try {
-        const filePath = audioFile.startsWith('file://') ? audioFile : `file://${audioFile}`;
+        // Convert relative path to absolute
+        const absolutePath = AttachmentService.getAbsolutePath(albumId, audioFile);
+        const filePath = `file://${absolutePath}`;
         console.log('[AudioWaveform] Starting player for duration extraction:', filePath);
         await Sound.startPlayer(filePath);
 
@@ -96,7 +101,7 @@ export function AudioWaveform({
       <Waveform
         ref={waveformRef}
         mode="static"
-        path={audioFile.startsWith('file://') ? audioFile.slice(7) : audioFile}
+        path={AttachmentService.getAbsolutePath(albumId, audioFile)}
         candleSpace={2}
         candleWidth={4}
         scrubColor={color}

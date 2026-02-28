@@ -227,6 +227,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                 <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
                   <PageCard
                     page={pages[displayPageIndex - 1]}
+                    albumId={album.id}
                     isEditMode={false}
                     onPress={() => {}}
                     autoPlayAudio={false}
@@ -239,6 +240,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             <View style={styles.currentPage}>
               <PageCard
                 page={pages[displayPageIndex]}
+                albumId={album.id}
                 isEditMode={isEditMode}
                 onPress={handlePagePress}
                 onEdit={handleEditPage}
@@ -257,6 +259,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                 <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
                   <PageCard
                     page={pages[displayPageIndex + 1]}
+                    albumId={album.id}
                     isEditMode={false}
                     onPress={() => {}}
                     autoPlayAudio={false}

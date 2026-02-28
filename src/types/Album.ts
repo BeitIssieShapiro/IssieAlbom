@@ -84,8 +84,7 @@ export interface SketchText extends ElementBase {
 }
 
 export interface SketchImage extends ElementBase {
-  src?: ImageURISource;
-  imageData?: string;
+  imagePath: string; // Relative path to image file (e.g., "attachments/image_123.jpg")
   x: number;
   y: number;
   width: number;
@@ -111,7 +110,7 @@ export interface SketchElement extends ElementBase {
 export interface SketchAudio extends ElementBase {
   x: number;
   y: number;
-  file?: string; // Audio file path
+  audioPath: string; // Relative path to audio file (e.g., "attachments/audio_123.m4a")
   duration?: number; // Duration in milliseconds
   wordTimings?: WordTiming[]; // Word-to-audio mappings
 }

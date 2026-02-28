@@ -11,6 +11,7 @@ import {
 import { AlbumPage, AlbumPageV2, ElementTypes, WordTiming } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from './canvas/types';
 import { loadPageWithMigration, compileQueueToElements } from '../utils/pageUtils';
+import { AttachmentService } from '../services/AttachmentService';
 import Canvas from './canvas/canvas';
 import { AudioElement } from './AudioElement';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +22,7 @@ const PAGE_MARGIN = 16;
 
 interface PageCardProps {
   page: AlbumPage;
+  albumId: string; // Album ID for path conversion
   isEditMode: boolean;
   onPress: (page: AlbumPage) => void;
   onEdit?: (page: AlbumPage) => void;
@@ -28,7 +30,7 @@ interface PageCardProps {
   autoPlayAudio?: boolean; // Auto-play audio when card is shown
 }
 
-export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false }: PageCardProps) {
+export function PageCard({ page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false }: PageCardProps) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const canvasRef = useRef<any>(null);
@@ -62,18 +64,30 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlay
   const leftMargin = (AVAILABLE_WIDTH - displayWidth) / 2;
 
   // Compile queue elements into final arrays using shared utility
+  // Also convert relative paths to absolute URIs
   const { paths, texts, images, audios, backgroundPattern } = useMemo(() => {
     const result = compileQueueToElements(v2Page.elements);
+
+    // Convert image relative paths to absolute URIs
+    const imagesWithUris = result.images.map(img => ({
+      ...img,
+      imageUri: `file://${AttachmentService.getAbsolutePath(albumId, img.imagePath)}`,
+    }));
+
     console.log('PageCard - compileQueueToElements result:', {
       paths: result.paths.length,
       texts: result.texts.length,
-      images: result.images.length,
+      images: imagesWithUris.length,
       audios: result.audios.length,
-      audiosDetail: result.audios.map(a => ({ id: a.id, file: a.file, x: a.x, y: a.y })),
+      audiosDetail: result.audios.map(a => ({ id: a.id, audioPath: a.audioPath, x: a.x, y: a.y })),
       backgroundPattern: result.backgroundPattern
     });
-    return result;
-  }, [v2Page.elements]);
+
+    return {
+      ...result,
+      images: imagesWithUris,
+    };
+  }, [v2Page.elements, albumId]);
 
   // Extract page-level audio
   const pageAudio = useMemo(() => {
@@ -163,10 +177,11 @@ export function PageCard({ page, isEditMode, onPress, onEdit, onDelete, autoPlay
         </View>
 
         {/* Page Audio - hidden in view, only plays audio */}
-        {pageAudio?.file && autoPlayAudio && (
+        {pageAudio?.audioPath && autoPlayAudio && (
           <View style={{ width: 0, height: 0, overflow: 'hidden' }}>
             <AudioElement
-              audioFile={pageAudio.file}
+              audioFile={pageAudio.audioPath}
+              albumId={albumId}
               editMode={false}
               autoPlay={autoPlayAudio}
               width={1}

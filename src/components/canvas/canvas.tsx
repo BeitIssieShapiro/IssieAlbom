@@ -1118,7 +1118,7 @@ function Canvas({
                                     height: PixelRatio.roundToNearestPixel(h),
                                 },
                             ]}
-                            source={normalizeFoAndroid(image.src) || { uri: image.imageData }}
+                            source={{ uri: image.imageUri }}
                         />
                         {currentElementType == ElementTypes.Image &&
                             currentEdited.imageId == image.id && <TouchableOpacity

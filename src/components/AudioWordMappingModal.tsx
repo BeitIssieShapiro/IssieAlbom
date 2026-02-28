@@ -12,6 +12,7 @@ import {
 import { AudioWaveform } from './AudioWaveform';
 import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
+import { AttachmentService } from '../services/AttachmentService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -25,7 +26,8 @@ export interface WordTiming {
 
 interface AudioWordMappingModalProps {
   visible: boolean;
-  audioFile: string;
+  audioFile: string; // Relative path to audio file
+  albumId: string; // Album ID for path conversion
   titleText: string;
   audioDuration?: number; // Duration in seconds (from stored audio element)
   initialWordTimings?: WordTiming[];
@@ -37,6 +39,7 @@ interface AudioWordMappingModalProps {
 export function AudioWordMappingModal({
   visible,
   audioFile,
+  albumId,
   titleText,
   audioDuration: propDuration,
   initialWordTimings = [],
@@ -154,7 +157,10 @@ export function AudioWordMappingModal({
       setCurrentTime(0);
     } else {
       try {
-        const filePath = audioFile.startsWith('file://') ? audioFile : `file://${audioFile}`;
+        // Convert relative path to absolute
+        const absolutePath = AttachmentService.getAbsolutePath(albumId, audioFile);
+        const filePath = `file://${absolutePath}`;
+        console.log("start play", filePath)
         await Sound.startPlayer(filePath);
 
         Sound.addPlayBackListener((e) => {
@@ -313,6 +319,7 @@ export function AudioWordMappingModal({
               <View style={styles.waveformContainer}>
                 <AudioWaveform
                   audioFile={audioFile}
+                  albumId={albumId}
                   width={MODAL_WIDTH - 40}
                   height={WAVEFORM_HEIGHT}
                   onLoad={handleAudioLoad}

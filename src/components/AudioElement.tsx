@@ -3,9 +3,11 @@ import { View, TouchableOpacity, StyleSheet, Platform, PermissionsAndroid, Alert
 import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
 import { WordTiming } from '../types/Album';
+import { AttachmentService } from '../services/AttachmentService';
 
 interface AudioElementProps {
-  audioFile?: string;
+  audioFile?: string; // Relative path to audio file
+  albumId: string; // Album ID for path conversion
   editMode?: boolean;
   onUpdateAudioFile?: (filePath: string) => void;
   width?: number;
@@ -17,6 +19,7 @@ interface AudioElementProps {
 
 export function AudioElement({
   audioFile,
+  albumId,
   editMode,
   onUpdateAudioFile,
   width = 80,
@@ -127,7 +130,9 @@ export function AudioElement({
     }
 
     try {
-      const filePath = audioFile.startsWith('file://') ? audioFile : `file://${audioFile}`;
+      // Convert relative path to absolute
+      const absolutePath = AttachmentService.getAbsolutePath(albumId, audioFile);
+      const filePath = `file://${absolutePath}`;
       console.log('Starting playback for:', filePath);
       await Sound.startPlayer(filePath);
       Sound.addPlayBackListener((e) => {

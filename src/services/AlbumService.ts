@@ -3,6 +3,12 @@ import { Album, AlbumMetadata, AlbumPage } from '../types/Album';
 
 const ALBUMS_ROOT = `${RNFS.DocumentDirectoryPath}/albums`;
 
+// Log base path on module load
+console.log('========================================');
+console.log('App Base Path:', RNFS.DocumentDirectoryPath);
+console.log('Albums Root:', ALBUMS_ROOT);
+console.log('========================================');
+
 // Folder structure for each album:
 // albums/
 //   {albumId}/

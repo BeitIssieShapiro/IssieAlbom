@@ -27,6 +27,7 @@ import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
 import { BackgroundSettingsModal } from '../components/BackgroundSettingsModal';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PageService } from '../services/PageService';
+import { AttachmentService } from '../services/AttachmentService';
 import { MyIcon } from '../common/icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -98,7 +99,7 @@ function RotationSlider({ value, onChange, onRelease }: RotationSliderProps) {
         style={[styles.rotationKnob, { left: knobPosition, width: knobSize, height: knobSize }]}
         {...panResponder.panHandlers}
       >
-        <MyIcon info={{ name: "rotate-right", size: 24, color: '#007AFF', type: "MDI" }} />
+        <MyIcon info={{ name: "rotate-3d-variant", size: 24, color: '#007AFF', type: "MDI" }} />
       </View>
 
       {/* Degree markers */}
@@ -127,8 +128,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const insets = useSafeAreaInsets();
   const canvasRef = useRef<any>(null);
 
-  // Queue for undo/redo
-  const queue = useRef(new DoQueue());
+  // Queue for undo/redo with attachment cleanup
+  const queue = useRef(new DoQueue(async (relativePath: string) => {
+    console.log('[PageEditorScreen] Deleting evicted attachment:', relativePath);
+    try {
+      await AttachmentService.deleteAttachment(albumId, relativePath);
+    } catch (error) {
+      console.error('[PageEditorScreen] Failed to delete attachment:', error);
+    }
+  }));
 
   // Canvas state (external to Canvas component)
   const [paths, setPaths] = useState<SketchPath[]>([]);
@@ -239,20 +247,29 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   }, [texts, editingTextChanges, movingElement, currentEmojiId, emojiRotation]);
 
   // Computed images array that includes move/resize changes
+  // Also converts relative imagePath to absolute URI for rendering
   const displayImages = useMemo(() => {
     return images.map(img => {
+      // Convert relative path to absolute file URI
+      const absolutePath = AttachmentService.getAbsolutePath(albumId, img.imagePath);
+      const imageUri = `file://${absolutePath}`;
+
       if (movingElement && (movingElement.type === 'image-move' || movingElement.type === 'image-resize') && movingElement.id === img.id) {
         return {
           ...img,
+          imageUri, // Add URI for rendering
           x: movingElement.x,
           y: movingElement.y,
           ...(movingElement.width !== undefined && { width: movingElement.width }),
           ...(movingElement.height !== undefined && { height: movingElement.height }),
         };
       }
-      return img;
+      return {
+        ...img,
+        imageUri, // Add URI for rendering
+      };
     });
-  }, [images, movingElement]);
+  }, [images, movingElement, albumId]);
 
   // Use ref to avoid closure issues in callbacks
   const currentElementTypeRef = useRef<ElementTypes>(ElementTypes.Sketch);
@@ -409,7 +426,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // Extract page-level audio (hardcoded ID)
     const pageAudio = rebuiltAudios.find(a => a.id === PAGE_AUDIO_ID);
-    setPageAudioFile(pageAudio?.file);
+    setPageAudioFile(pageAudio?.audioPath);
     setPageAudioWordTimings(pageAudio?.wordTimings || []);
 
     // Extract and convert duration from milliseconds to seconds
@@ -452,6 +469,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
     }
 
+    // Clear undo queue to delete unreachable attachments
+    queue.current.clearUndo();
+
     // Auto-save on exit - changes are saved on every action
     const savedPage: AlbumPageV2 = {
       id: page.id,
@@ -473,6 +493,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handlePrevPage = () => {
     if (!pages || !onNavigatePage || !hasPrevPage) return;
 
+    // Clear undo queue to delete unreachable attachments
+    queue.current.clearUndo();
+
     // Save current page before navigating
     const savedPage: AlbumPageV2 = {
       id: page.id,
@@ -491,6 +514,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handleNextPage = () => {
     if (!pages || !onNavigatePage || !hasNextPage) return;
 
+    // Clear undo queue to delete unreachable attachments
+    queue.current.clearUndo();
+
     // Save current page before navigating
     const savedPage: AlbumPageV2 = {
       id: page.id,
@@ -508,6 +534,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleNewPage = () => {
     if (!onCreatePage) return;
+
+    // Clear undo queue to delete unreachable attachments
+    queue.current.clearUndo();
 
     // Save current page before creating new one
     const savedPage: AlbumPageV2 = {
@@ -543,6 +572,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         const emoji = textsRef.current.find(t => t.id === currentId);
         setEmojiRotation(emoji?.rotation);
       }
+
+      // Auto-save after undo
+      autoSave();
     }
   };
 
@@ -565,6 +597,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         const emoji = textsRef.current.find(t => t.id === currentId);
         setEmojiRotation(emoji?.rotation);
       }
+
+      // Auto-save after redo
+      autoSave();
     }
   };
 
@@ -933,7 +968,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     if (!pageAudioFile) return;
 
     try {
-      const filePath = pageAudioFile.startsWith('file://') ? pageAudioFile : `file://${pageAudioFile}`;
+      // Convert relative path to absolute
+      const absolutePath = AttachmentService.getAbsolutePath(albumId, pageAudioFile);
+      const filePath = `file://${absolutePath}`;
       console.log('Playing audio from toolbar:', filePath);
       await Sound.startPlayer(filePath);
       Sound.addPlayBackListener((e) => {
@@ -949,34 +986,43 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleUpdatePageAudio = async (filePath: string, duration?: number) => {
-    console.log('handleUpdatePageAudio:', filePath, 'duration:', duration);
+    console.log('handleUpdatePageAudio - source file:', filePath, 'duration:', duration);
 
-    // Update page audio file and duration
-    setPageAudioFile(filePath);
-    if (duration !== undefined) {
-      setPageAudioDuration(duration);
+    try {
+      // Save audio to attachments directory and get relative path
+      const relativePath = await AttachmentService.saveAudioAttachment(albumId, filePath);
+      console.log('Audio saved to:', relativePath);
+
+      // Update page audio file and duration with relative path
+      setPageAudioFile(relativePath);
+      if (duration !== undefined) {
+        setPageAudioDuration(duration);
+      }
+
+      // Use ref to get current word timings (avoid closure trap)
+      const currentWordTimings = pageAudioWordTimingsRef.current;
+
+      // Save to queue with hardcoded ID and relative path
+      const pageAudio: SketchAudio = {
+        id: PAGE_AUDIO_ID,
+        audioPath: relativePath, // Store relative path
+        x: 0, // Position doesn't matter for page audio
+        y: 0,
+        duration: duration !== undefined ? duration * 1000 : undefined, // Store in milliseconds
+        wordTimings: currentWordTimings.length > 0 ? currentWordTimings : undefined,
+      };
+
+      queue.current.pushAudio(pageAudio);
+      rebuildStateFromQueue();
+
+      // Auto-save to disk
+      await autoSave();
+
+      console.log('Page audio saved to queue:', pageAudio);
+    } catch (error) {
+      console.error('Failed to save audio attachment:', error);
+      Alert.alert('שגיאה', 'שמירת ההקלטה נכשלה');
     }
-
-    // Use ref to get current word timings (avoid closure trap)
-    const currentWordTimings = pageAudioWordTimingsRef.current;
-
-    // Save to queue with hardcoded ID
-    const pageAudio: SketchAudio = {
-      id: PAGE_AUDIO_ID,
-      file: filePath,
-      x: 0, // Position doesn't matter for page audio
-      y: 0,
-      duration: duration !== undefined ? duration * 1000 : undefined, // Store in milliseconds
-      wordTimings: currentWordTimings.length > 0 ? currentWordTimings : undefined,
-    };
-
-    queue.current.pushAudio(pageAudio);
-    rebuildStateFromQueue();
-
-    // Auto-save to disk
-    await autoSave();
-
-    console.log('Page audio saved:', pageAudio);
   };
 
   const handleOpenWordMapping = () => {
@@ -995,10 +1041,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       return;
     }
 
-    // Update the audio in queue with word timings
+    // Update the audio in queue with word timings (currentFile is already relative path)
     const pageAudio: SketchAudio = {
       id: PAGE_AUDIO_ID,
-      file: currentFile,
+      audioPath: currentFile, // Already a relative path
       x: 0,
       y: 0,
       duration: currentDuration !== undefined ? currentDuration * 1000 : undefined, // Store in milliseconds
@@ -1192,32 +1238,45 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     if (result.assets && result.assets[0]) {
       const asset = result.assets[0];
-      const imageId = getId('image');
 
-      const newImage: SketchImage = {
-        id: imageId,
-        src: { uri: asset.uri },
-        x: canvasWidth / 2 - 75, // Center horizontally
-        y: canvasHeight / 2 - 75, // Center vertically
-        width: 150,
-        height: 150,
-        aspectRatio: (asset.width && asset.height) ? asset.width / asset.height : 1,
-      };
+      if (!asset.uri) {
+        console.error('No URI in asset');
+        return;
+      }
 
-      console.log('Adding new image to queue:', { id: imageId, x: newImage.x, y: newImage.y, width: newImage.width, height: newImage.height });
+      try {
+        // Save image to attachments directory and get relative path
+        const relativePath = await AttachmentService.saveImageAttachment(albumId, asset.uri);
 
-      // Commit full image to queue
-      queue.current.pushImage(newImage);
+        const imageId = getId('image');
+        const newImage: SketchImage = {
+          id: imageId,
+          imagePath: relativePath, // Store relative path
+          x: canvasWidth / 2 - 75,
+          y: canvasHeight / 2 - 75,
+          width: 150,
+          height: 150,
+          aspectRatio: (asset.width && asset.height) ? asset.width / asset.height : 1,
+        };
 
-      console.log('Queue after pushImage:', queue.current.getAll().length, 'elements');
+        console.log('Adding new image to queue:', { id: imageId, imagePath: relativePath });
 
-      rebuildStateFromQueue();
+        // Commit full image to queue
+        queue.current.pushImage(newImage);
 
-      // Auto-save to disk without closing editor
-      await autoSave();
+        console.log('Queue after pushImage:', queue.current.getAll().length, 'elements');
 
-      // Set as currently edited to show handles
-      setCurrentEdited({ imageId: imageId });
+        rebuildStateFromQueue();
+
+        // Auto-save to disk without closing editor
+        await autoSave();
+
+        // Set as currently edited to show handles
+        setCurrentEdited({ imageId: imageId });
+      } catch (error) {
+        console.error('Failed to save image attachment:', error);
+        Alert.alert('שגיאה', 'שמירת התמונה נכשלה');
+      }
     }
   };
 
@@ -1527,6 +1586,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               }]}>
                 <AudioElement
                   audioFile={pageAudioFile}
+                  albumId={albumId}
                   editMode={false}
                   width={40}
                   height={40}
@@ -1882,6 +1942,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           <AudioWordMappingModal
             visible={showWordMappingModal}
             audioFile={pageAudioFile}
+            albumId={albumId}
             titleText={titleText}
             audioDuration={pageAudioDuration}
             initialWordTimings={pageAudioWordTimings}

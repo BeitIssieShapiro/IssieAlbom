@@ -16,8 +16,13 @@ export default class DoQueue {
 
   async clearUndo() {
     for (const elem of this._undoQueue) {
-      if (elem.elem?.file && this._onAttachmentRemove) {
-        await this._onAttachmentRemove(elem.elem.file);
+      // Check for audio attachments
+      if (elem.elem?.audioPath && this._onAttachmentRemove) {
+        await this._onAttachmentRemove(elem.elem.audioPath);
+      }
+      // Check for image attachments
+      if (elem.elem?.imagePath && this._onAttachmentRemove) {
+        await this._onAttachmentRemove(elem.elem.imagePath);
       }
     }
     this._undoQueue = [];
