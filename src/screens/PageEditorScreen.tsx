@@ -1843,9 +1843,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                 {/* Rotation Control */}
                 <View style={{ marginTop: 20 }}>
-                  <Text style={styles.sectionLabel}>סיבוב: {Math.round(emojiRotation)}°</Text>
+                  <Text style={styles.sectionLabel}>סיבוב: {Math.round(emojiRotation ?? 0)}°</Text>
                   <RotationSlider
-                    value={emojiRotation}
+                    value={emojiRotation ?? 0}
                     onChange={handleEmojiRotationChange}
                     onRelease={handleEmojiRotationEnd}
                   />

@@ -17,7 +17,7 @@ import { AlbumService } from '../services/AlbumService';
 import { AlbumCard } from '../components/AlbumCard';
 import { AddAlbumButton } from '../components/AddAlbumButton';
 
-const NUM_COLUMNS = 2;
+const NUM_COLUMNS = 6;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface HomeScreenProps {
@@ -140,7 +140,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
     );
   };
 
-  const data: (Album | 'add')[] = ['add', ...albums];
+  const data: (Album | 'add')[] = [...albums, 'add'];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -159,6 +159,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
           keyExtractor={(item) => (item === 'add' ? 'add-button' : item.id)}
           numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.listContent}
+          columnWrapperStyle={{ flexDirection: 'row-reverse' }}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
           }
@@ -223,11 +224,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    alignItems: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

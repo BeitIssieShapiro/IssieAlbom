@@ -11,7 +11,7 @@ import {
 import { Album } from '../types/Album';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const NUM_COLUMNS = 2;
+const NUM_COLUMNS = 6;
 const CARD_MARGIN = 8;
 const LIST_PADDING = 8;
 const CARD_WIDTH = (SCREEN_WIDTH - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   imageContainer: {
-    aspectRatio: 1,
+    aspectRatio: 3 / 4,
     backgroundColor: '#f0f0f0',
   },
   previewImage: {
