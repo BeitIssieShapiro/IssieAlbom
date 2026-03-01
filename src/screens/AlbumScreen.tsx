@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Alert,
-  PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   Dimensions,
-  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Carousel from 'react-native-reanimated-carousel';
 import { Album, AlbumPage } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { PageService } from '../services/PageService';
@@ -30,32 +29,26 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingPage, setEditingPage] = useState<AlbumPage | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [displayPageIndex, setDisplayPageIndex] = useState(0);
-  const [screenWidth, setScreenWidth] = useState(() => Dimensions.get('window').width);
-  const translateX = useRef(new Animated.Value(0)).current;
+  const carouselRef = useRef<any>(null);
   const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
 
-  // Refs for handler functions to avoid stale closures in PanResponder
-  const handlePrevPageRef = useRef<() => void>();
-  const handleNextPageRef = useRef<() => void>();
+  // Track screen dimensions (updated on rotation)
+  const [screenDimensions, setScreenDimensions] = useState(() => {
+    const window = Dimensions.get('window');
+    return { width: window.width, height: window.height };
+  });
 
   // Listen for dimension changes (device rotation)
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      console.log('[AlbumScreen] Dimensions changed:', window.width);
-      setScreenWidth(window.width);
+      console.log('[AlbumScreen] Dimensions changed:', window);
+      setScreenDimensions({ width: window.width, height: window.height });
     });
 
     return () => {
       subscription?.remove();
     };
   }, []);
-
-  // Reset translateX when screen width changes (device rotation)
-  useEffect(() => {
-    console.log('[AlbumScreen] Resetting translateX to 0 due to screen width change');
-    translateX.setValue(0);
-  }, [screenWidth, translateX]);
 
   const loadPages = useCallback(async () => {
     try {
@@ -181,56 +174,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     }
   };
 
-  const handlePrevPage = () => {
-    if (currentPageIndex > 0) {
-      setDisplayPageIndex(currentPageIndex - 1);
-      translateX.setValue(0);
-      Animated.timing(translateX, {
-        toValue: screenWidth,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentPageIndex(currentPageIndex - 1);
-        translateX.setValue(0);
-      });
-    }
-  };
-  handlePrevPageRef.current = handlePrevPage;
-
-  const handleNextPage = () => {
-    if (currentPageIndex < pages.length - 1) {
-      setDisplayPageIndex(currentPageIndex + 1);
-      translateX.setValue(0);
-      Animated.timing(translateX, {
-        toValue: -screenWidth,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentPageIndex(currentPageIndex + 1);
-        translateX.setValue(0);
-      });
-    }
-  };
-  handleNextPageRef.current = handleNextPage;
-
-  // PanResponder for swipe gestures
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !isEditMode,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return !isEditMode && Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const swipeThreshold = 50;
-
-        if (gestureState.dx > swipeThreshold) {
-          handlePrevPageRef.current?.();
-        } else if (gestureState.dx < -swipeThreshold) {
-          handleNextPageRef.current?.();
-        }
-      },
-    })
-  ).current;
+  // PanResponder is no longer needed - carousel handles gestures
 
   if (editingPage) {
     return (
@@ -268,68 +212,66 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           <Text style={styles.loadingText}>טוען עמודים...</Text>
         </View>
       ) : pages.length > 0 ? (
-        <View style={styles.carouselContainer} {...panResponder.panHandlers}>
-          <Animated.View
-            style={[
-              styles.carouselRow,
-              {
-                transform: [{ translateX }],
-              },
-            ]}
-          >
-            {/* Previous page peek (on left edge) */}
-            {displayPageIndex > 0 && (
-              <TouchableOpacity
-                style={styles.peekPage}
-                onPress={handlePrevPage}
-                activeOpacity={0.7}
-              >
-                <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
-                  <PageCard
-                    page={pages[displayPageIndex - 1]}
-                    albumId={album.id}
-                    isEditMode={false}
-                    onPress={() => {}}
-                    autoPlayAudio={false}
-                  />
-                </View>
-              </TouchableOpacity>
-            )}
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Carousel
+            ref={carouselRef}
+            loop={false}
 
-            {/* Current page (centered with full view) */}
-            <View style={styles.currentPage}>
-              <PageCard
-                page={pages[displayPageIndex]}
-                albumId={album.id}
-                isEditMode={isEditMode}
-                onPress={handlePagePress}
-                onEdit={handleEditPage}
-                onDelete={handleDeletePage}
-                autoPlayAudio={currentPageIndex === displayPageIndex}
-              />
-            </View>
+            mode="parallax"
+            modeConfig={{
+              parallaxScrollingScale: .85,
+              parallaxScrollingOffset: 110,
+              parallaxAdjacentItemScale: .85
+            }}
+            width={screenDimensions.width} // Item width (screen - horizontal padding)
+            height={screenDimensions.height - insets.top - 60}
+            data={pages}
 
-            {/* Next page peek (on right edge) */}
-            {displayPageIndex < pages.length - 1 && (
-              <TouchableOpacity
-                style={styles.peekPage}
-                onPress={handleNextPage}
-                activeOpacity={0.7}
-              >
-                <View pointerEvents="none" style={{ width: '100%', height: '100%' }}>
+            renderItem={({ item, index }) => {
+              console.log('[AlbumScreen] Rendering carousel item:', index, item.id);
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    console.log('[AlbumScreen] Clicked on page:', index, 'current:', currentPageIndex);
+                    // If clicking on a non-current page, slide to it
+                    if (index !== currentPageIndex) {
+                      console.log('[AlbumScreen] Scrolling to page:', index);
+                      carouselRef.current?.scrollTo({ index, animated: true });
+                    } else {
+                      // If clicking on current page, use normal press handler
+                      console.log('[AlbumScreen] Opening current page in editor');
+                      handlePagePress(item);
+                    }
+                  }}
+                  style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}
+                >
                   <PageCard
-                    page={pages[displayPageIndex + 1]}
+                    page={item}
                     albumId={album.id}
-                    isEditMode={false}
-                    onPress={() => {}}
-                    autoPlayAudio={false}
+                    isEditMode={isEditMode}
+                    onPress={() => {}} // Disable PageCard's own press handler
+                    onEdit={handleEditPage}
+                    onDelete={handleDeletePage}
+                    autoPlayAudio={currentPageIndex === index}
                   />
-                </View>
-              </TouchableOpacity>
-            )}
-          </Animated.View>
+                </TouchableOpacity>
+              );
+            }}
+            enabled={!isEditMode}
+            onSnapToItem={(index) => {
+              console.log('[AlbumScreen] Snapped to page:', index);
+              setCurrentPageIndex(index);
+            }}
+            defaultIndex={currentPageIndex}
+            windowSize={3}
+          />
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>אין עמודים באלבום</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -381,26 +323,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
-  carouselContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  carouselRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: '90%',
-    width: '100%',
-  },
-  peekPage: {
-    width: 50,
-    height: '100%',
-    overflow: 'hidden',
-  },
-  currentPage: {
-    flex: 1,
-    height: '100%',
-    marginHorizontal: 16,
+  pageContainer: {
+    backgroundColor: "green",
+    height: "100%",
     justifyContent: 'center',
     alignItems: 'center',
   },

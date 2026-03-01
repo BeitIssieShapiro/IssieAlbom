@@ -176,13 +176,15 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     <View style={styles.container} pointerEvents={isEditMode ? "auto" : "box-none"}>
       <View
         ref={viewShotRef}
-        style={[styles.pageContent, {
-          width: displayWidth,
-          height: displayHeight,
-        }]}
+        style={[styles.pageContent,
+          //   {
+          //   width: displayWidth,
+          //   height: displayHeight,
+          // }
+        ]}
         pointerEvents={isEditMode ? "auto" : "box-none"}
       >
-        <View pointerEvents="box-none" style={styles.canvas}>
+        <View pointerEvents="box-none" style={styles.canvas} ref={viewShotRef}>
           <Canvas
             ref={canvasRef}
             style={{ width: '100%', height: '100%' }}
@@ -192,8 +194,8 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
             ratio={scale}
             canvasTop={0}
             zoom={1}
-            onZoom={() => {}}
-            onMoveCanvas={() => {}}
+            onZoom={() => { }}
+            onMoveCanvas={() => { }}
             sideMargin={0}
 
             // Element arrays
@@ -206,16 +208,16 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
             renderElements={handleRenderElements}
 
             currentEdited={{}} // No editing in card view
-            onTextChanged={() => {}}
-            onSketchStart={() => {}}
-            onSketchStep={() => {}}
-            onSketchEnd={() => {}}
+            onTextChanged={() => { }}
+            onSketchStart={() => { }}
+            onSketchStep={() => { }}
+            onSketchEnd={() => { }}
             sketchColor="#333"
             sketchStrokeWidth={3}
-            onCanvasClick={() => {}}
-            onMoveElement={() => {}}
-            onMoveEnd={() => {}}
-            onDeleteElement={() => {}}
+            onCanvasClick={() => { }}
+            onMoveElement={() => { }}
+            onMoveEnd={() => { }}
+            onDeleteElement={() => { }}
 
             // Background
             imageSource={backgroundImage}
@@ -249,56 +251,13 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           </View>
         )}
 
-        {isEditMode && (
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={() => setMenuVisible(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.menuDots}>•••</Text>
-          </TouchableOpacity>
-        )}
 
         <View style={styles.pageNumber}>
           <Text style={styles.pageNumberText}>{page.pageNumber}</Text>
         </View>
       </View>
 
-      <Modal
-        visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-        supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
-      >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
-        >
-          <View style={styles.menuContainer}>
-            <Text style={styles.menuTitle}>עמוד {page.pageNumber}</Text>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => handleMenuOption('edit')}
-            >
-              <Text style={styles.menuItemText}>עריכת עמוד</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemDestructive]}
-              onPress={() => handleMenuOption('delete')}
-            >
-              <Text style={styles.menuItemTextDestructive}>מחיקת עמוד</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemCancel]}
-              onPress={() => setMenuVisible(false)}
-            >
-              <Text style={styles.menuItemTextCancel}>ביטול</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+
     </View>
   );
 });
@@ -308,8 +267,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius:7,
+    boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.3)',
   },
   pageContent: {
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 8,
     shadowColor: '#000',
