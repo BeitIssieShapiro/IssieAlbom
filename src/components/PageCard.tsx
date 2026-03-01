@@ -17,8 +17,6 @@ import { AudioElement } from './AudioElement';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const PAGE_MARGIN = 16;
 
 export interface PageCardRef {
@@ -45,6 +43,24 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   const viewShotRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
 
+  // Track screen dimensions (updated on rotation)
+  const [screenDimensions, setScreenDimensions] = useState(() => {
+    const window = Dimensions.get('window');
+    return { width: window.width, height: window.height };
+  });
+
+  // Listen for dimension changes (device rotation)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('[PageCard] Dimensions changed:', window);
+      setScreenDimensions({ width: window.width, height: window.height });
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
   // Expose captureScreenshot method via ref
   useImperativeHandle(ref, () => ({
     captureScreenshot: async () => {
@@ -66,26 +82,43 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   // Load page with migration and convert to V2 format
   const v2Page = useMemo(() => loadPageWithMigration(page), [page]);
 
-  // Calculate available height (screen height minus header, page number overlay, margins)
-  const HEADER_HEIGHT = 60 + insets.top; // header + top inset
-  const PAGE_NUMBER_HEIGHT = 40; // space for page number at bottom
-  const AVAILABLE_HEIGHT = SCREEN_HEIGHT - HEADER_HEIGHT - PAGE_NUMBER_HEIGHT - PAGE_MARGIN * 2;
-  const AVAILABLE_WIDTH = SCREEN_WIDTH - PAGE_MARGIN * 2;
+  // Calculate display dimensions - recalculate on screen dimension changes
+  const { displayWidth, displayHeight, scale, leftMargin, originalWidth, originalHeight } = useMemo(() => {
+    // Calculate available height (screen height minus header, page number overlay, margins)
+    const HEADER_HEIGHT = 60 + insets.top; // header + top inset
+    const PAGE_NUMBER_HEIGHT = 40; // space for page number at bottom
+    const AVAILABLE_HEIGHT = screenDimensions.height - HEADER_HEIGHT - PAGE_NUMBER_HEIGHT - PAGE_MARGIN * 2;
+    const AVAILABLE_WIDTH = screenDimensions.width - PAGE_MARGIN * 2;
 
-  // Get original canvas dimensions or use screen dimensions as fallback
-  const originalWidth = (v2Page as AlbumPageV2).canvasWidth || SCREEN_WIDTH;
-  const originalHeight = (v2Page as AlbumPageV2).canvasHeight || SCREEN_HEIGHT;
+    // Get original canvas dimensions or use screen dimensions as fallback
+    const originalWidth = (v2Page as AlbumPageV2).canvasWidth || screenDimensions.width;
+    const originalHeight = (v2Page as AlbumPageV2).canvasHeight || screenDimensions.height;
 
-  // Calculate scale to fit original dimensions into available space
-  const scaleX = AVAILABLE_WIDTH / originalWidth;
-  const scaleY = AVAILABLE_HEIGHT / originalHeight;
-  const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+    // Calculate scale to fit original dimensions into available space
+    const scaleX = AVAILABLE_WIDTH / originalWidth;
+    const scaleY = AVAILABLE_HEIGHT / originalHeight;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
 
-  const displayWidth = originalWidth * scale;
-  const displayHeight = originalHeight * scale;
+    const displayWidth = originalWidth * scale;
+    const displayHeight = originalHeight * scale;
 
-  // Calculate left margin to center the page
-  const leftMargin = (AVAILABLE_WIDTH - displayWidth) / 2;
+    // Calculate left margin to center the page
+    const leftMargin = (AVAILABLE_WIDTH - displayWidth) / 2;
+
+    console.log('[PageCard] Display calculations:', {
+      screenWidth: screenDimensions.width,
+      screenHeight: screenDimensions.height,
+      AVAILABLE_WIDTH,
+      AVAILABLE_HEIGHT,
+      originalWidth,
+      originalHeight,
+      scale,
+      displayWidth,
+      displayHeight,
+    });
+
+    return { displayWidth, displayHeight, scale, leftMargin, originalWidth, originalHeight };
+  }, [screenDimensions, insets, v2Page]);
 
   // Compile queue elements into final arrays using shared utility
   // Also convert relative paths to absolute URIs

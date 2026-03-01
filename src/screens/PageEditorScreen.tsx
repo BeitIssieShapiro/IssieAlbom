@@ -34,8 +34,6 @@ import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
 import { MyIcon } from '../common/icons';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const HEADER_HEIGHT = 60;
 const TOOLBAR_WIDTH = 90;
 
@@ -121,7 +119,7 @@ function RotationSlider({ value, onChange, onRelease }: RotationSliderProps) {
 interface PageEditorScreenProps {
   page: AlbumPage;
   albumId: string;
-  onSave: (updatedPage: AlbumPageV2) => void;
+  onSave: (updatedPage: AlbumPageV2, shouldExit?: boolean) => void;
   onDiscard: () => void;
   pages?: AlbumPage[];
   onNavigatePage?: (pageId: string) => void;
@@ -131,6 +129,24 @@ interface PageEditorScreenProps {
 export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage }: PageEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const canvasRef = useRef<any>(null);
+
+  // Track screen dimensions (updated on rotation)
+  const [screenDimensions, setScreenDimensions] = useState(() => {
+    const window = Dimensions.get('window');
+    return { width: window.width, height: window.height };
+  });
+
+  // Listen for dimension changes (device rotation)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('[PageEditorScreen] Dimensions changed:', window);
+      setScreenDimensions({ width: window.width, height: window.height });
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   // Queue for undo/redo with attachment cleanup
   const queue = useRef(new DoQueue(async (relativePath: string) => {
@@ -374,13 +390,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
 
   // Calculate available space for canvas (subtracting toolbar width from the right)
-  const availableWidth = SCREEN_WIDTH - TOOLBAR_WIDTH;
-  const availableHeight = SCREEN_HEIGHT - (HEADER_HEIGHT + insets.top) - insets.bottom;
+  const availableWidth = screenDimensions.width - TOOLBAR_WIDTH;
+  const availableHeight = screenDimensions.height - (HEADER_HEIGHT + insets.top) - insets.bottom;
 
   // Get original page dimensions (screen dimensions when page was created)
   const v2Page = page as AlbumPageV2;
-  const pageWidth = v2Page.canvasWidth || SCREEN_WIDTH;
-  const pageHeight = v2Page.canvasHeight || SCREEN_HEIGHT;
+  const pageWidth = v2Page.canvasWidth || screenDimensions.width;
+  const pageHeight = v2Page.canvasHeight || screenDimensions.height;
 
   // Calculate ratio (scale) to fit page dimensions into available space
   const ratioX = availableWidth / pageWidth;
@@ -577,8 +593,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       console.log('[PageEditorScreen] Skipping thumbnail - not first page');
     }
 
-    // Now save and navigate
-    onSave(savedPage);
+    // Now save and exit
+    onSave(savedPage, true);
   };
 
   // Page navigation helpers

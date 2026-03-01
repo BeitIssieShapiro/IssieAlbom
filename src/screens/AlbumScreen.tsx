@@ -31,13 +31,31 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [editingPage, setEditingPage] = useState<AlbumPage | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [displayPageIndex, setDisplayPageIndex] = useState(0);
-  const screenWidth = Dimensions.get('window').width;
+  const [screenWidth, setScreenWidth] = useState(() => Dimensions.get('window').width);
   const translateX = useRef(new Animated.Value(0)).current;
   const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
 
   // Refs for handler functions to avoid stale closures in PanResponder
   const handlePrevPageRef = useRef<() => void>();
   const handleNextPageRef = useRef<() => void>();
+
+  // Listen for dimension changes (device rotation)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('[AlbumScreen] Dimensions changed:', window.width);
+      setScreenWidth(window.width);
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+
+  // Reset translateX when screen width changes (device rotation)
+  useEffect(() => {
+    console.log('[AlbumScreen] Resetting translateX to 0 due to screen width change');
+    translateX.setValue(0);
+  }, [screenWidth, translateX]);
 
   const loadPages = useCallback(async () => {
     try {
@@ -85,7 +103,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     setEditingPage(page);
   };
 
-  const handleEditorSave = async (updatedPage: AlbumPage) => {
+  const handleEditorSave = async (updatedPage: AlbumPage, shouldExit: boolean = false) => {
     try {
       await PageService.updatePage(album.id, updatedPage);
       await loadPages();
@@ -93,14 +111,17 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       console.error('Failed to save page:', error);
       Alert.alert('שגיאה', 'שמירת העמוד נכשלה');
     }
-    // Exit edit mode after saving
-    setEditingPage(null);
+    // Only exit edit mode if explicitly requested
+    if (shouldExit) {
+      setEditingPage(null);
+    }
   };
 
   const handleNavigatePage = async (pageId: string) => {
-    // Save current page first (done in PageEditorScreen)
+    // Find the new page to navigate to
     const newPage = pages.find(p => p.id === pageId);
     if (newPage) {
+      // Stay in editor mode, just switch to the new page
       setEditingPage(newPage);
     }
   };
