@@ -388,10 +388,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const BODY_TEXT_SIZES = [16, 20, 24, 28];
   const EMOJI_PRESET_SIZES = [50, 75, 100]; // Preset emoji sizes
   const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
+  const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
 
-  // Calculate available space for canvas (subtracting toolbar width from the right)
-  const availableWidth = screenDimensions.width - TOOLBAR_WIDTH;
-  const availableHeight = screenDimensions.height - (HEADER_HEIGHT + insets.top) - insets.bottom;
+  // Calculate available space for canvas (subtracting toolbar width from the right and margins)
+  const availableWidth = screenDimensions.width - TOOLBAR_WIDTH - (CANVAS_MARGIN * 2);
+  const availableHeight = screenDimensions.height - (HEADER_HEIGHT + insets.top) - (CANVAS_MARGIN * 2);
 
   // Get original page dimensions (screen dimensions when page was created)
   const v2Page = page as AlbumPageV2;
@@ -402,6 +403,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const ratioX = availableWidth / pageWidth;
   const ratioY = availableHeight / pageHeight;
   const ratio = Math.min(ratioX, ratioY, 1); // Don't scale up, only down
+
+  console.log('[PageEditorScreen] Ratio calculation:', {
+    screenWidth: screenDimensions.width,
+    screenHeight: screenDimensions.height,
+    availableWidth,
+    availableHeight,
+    pageWidth,
+    pageHeight,
+    ratioX,
+    ratioY,
+    finalRatio: ratio,
+  });
 
   // Calculate actual canvas size (scaled dimensions)
   const canvasWidth = pageWidth * ratio;
@@ -722,6 +735,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const currentColor = sketchColorRef.current;
       const currentStrokeWidth = sketchStrokeWidthRef.current;
 
+      console.log('[handleSketchEnd] Path received:', {
+        commandsCount: commands.length,
+        firstCommand: commands[0],
+        lastCommand: commands[commands.length - 1],
+        ratio,
+        pageWidth,
+        pageHeight,
+        canvasWidth,
+        canvasHeight,
+      });
+
       console.log('[handleSketchEnd] Current values:', {
         isEraserMode,
         currentColor,
@@ -738,7 +762,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         isMarker: isEraserMode,
       };
 
-      console.log('Saving path to queue:', { isEraser: isEraserMode, color: pathElem.color, strokeWidth: pathElem.strokeWidth });
+      console.log('Saving path to queue:', { isEraser: isEraserMode, color: pathElem.color, strokeWidth: pathElem.strokeWidth, pointsCount: commands.length });
 
       queue.current.pushPath(pathElem);
       rebuildStateFromQueue();
@@ -1687,7 +1711,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               disabled={!hasPrevPage}
               accessibilityLabel="עמוד קודם"
             >
-              <MyIcon info={{ name: "chevron-left", size: 24, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+              <MyIcon info={{ name: "chevron-left", size: 32, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, !hasNextPage && styles.iconButtonDisabled]}
@@ -1695,7 +1719,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               disabled={!hasNextPage}
               accessibilityLabel="עמוד הבא"
             >
-              <MyIcon info={{ name: "chevron-right", size: 24, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+              <MyIcon info={{ name: "chevron-right", size: 32, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
             </TouchableOpacity>
           </View>
         )}
@@ -1727,16 +1751,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             //console.log('Canvas positioning:', { sideMargin, canvasWidth, canvasHeight, availableWidth });
             return null;
           })()}
-          <Canvas
-            ref={canvasRef}
-            style={{
-              marginLeft: sideMargin,
-              width: canvasWidth,
-              height: canvasHeight,
-              borderWidth: 2,
-              //borderColor: 'red'
-            }}
-            offset={canvasOffsetRef.current}
+          <View style={styles.canvas}>
+            <Canvas
+              ref={canvasRef}
+              style={{
+                marginLeft: sideMargin,
+                width: canvasWidth,
+                height: canvasHeight,
+              }}
+              offset={canvasOffsetRef.current}
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
             ratio={ratio}
@@ -1783,6 +1806,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             currentEmojiId={currentEmojiId}
             onEmojiClick={handleEmojiClick}
           />
+          </View>
 
           {/* Page Audio Indicator - render to the left of title text */}
           {pageAudioFile && (() => {
@@ -2255,8 +2279,8 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
   headerActions: { flexDirection: 'row', gap: 8 },
   pageNavigation: { flexDirection: 'row', gap: 4, marginRight: 8 },
-  iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  iconButtonDisabled: { opacity: 0.3 },
+  iconButton: { fontSize: 35, width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
+  iconButtonDisabled: { opacity: 0.9 },
   editorContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -2266,6 +2290,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     backgroundColor: '#f5f5f5',
+    padding: 12,
   },
   pageAudioContainer: {
     position: 'absolute',
@@ -2274,11 +2299,7 @@ const styles = StyleSheet.create({
   canvas: {
     backgroundColor: '#fff',
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.3)',
     overflow: 'hidden',
   },
   toolbar: {

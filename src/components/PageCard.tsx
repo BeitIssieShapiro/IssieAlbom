@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  PixelRatio,
 } from 'react-native';
 import { AlbumPage, AlbumPageV2, ElementTypes, WordTiming } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from './canvas/types';
@@ -83,41 +84,41 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   const v2Page = useMemo(() => loadPageWithMigration(page), [page]);
 
   // Calculate display dimensions - recalculate on screen dimension changes
-  const { displayWidth, displayHeight, scale, leftMargin, originalWidth, originalHeight } = useMemo(() => {
-    // Calculate available height (screen height minus header, page number overlay, margins)
-    const HEADER_HEIGHT = 60 + insets.top; // header + top inset
-    const PAGE_NUMBER_HEIGHT = 40; // space for page number at bottom
-    const AVAILABLE_HEIGHT = screenDimensions.height - HEADER_HEIGHT - PAGE_NUMBER_HEIGHT - PAGE_MARGIN * 2;
-    const AVAILABLE_WIDTH = screenDimensions.width - PAGE_MARGIN * 2;
+  // Using SAME logic as PageEditorScreen for consistency
+  const { displayWidth, displayHeight, scale } = useMemo(() => {
+    // Calculate available space (no toolbar in view mode, but account for carousel margins)
+    const availableWidth = screenDimensions.width;
+    // Match carousel height calculation: screenDimensions.height - insets.top - 60
+    const availableHeight = screenDimensions.height - insets.top - 60;
 
-    // Get original canvas dimensions or use screen dimensions as fallback
+    // Get original page dimensions (screen dimensions when page was created)
     const originalWidth = (v2Page as AlbumPageV2).canvasWidth || screenDimensions.width;
     const originalHeight = (v2Page as AlbumPageV2).canvasHeight || screenDimensions.height;
 
-    // Calculate scale to fit original dimensions into available space
-    const scaleX = AVAILABLE_WIDTH / originalWidth;
-    const scaleY = AVAILABLE_HEIGHT / originalHeight;
-    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+    // Calculate ratio (scale) to fit page dimensions into available space
+    const ratioX = availableWidth / originalWidth;
+    const ratioY = availableHeight / originalHeight;
+    const scale = Math.min(ratioX, ratioY, 1); // Don't scale up, only down
 
-    const displayWidth = originalWidth * scale;
-    const displayHeight = originalHeight * scale;
-
-    // Calculate left margin to center the page
-    const leftMargin = (AVAILABLE_WIDTH - displayWidth) / 2;
+    // Calculate actual canvas size (scaled dimensions) - round to nearest pixel
+    const displayWidth = PixelRatio.roundToNearestPixel(originalWidth * scale);
+    const displayHeight = PixelRatio.roundToNearestPixel(originalHeight * scale);
 
     console.log('[PageCard] Display calculations:', {
       screenWidth: screenDimensions.width,
       screenHeight: screenDimensions.height,
-      AVAILABLE_WIDTH,
-      AVAILABLE_HEIGHT,
+      availableWidth,
+      availableHeight,
       originalWidth,
       originalHeight,
-      scale,
+      scaleX: ratioX,
+      scaleY: ratioY,
+      finalScale: scale,
       displayWidth,
       displayHeight,
     });
 
-    return { displayWidth, displayHeight, scale, leftMargin, originalWidth, originalHeight };
+    return { displayWidth, displayHeight, scale, originalWidth, originalHeight };
   }, [screenDimensions, insets, v2Page]);
 
   // Compile queue elements into final arrays using shared utility
@@ -163,34 +164,25 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     ? { uri: `file://${page.backgroundPath}` }
     : undefined;
 
-  const handleMenuOption = (action: 'delete' | 'edit') => {
-    setMenuVisible(false);
-    if (action === 'delete') {
-      onDelete?.(page);
-    } else if (action === 'edit') {
-      onEdit?.(page);
-    }
-  };
 
   return (
     <View style={styles.container} pointerEvents={isEditMode ? "auto" : "box-none"}>
       <View
         ref={viewShotRef}
-        style={[styles.pageContent,
-          //   {
-          //   width: displayWidth,
-          //   height: displayHeight,
-          // }
-        ]}
+        style={[styles.pageContent]}
         pointerEvents={isEditMode ? "auto" : "box-none"}
       >
-        <View pointerEvents="box-none" style={styles.canvas} ref={viewShotRef}>
+        <View
+          pointerEvents="box-none"
+          style={[styles.canvas]}
+          ref={viewShotRef}
+        >
           <Canvas
             ref={canvasRef}
-            style={{ width: '100%', height: '100%' }}
+            style={{  }}
             offset={{ x: 0, y: 0 }}
-            canvasWidth={originalWidth}
-            canvasHeight={originalHeight}
+            canvasWidth={displayWidth}
+            canvasHeight={displayHeight}
             ratio={scale}
             canvasTop={0}
             zoom={1}
@@ -267,19 +259,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius:7,
+    borderRadius: 8 ,
     boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.3)',
   },
   pageContent: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    overflow: 'hidden',
+    margin: 0,
+    padding: 0,
   },
   canvas: {
     width: '100%',
