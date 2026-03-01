@@ -236,6 +236,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
         transparent
         animationType="fade"
         onRequestClose={() => setMenuVisible(false)}
+        supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
       >
         <TouchableOpacity
           style={styles.menuOverlay}

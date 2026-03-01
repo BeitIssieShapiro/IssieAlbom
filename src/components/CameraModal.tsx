@@ -43,7 +43,7 @@ export function CameraModal({ visible, onCapture, onCancel }: CameraModalProps) 
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
+    <Modal visible={visible} animationType="slide" onRequestClose={onCancel} supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}>
       <View style={styles.container}>
         <Camera
           ref={cameraRef}

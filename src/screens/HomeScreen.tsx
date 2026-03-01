@@ -180,6 +180,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
         transparent
         animationType="fade"
         onRequestClose={() => setShowNewAlbumModal(false)}
+        supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>

@@ -470,6 +470,7 @@ export function AudioWordMappingModal({
       transparent
       animationType="fade"
       onRequestClose={handleClose}
+      supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>

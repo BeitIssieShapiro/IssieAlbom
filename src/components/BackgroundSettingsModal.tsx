@@ -71,6 +71,7 @@ export function BackgroundSettingsModal({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>

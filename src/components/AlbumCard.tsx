@@ -74,6 +74,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete }: AlbumCardProps
         transparent
         animationType="fade"
         onRequestClose={() => setMenuVisible(false)}
+        supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
       >
         <TouchableOpacity
           style={styles.menuOverlay}
