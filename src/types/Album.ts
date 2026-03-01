@@ -122,7 +122,7 @@ export interface WordTiming {
 }
 
 export interface BackgroundPattern {
-  type: 'solid' | 'pattern';
+  type: 'solid' | 'pattern' | 'image';
 
   // For solid colors
   color?: string;
@@ -132,6 +132,9 @@ export interface BackgroundPattern {
   patternColor?: string;
   backgroundColor?: string;
   patternScale?: number;
+
+  // For background images (from app bundle)
+  imageName?: string; // e.g., 'paper.jpg', 'wood.jpg'
 }
 
 export interface SketchElementAttributes {

@@ -7,9 +7,11 @@ import {
   StyleSheet,
   ScrollView,
   Dimensions,
+  Image,
 } from 'react-native';
+import { Canvas, Rect, Path } from '@shopify/react-native-skia';
 import { BackgroundPattern } from '../types/Album';
-import { PATTERN_PRESETS, SOLID_COLOR_PRESETS } from '../utils/backgroundPatterns';
+import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGROUND_IMAGE_SOURCES, generatePatternPaths } from '../utils/backgroundPatterns';
 import { MyIcon } from '../common/icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -28,7 +30,7 @@ export function BackgroundSettingsModal({
   onApply,
   onClose,
 }: BackgroundSettingsModalProps) {
-  const [selectedTab, setSelectedTab] = useState<'solid' | 'pattern'>(
+  const [selectedTab, setSelectedTab] = useState<'solid' | 'pattern' | 'image'>(
     currentPattern?.type || 'solid'
   );
   const [tempPattern, setTempPattern] = useState<BackgroundPattern | undefined>(
@@ -53,7 +55,7 @@ export function BackgroundSettingsModal({
   };
 
   const handleSelectPattern = (
-    patternType: 'dots' | 'stripes' | 'grid' | 'diagonal'
+    patternType: keyof typeof PATTERN_PRESETS
   ) => {
     const preset = PATTERN_PRESETS[patternType];
     setTempPattern({
@@ -62,6 +64,13 @@ export function BackgroundSettingsModal({
       patternColor: preset.defaultColor,
       backgroundColor: preset.defaultBgColor,
       patternScale: 1.0,
+    });
+  };
+
+  const handleSelectImage = (imageName: string) => {
+    setTempPattern({
+      type: 'image',
+      imageName,
     });
   };
 
@@ -100,6 +109,14 @@ export function BackgroundSettingsModal({
                 תבניות
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, selectedTab === 'image' && styles.tabActive]}
+              onPress={() => setSelectedTab('image')}
+            >
+              <Text style={[styles.tabText, selectedTab === 'image' && styles.tabTextActive]}>
+                תמונות
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.content}>
@@ -126,7 +143,7 @@ export function BackgroundSettingsModal({
                   </TouchableOpacity>
                 ))}
               </View>
-            ) : (
+            ) : selectedTab === 'pattern' ? (
               <View style={styles.patternGrid}>
                 {(Object.keys(PATTERN_PRESETS) as Array<keyof typeof PATTERN_PRESETS>).map(
                   (key) => {
@@ -151,6 +168,28 @@ export function BackgroundSettingsModal({
                   }
                 )}
               </View>
+            ) : (
+              <View style={styles.imageGrid}>
+                {BACKGROUND_IMAGE_PRESETS.map((preset) => (
+                  <TouchableOpacity
+                    key={preset.fileName}
+                    style={[
+                      styles.imageOption,
+                      tempPattern?.type === 'image' &&
+                        tempPattern.imageName === preset.fileName &&
+                        styles.imageOptionSelected,
+                    ]}
+                    onPress={() => handleSelectImage(preset.fileName)}
+                  >
+                    <Image
+                      source={BACKGROUND_IMAGE_SOURCES[preset.fileName]}
+                      style={styles.imagePreview}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.imageName}>{preset.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
           </ScrollView>
 
@@ -173,48 +212,44 @@ function renderPatternPreview(
   patternType: string,
   preset: { defaultColor: string; defaultBgColor: string }
 ) {
-  const previewStyle = {
+  const previewWidth = (MODAL_WIDTH - 60) / 2;
+  const previewHeight = 100;
+
+  // Create a temporary pattern object for preview
+  const tempPattern: BackgroundPattern = {
+    type: 'pattern',
+    patternType: patternType as any,
+    patternColor: preset.defaultColor,
     backgroundColor: preset.defaultBgColor,
+    patternScale: 0.5, // Smaller scale for preview to show more repetitions
   };
 
-  switch (patternType) {
-    case 'dots':
-      return (
-        <View style={[styles.previewContainer, previewStyle]}>
-          <View style={[styles.dot, { backgroundColor: preset.defaultColor, top: 20, left: 20 }]} />
-          <View style={[styles.dot, { backgroundColor: preset.defaultColor, top: 20, right: 20 }]} />
-          <View style={[styles.dot, { backgroundColor: preset.defaultColor, bottom: 20, left: 20 }]} />
-          <View style={[styles.dot, { backgroundColor: preset.defaultColor, bottom: 20, right: 20 }]} />
-        </View>
-      );
-    case 'stripes':
-      return (
-        <View style={[styles.previewContainer, previewStyle]}>
-          <View style={[styles.stripe, { backgroundColor: preset.defaultColor, top: 15 }]} />
-          <View style={[styles.stripe, { backgroundColor: preset.defaultColor, top: 55 }]} />
-        </View>
-      );
-    case 'grid':
-      return (
-        <View style={[styles.previewContainer, previewStyle]}>
-          <View style={[styles.gridLine, styles.gridLineV, { backgroundColor: preset.defaultColor }]} />
-          <View style={[styles.gridLine, styles.gridLineH, { backgroundColor: preset.defaultColor }]} />
-        </View>
-      );
-    case 'diagonal':
-      return (
-        <View style={[styles.previewContainer, previewStyle]}>
-          <View
-            style={[
-              styles.diagonalLine,
-              { backgroundColor: preset.defaultColor },
-            ]}
-          />
-        </View>
-      );
-    default:
-      return null;
-  }
+  // Generate the actual pattern paths
+  const paths = generatePatternPaths(tempPattern, previewWidth, previewHeight);
+
+  return (
+    <Canvas style={{ width: previewWidth, height: previewHeight }}>
+      {/* Background */}
+      <Rect
+        x={0}
+        y={0}
+        width={previewWidth}
+        height={previewHeight}
+        color={preset.defaultBgColor}
+      />
+
+      {/* Pattern paths - all use stroke for clean preview */}
+      {paths.map((path, index) => (
+        <Path
+          key={index}
+          path={path}
+          color={preset.defaultColor}
+          style="stroke"
+          strokeWidth={2}
+        />
+      ))}
+    </Canvas>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -313,6 +348,7 @@ const styles = StyleSheet.create({
   },
   patternPreview: {
     height: 100,
+    overflow: 'hidden',
   },
   patternName: {
     padding: 8,
@@ -320,43 +356,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
-  previewContainer: {
-    flex: 1,
-    position: 'relative',
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  dot: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  imageOption: {
+    width: (MODAL_WIDTH - 60) / 2,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden',
   },
-  stripe: {
-    position: 'absolute',
+  imageOptionSelected: {
+    borderColor: '#007AFF',
+    borderWidth: 3,
+  },
+  imagePreview: {
+    height: 100,
     width: '100%',
-    height: 20,
   },
-  gridLine: {
-    position: 'absolute',
-  },
-  gridLineV: {
-    left: '50%',
-    top: 0,
-    bottom: 0,
-    width: 1,
-  },
-  gridLineH: {
-    top: '50%',
-    left: 0,
-    right: 0,
-    height: 1,
-  },
-  diagonalLine: {
-    position: 'absolute',
-    width: 140,
-    height: 2,
-    transform: [{ rotate: '45deg' }],
-    top: '50%',
-    left: -20,
+  imageName: {
+    padding: 8,
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#333',
   },
   actions: {
     flexDirection: 'row',

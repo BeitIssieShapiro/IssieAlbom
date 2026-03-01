@@ -73,6 +73,7 @@ import { trace } from "../../log";
 
 import { WordTiming, BackgroundPattern } from "../../types/Album";
 import { generatePatternPaths } from "../../utils/backgroundPatterns";
+import { BACKGROUND_IMAGE_SOURCES } from "../../utils/backgroundPatterns";
 
 const TEXT_SEARCH_MARGIN = 0; // 15;
 const TABLE_LINE_THRESHOLD = 7;
@@ -824,44 +825,66 @@ function Canvas({
 
                 {/* Background Pattern - Rendered FIRST, below everything */}
                 {backgroundPattern && (
-                    <SkiaCanvas
-                        style={{
-                            position: "absolute",
-                            width: "100%",
-                            height: "100%",
-                            zIndex: -1,
-                        }}
-                    >
-                        {/* Solid color or pattern background color */}
-                        <Rect
-                            x={0}
-                            y={0}
-                            width={canvasWidth}
-                            height={canvasHeight}
-                            color={
-                                backgroundPattern.type === 'solid'
-                                    ? backgroundPattern.color || '#FFFFFF'
-                                    : backgroundPattern.backgroundColor || '#FFFFFF'
-                            }
-                        />
+                    <>
+                        {/* Background Image (if type is image) */}
+                        {backgroundPattern.type === 'image' && backgroundPattern.imageName && (
+                            <Image
+                                source={BACKGROUND_IMAGE_SOURCES[backgroundPattern.imageName]}
+                                style={{
+                                    position: "absolute",
+                                    width: canvasWidth,
+                                    height: canvasHeight,
+                                    zIndex: -1,
+                                }}
+                                resizeMode="cover"
+                            />
+                        )}
 
-                        {/* Pattern paths */}
-                        {backgroundPattern.type === 'pattern' && (() => {
-                            const patternPaths = generatePatternPaths(
-                                backgroundPattern,
-                                canvasWidth,
-                                canvasHeight
-                            );
-                            return patternPaths.map((path, index) => (
-                                <SkiaPath
-                                    key={`pattern-${index}`}
-                                    path={path}
-                                    color={backgroundPattern.patternColor || '#000000'}
-                                    style="fill"
+                        {/* Pattern Canvas (for solid colors and patterns) */}
+                        {(backgroundPattern.type === 'solid' || backgroundPattern.type === 'pattern') && (
+                            <SkiaCanvas
+                                style={{
+                                    position: "absolute",
+                                    width: "100%",
+                                    height: "100%",
+                                    zIndex: -1,
+                                }}
+                            >
+                                {/* Solid color or pattern background color */}
+                                <Rect
+                                    x={0}
+                                    y={0}
+                                    width={canvasWidth}
+                                    height={canvasHeight}
+                                    color={
+                                        backgroundPattern.type === 'solid'
+                                            ? backgroundPattern.color || '#FFFFFF'
+                                            : backgroundPattern.backgroundColor || '#FFFFFF'
+                                    }
                                 />
-                            ));
-                        })()}
-                    </SkiaCanvas>
+
+                                {/* Pattern paths */}
+                                {backgroundPattern.type === 'pattern' && (() => {
+                                    const patternPaths = generatePatternPaths(
+                                        backgroundPattern,
+                                        canvasWidth,
+                                        canvasHeight
+                                    );
+
+                                    // All patterns use stroke for clean, consistent rendering
+                                    return patternPaths.map((path, index) => (
+                                        <SkiaPath
+                                            key={`pattern-${index}`}
+                                            path={path}
+                                            color={backgroundPattern.patternColor || '#000000'}
+                                            style="stroke"
+                                            strokeWidth={2}
+                                        />
+                                    ));
+                                })()}
+                            </SkiaCanvas>
+                        )}
+                    </>
                 )}
 
                 {/* Background Image */}

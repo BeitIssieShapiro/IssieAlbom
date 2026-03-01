@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -188,6 +188,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const textsRef = useRef<SketchText[]>([]);
   const currentEmojiIdRef = useRef<string | null>(null);
   const emojiRotationRef = useRef<number | undefined>(undefined);
+  const sketchColorRef = useRef<string>('#333333');
+  const sketchStrokeWidthRef = useRef<number>(3);
+  const handleSketchEndRef = useRef<((commands?: PathCommand[]) => void) | null>(null);
 
   // Sync refs with state
   useEffect(() => {
@@ -322,6 +325,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     isEraserRef.current = isEraser;
     console.log('isEraser state changed:', isEraser, 'ref updated to:', isEraserRef.current);
   }, [isEraser]);
+
+  // Sync sketch color and stroke width refs (must be after state declarations)
+  useEffect(() => {
+    console.log('[Ref sync] sketchColor changed to:', sketchColor);
+    sketchColorRef.current = sketchColor;
+  }, [sketchColor]);
+
+  useEffect(() => {
+    console.log('[Ref sync] sketchStrokeWidth changed to:', sketchStrokeWidth);
+    sketchStrokeWidthRef.current = sketchStrokeWidth;
+  }, [sketchStrokeWidth]);
 
   // Cleanup audio on unmount only
   useEffect(() => {
@@ -689,11 +703,22 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handleSketchEnd = (commands?: PathCommand[]) => {
     if (commands && commands.length > 0) {
       const isEraserMode = isEraserRef.current;
+      const currentColor = sketchColorRef.current;
+      const currentStrokeWidth = sketchStrokeWidthRef.current;
+
+      console.log('[handleSketchEnd] Current values:', {
+        isEraserMode,
+        currentColor,
+        currentStrokeWidth,
+        sketchColorState: sketchColor,
+        sketchStrokeWidthState: sketchStrokeWidth,
+      });
+
       const pathElem: SketchPath = {
         id: getId('path'),
         points: commands,
-        color: isEraserMode ? '#00000000' : sketchColor, // Transparent for eraser
-        strokeWidth: isEraserMode ? 20 : sketchStrokeWidth, // Wider stroke for eraser
+        color: isEraserMode ? '#00000000' : currentColor, // Transparent for eraser
+        strokeWidth: isEraserMode ? 20 : currentStrokeWidth, // Wider stroke for eraser
         isMarker: isEraserMode,
       };
 
@@ -704,6 +729,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       autoSave();
     }
   };
+
+  // Update ref whenever function changes
+  handleSketchEndRef.current = handleSketchEnd;
+
+  // Stable callback that calls through the ref
+  const handleSketchEndStable = useCallback((commands?: PathCommand[]) => {
+    handleSketchEndRef.current?.(commands);
+  }, []);
 
   const handleTextChanged = (id: string, newText: string) => {
     // Track text content change
@@ -918,6 +951,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited({});
     }
 
+    console.log('[handleSetSketchMode] Setting sketch mode, showToolOptions will be:', true);
     setCurrentElementType(ElementTypes.Sketch);
     currentElementTypeRef.current = ElementTypes.Sketch;
     setShowToolOptions(true);
@@ -1712,7 +1746,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             // Sketch/drawing handlers
             onSketchStart={() => { }}
             onSketchStep={() => { }}
-            onSketchEnd={handleSketchEnd}
+            onSketchEnd={handleSketchEndStable}
             sketchColor={isEraser ? '#00000000' : sketchColor}
             sketchStrokeWidth={isEraser ? 20 : sketchStrokeWidth}
 
@@ -1825,26 +1859,31 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
         {/* Toolbar Level 2 - Tool Options - Slides Over Canvas */}
         {showToolOptions && (
-          <Animated.View style={[
-            styles.toolOptionsPanel,
-            {
-              transform: [{ translateX: slideAnim }],
-            }
-          ]}>
-            {/* Close Button */}
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => {
-                // Save text before closing
-                if (currentEdited.textId) {
-                  handleTextEditEnd(currentEdited.textId);
-                  setCurrentEdited({});
-                }
-                setShowToolOptions(false);
-              }}
-            >
-              <MyIcon info={{ name: "close", size: 24, color: '#666', type: "MI" }} />
-            </TouchableOpacity>
+          <Animated.View
+            style={[
+              styles.toolOptionsPanel,
+              {
+                transform: [{ translateX: slideAnim }],
+              }
+            ]}
+            pointerEvents="box-none"
+          >
+            <View style={{ flex: 1, backgroundColor: '#fff' }} pointerEvents="auto">
+              {/* Close Button */}
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  console.log('[Close toolbar] Closing tool options');
+                  // Save text before closing
+                  if (currentEdited.textId) {
+                    handleTextEditEnd(currentEdited.textId);
+                    setCurrentEdited({});
+                  }
+                  setShowToolOptions(false);
+                }}
+              >
+                <MyIcon info={{ name: "close", size: 24, color: '#666', type: "MI" }} />
+              </TouchableOpacity>
 
             {!audioMode && currentElementType === ElementTypes.Sketch && (
               <>
@@ -1874,6 +1913,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                           !isEraser && sketchColor === color && styles.colorSwatchActive
                         ]}
                         onPress={() => {
+                          console.log('[Color change] Setting color to:', color);
                           setIsEraser(false);
                           setSketchColor(color);
                         }}
@@ -1890,7 +1930,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       <TouchableOpacity
                         key={size}
                         style={[styles.sizeButton, sketchStrokeWidth === size && styles.sizeButtonActive]}
-                        onPress={() => setSketchStrokeWidth(size)}
+                        onPress={() => {
+                          console.log('[Size change] Setting stroke width to:', size);
+                          setSketchStrokeWidth(size);
+                        }}
                       >
                         <Text style={[styles.sizeText, sketchStrokeWidth === size && styles.sizeTextActive]}>{size}</Text>
                       </TouchableOpacity>
@@ -2094,6 +2137,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 </TouchableOpacity>
               </View>
             )}
+            </View>
           </Animated.View>
         )}
       </View>
