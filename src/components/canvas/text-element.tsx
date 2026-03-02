@@ -140,7 +140,8 @@ function TextElement({
                 style={[styles.textInputHost, posStyle, { zIndex: 500 }, table && bgAnimatedStyle]}
                 {...(table ? {} : moveResponder.panHandlers)}
                 onStartShouldSetResponder={(e) => {
-                    moveContext.current = { type: MoveTypes.Text, id: text.id, offsetX: text.rtl ? -15 : 15, offsetY: -15 };
+                    // Edit mode uses offset-based movement (no initialPosition)
+                    moveContext.current = { type: MoveTypes.TextMove, id: text.id, offsetX: text.rtl ? -15 : 15, offsetY: -15 };
                     return moveResponder.panHandlers?.onStartShouldSetResponder?.(e) || false;
                 }}
             >
@@ -217,11 +218,11 @@ function TextElement({
         );
     };
 
-    // For emojis, render with move responder to make them draggable (but not in view mode)
+    // For emojis outside edit mode: render with selection support (but not in view mode)
+    // Movement is handled by sketchResponder in canvas.tsx
     if (text.isEmoji && !editMode && !isViewMode) {
         const isSelected = currentEmojiId === text.id;
         const rotationDegrees = text.rotation || 0;
-        console.log('TextElement [edit mode] - emoji:', text.id, 'rotation:', text.rotation, 'rotationDegrees:', rotationDegrees);
 
         return (
             <Animated.View
@@ -237,16 +238,7 @@ function TextElement({
                         backgroundColor: 'rgba(0, 122, 255, 0.1)',
                     }
                 ]}
-                {...moveResponder.panHandlers}
-                onStartShouldSetResponder={(e) => {
-                    moveContext.current = { type: MoveTypes.Text, id: text.id, offsetX: 15, offsetY: -15 };
-                    return moveResponder.panHandlers?.onStartShouldSetResponder?.(e) || false;
-                }}
             >
-                <AnimatedIcon
-                    style={[moveIconStyle, visibleAnimatedStyle]}
-                    info={{ type: "Ionicons", name: "move", size: 20, color: "blue" }}
-                />
                 <Text
                     allowFontScaling={false}
                     style={[

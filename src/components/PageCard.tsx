@@ -168,7 +168,6 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   return (
     <View style={styles.container} pointerEvents={isEditMode ? "auto" : "box-none"}>
       <View
-        ref={viewShotRef}
         style={[styles.pageContent]}
         pointerEvents={isEditMode ? "auto" : "box-none"}
       >
@@ -176,6 +175,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           pointerEvents="box-none"
           style={[styles.canvas]}
           ref={viewShotRef}
+          collapsable={false}
         >
           <Canvas
             ref={canvasRef}

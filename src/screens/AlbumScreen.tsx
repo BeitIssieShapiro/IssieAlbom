@@ -12,7 +12,7 @@ import Carousel from 'react-native-reanimated-carousel';
 import { Album, AlbumPage } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { PageService } from '../services/PageService';
-import { PageCard } from '../components/PageCard';
+import { PageCard, PageCardRef } from '../components/PageCard';
 import { PageEditorScreen } from './PageEditorScreen';
 import { MyIcon } from '../common/icons';
 
@@ -32,6 +32,12 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const carouselRef = useRef<any>(null);
   const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
 
+  // Thumbnail generation state
+  const [thumbnailPage, setThumbnailPage] = useState<AlbumPage | null>(null);
+  const [capturingThumbnail, setCapturingThumbnail] = useState(false);
+  const [readyToCapture, setReadyToCapture] = useState(false);
+  const thumbnailCardRef = useRef<PageCardRef>(null);
+
   // Track screen dimensions (updated on rotation)
   const [screenDimensions, setScreenDimensions] = useState(() => {
     const window = Dimensions.get('window');
@@ -49,6 +55,63 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       subscription?.remove();
     };
   }, []);
+
+  // useEffect: Load page for thumbnail capture
+  useEffect(() => {
+    if (!capturingThumbnail || !thumbnailPage) return;
+
+    const loadPageForThumbnail = async () => {
+      try {
+        console.log('[AlbumScreen] Page loaded for thumbnail, signaling ready to capture');
+        // Signal that page is rendered and ready to capture
+        // Small delay to ensure React has finished rendering
+        setTimeout(() => {
+          setReadyToCapture(true);
+        }, 100);
+      } catch (error) {
+        console.error('[AlbumScreen] Failed to prepare page for thumbnail:', error);
+        setCapturingThumbnail(false);
+        setThumbnailPage(null);
+      }
+    };
+
+    loadPageForThumbnail();
+  }, [capturingThumbnail, thumbnailPage]);
+
+  // useEffect: Capture thumbnail when ready
+  useEffect(() => {
+    if (!readyToCapture) return;
+
+    const captureThumbnail = async () => {
+      try {
+        if (thumbnailCardRef.current) {
+          console.log('[AlbumScreen] Capturing thumbnail screenshot...');
+          const screenshotUri = await thumbnailCardRef.current.captureScreenshot();
+          console.log('[AlbumScreen] Screenshot captured:', screenshotUri);
+          await AlbumService.generateThumbnail(album.id, screenshotUri);
+          console.log('[AlbumScreen] Thumbnail saved successfully');
+        } else {
+          console.warn('[AlbumScreen] thumbnailCardRef is null, skipping capture');
+        }
+      } catch (error) {
+        console.error('[AlbumScreen] Failed to generate thumbnail:', error);
+        // Don't show error to user - thumbnail generation is non-critical
+      } finally {
+        setReadyToCapture(false);
+        setCapturingThumbnail(false);
+        setThumbnailPage(null);
+      }
+    };
+
+    captureThumbnail();
+  }, [readyToCapture, album.id]);
+
+  // Trigger thumbnail generation
+  const generateThumbnail = (page: AlbumPage) => {
+    console.log('[AlbumScreen] Starting thumbnail generation for page:', page.pageNumber);
+    setThumbnailPage(page);
+    setCapturingThumbnail(true);
+  };
 
   const loadPages = useCallback(async () => {
     try {
@@ -97,6 +160,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handleEditorSave = async (updatedPage: AlbumPage, shouldExit: boolean = false) => {
+    const wasFirstPage = updatedPage.pageNumber === 1;
+
     try {
       await PageService.updatePage(album.id, updatedPage);
       await loadPages();
@@ -104,9 +169,17 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       console.error('Failed to save page:', error);
       Alert.alert('שגיאה', 'שמירת העמוד נכשלה');
     }
+
     // Only exit edit mode if explicitly requested
     if (shouldExit) {
       setEditingPage(null);
+
+      // If we saved the first page and are exiting, generate thumbnail asynchronously
+      if (wasFirstPage) {
+        console.log('[AlbumScreen] First page saved, will generate thumbnail');
+        // Don't await - let it happen in the background
+        generateThumbnail(updatedPage);
+      }
     }
   };
 
@@ -162,6 +235,32 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     );
   };
 
+  const handleDeletePageFromEditor = async () => {
+    if (!editingPage) return;
+
+    try {
+      const currentPageIndex = pages.findIndex(p => p.id === editingPage.id);
+      await PageService.deletePage(album.id, editingPage.id);
+      const refreshedPages = await PageService.getPages(album.id);
+
+      // Stay in edit mode - navigate to another page
+      if (refreshedPages.length > 0) {
+        // Try to stay at the same index, or go to previous if we deleted the last page
+        const newIndex = Math.min(currentPageIndex, refreshedPages.length - 1);
+        setEditingPage(refreshedPages[newIndex]);
+      } else {
+        // No pages left, exit edit mode
+        setEditingPage(null);
+      }
+
+      // Update pages state
+      await loadPages();
+    } catch (error) {
+      console.error('Failed to delete page:', error);
+      Alert.alert('שגיאה', 'מחיקת העמוד נכשלה');
+    }
+  };
+
   const handleToggleEditMode = () => {
     if (!isEditMode) {
       // Entering edit mode - open the current page in editor
@@ -186,6 +285,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         pages={pages}
         onNavigatePage={handleNavigatePage}
         onCreatePage={handleCreatePageFromEditor}
+        onDeletePage={handleDeletePageFromEditor}
       />
     );
   }
@@ -270,6 +370,20 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       ) : (
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>אין עמודים באלבום</Text>
+        </View>
+      )}
+
+      {/* Off-screen PageCard for thumbnail generation */}
+      {capturingThumbnail && thumbnailPage && (
+        <View style={{ position: 'absolute', left: -10000, top: -10000 }}>
+          <PageCard
+            ref={thumbnailCardRef}
+            page={thumbnailPage}
+            albumId={album.id}
+            isEditMode={false}
+            onPress={() => {}}
+            autoPlayAudio={false}
+          />
         </View>
       )}
     </View>

@@ -31,6 +31,7 @@ import {
 import {
     CurrentEdited,
     ElementBase,
+    ElementType2MoveType,
     ElementTypes,
     MoveContext,
     MoveTypes,
@@ -257,6 +258,7 @@ function Canvas({
     const startSketchRef = useRef<{
         position: SketchPoint;
         elem?: ElementBase | TableContext;
+        elemType?: ElementTypes;
         initialPosition?: SketchPoint;
         initialOffset?: Offset;
         pinch?: PinchSession;
@@ -424,26 +426,28 @@ function Canvas({
                 return !isTouchOnInteractive(e.nativeEvent.pageX, e.nativeEvent.pageY);
             },
             onPanResponderGrant: (e, gState) => {
+                console.log("canvas onPanResponderGrant")
                 const clickPoint = screen2Canvas(gState.x0, gState.y0);
                 startSketchRef.current = { position: clickPoint, initialOffset: offsetRef.current };
 
-                if (currentElementTypeRef.current !== ElementTypes.Sketch) {
-                    const elem = searchElement(...clickPoint);
-                    if (elem) {
-                        startSketchRef.current.elem = elem;
-                        if ("x" in elem && "y" in elem) {
-                            // not line
-                            startSketchRef.current.initialPosition = [elem.x, elem.y];
-                        } else if ("from" in elem) {
-                            startSketchRef.current.initialPosition = elem.from;
-                        }
+                const elemRes = searchElement(...clickPoint, true);
+                if (elemRes) {
+                    console.log("elem found")
+                    const elem = elemRes.elem
+                    startSketchRef.current.elem = elem;
+                    startSketchRef.current.elemType = elemRes.type;
+                    if ("x" in elem && "y" in elem) {
+                        // not line
+                        console.log("not line start pan")
+                        startSketchRef.current.initialPosition = [elem.x, elem.y];
+                    } else if ("from" in elem) {
+                        startSketchRef.current.initialPosition = elem.from;
                     }
-                    if (!elem && (
-                        currentElementTypeRef.current === ElementTypes.Table || currentElementTypeRef.current === ElementTypes.Text)) {
-                        const tableContext = searchTable(...clickPoint, currentElementTypeRef.current === ElementTypes.Text);
-                        if (tableContext) {
-                            startSketchRef.current = { ...startSketchRef.current, initialPosition: tableContext.initialPosition, elem: tableContext };
-                        }
+                } else if (currentElementTypeRef.current !== ElementTypes.Sketch && (
+                    currentElementTypeRef.current === ElementTypes.Table || currentElementTypeRef.current === ElementTypes.Text)) {
+                    const tableContext = searchTable(...clickPoint, currentElementTypeRef.current === ElementTypes.Text);
+                    if (tableContext) {
+                        startSketchRef.current = { ...startSketchRef.current, initialPosition: tableContext.initialPosition, elem: tableContext };
                     }
                 }
             },
@@ -525,17 +529,20 @@ function Canvas({
                         const dx = gState.dx / (zoomRef.current * ratioRef.current);
                         const dy = gState.dy / (zoomRef.current * ratioRef.current);
 
-                        const { initialPosition, elem, initialOffset } = startSketchRef.current;
-                        if (initialPosition && elem && currentElementTypeRef.current != ElementTypes.Text) {
+                        const { initialPosition, elem, initialOffset, elemType } = startSketchRef.current;
+                        if (initialPosition && elem) {
                             const pt: SketchPoint = [initialPosition[0] + dx, initialPosition[1] + dy];
                             if ("id" in elem) {
                                 isMoving.current = true;
                                 if (moveContext.current == null) {
-                                    moveContext.current = { type: MoveTypes.ImageMove, id: elem.id, offsetX: 0, offsetY: 0 };
+                                    moveContext.current = {
+                                        type: (ElementType2MoveType(elemType) || ElementTypes.Image) as MoveTypes,
+                                        id: elem.id, offsetX: 0, offsetY: 0
+                                    };
                                 }
                                 moveContext.current.lastPt = pt;
                                 onMoveElement(
-                                    currentElementTypeRef.current == ElementTypes.Line ? MoveTypes.LineMove : MoveTypes.ImageMove,
+                                    (ElementType2MoveType(elemType) || ElementTypes.Image) as MoveTypes,
                                     elem.id,
                                     pt);
                             } else {
@@ -579,6 +586,7 @@ function Canvas({
                     return;
                 }
                 const elem = startSketchRef.current?.elem;
+                const elemType = startSketchRef.current?.elemType;
 
                 if (!elem && currentElementTypeRef.current === ElementTypes.Sketch) {
                     const commands = toCmds(lastPathSV.value, ratioRef.current);
@@ -597,7 +605,7 @@ function Canvas({
                 } else if (elem) {
                     if ("id" in elem) {
                         onMoveEnd(
-                            currentElementTypeRef.current == ElementTypes.Line ? MoveTypes.LineMove : MoveTypes.ImageMove,
+                            (ElementType2MoveType(elemType) || ElementTypes.Image) as MoveTypes,
                             (elem as ElementBase).id);
                         isMoving.current = false;
                         moveContext.current = null;
@@ -714,21 +722,29 @@ function Canvas({
         return undefined;
     }, []);
 
-    const searchElement = useCallback((cx: number, cy: number) => {
-        if (currentElementTypeRef.current === ElementTypes.Text) {
+    const searchElement = useCallback((cx: number, cy: number, ignoreType: boolean) => {
+        if (currentElementTypeRef.current === ElementTypes.Text || ignoreType) {
             //console.log("searchElement txt",textsRef.current)
-            return textsRef.current?.find(t => !t.tableId && inBox(t, cx, cy, TEXT_SEARCH_MARGIN));
+            const elem = textsRef.current?.find(t => !t.tableId && inBox(t, cx, cy, TEXT_SEARCH_MARGIN));
+            if (!ignoreType || elem) {
+                return elem && { type: ElementTypes.Text, elem };
+            }
         }
-        if (currentElementTypeRef.current === ElementTypes.Image) {
+        if (currentElementTypeRef.current === ElementTypes.Image || ignoreType) {
             //return imagesRef.current?.find(t => inBox(t, cx, cy, TEXT_SEARCH_MARGIN));
-            return findLast(imagesRef.current, t => inBox(t, cx, cy, TEXT_SEARCH_MARGIN));
+            const elem = findLast(imagesRef.current, t => inBox(t, cx, cy, TEXT_SEARCH_MARGIN));
+            if (!ignoreType || elem) {
+                return elem && { type: ElementTypes.Image, elem };
+            }
+
         }
-        if (currentElementTypeRef.current === ElementTypes.Line) {
+        if (currentElementTypeRef.current === ElementTypes.Line || ignoreType) {
             const THRESHOLD = 10; // how close to the line is acceptable?
 
-            return linesRef.current?.find((line) =>
+            const elem = linesRef.current?.find((line) =>
                 isPointOnLineSegment(line.from, line.to, cx, cy, THRESHOLD)
             );
+            return elem && { type: ElementTypes.Line, elem };
         }
     }, []);
 
@@ -1182,7 +1198,7 @@ function Canvas({
                 {/* General Elements */}
                 {elements?.map(elem => {
                     return <View key={elem.id} style={[styles.elementStyle, { left: elem.x * ratio, top: elem.y * ratio }]}
-                    onMoveShouldSetResponder={(e) => {
+                        onMoveShouldSetResponder={(e) => {
                             const { pageX, pageY } = e.nativeEvent;
                             if (!elemMoveStart.current) {
                                 elemMoveStart.current = { x: pageX, y: pageY };

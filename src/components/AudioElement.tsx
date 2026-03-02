@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, PermissionsAndroid, Alert } from 'react-native';
 import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
@@ -32,6 +32,15 @@ export function AudioElement({
   const [playing, setPlaying] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const isMountedRef = useRef(true);
+
+  // Track mounted state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Auto-play effect
   useEffect(() => {
@@ -156,6 +165,9 @@ export function AudioElement({
         if (e.currentPosition >= e.duration && e.duration > 0) {
           setPlaying(false);
           setCurrentWordIndex(-1);
+          if (isMountedRef.current && onWordChange) {
+            onWordChange(-1); // Clear highlights when playback ends
+          }
           Sound.stopPlayer().catch(console.error);
         }
       });
@@ -173,6 +185,9 @@ export function AudioElement({
       Sound.removePlayBackListener();
       setPlaying(false);
       setCurrentWordIndex(-1);
+      if (isMountedRef.current && onWordChange) {
+        onWordChange(-1); // Clear highlights when manually stopped
+      }
       console.log('Playback stopped');
     } catch (error) {
       console.error('Failed to stop playback:', error);

@@ -91,15 +91,21 @@ export interface SketchElementAttributes {
 }
 
 export enum MoveTypes {
-    Text = "text",
     LineStart = "line-start",
     LineEnd = "line-end",
-    LineMove = "line=move",
+    LineMove = "line-move",
+    TextMove = "text-move",
     ImageMove = "image-move",
     ImageResize = "image-resize",
     TableResize = "table-resize",
     TableMove = "table-move",
     ElementMove = "elem-move",
+}
+
+export const ElementType2MoveType = (t: ElementTypes | undefined): MoveTypes | undefined => {
+    if (t == ElementTypes.Line) return MoveTypes.LineMove;
+    if (t == ElementTypes.Text) return MoveTypes.TextMove;
+    if (t == ElementTypes.Image) return MoveTypes.ImageMove;
 }
 
 export interface MoveContext {

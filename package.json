@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-community/slider": "^5.1.2",
     "@react-native-vector-icons/ant-design": "^12.3.0",
     "@react-native-vector-icons/fontawesome6": "^12.2.0",
     "@react-native-vector-icons/ionicons": "^12.3.0",

@@ -1,5 +1,6 @@
 import { PathCommand } from '@shopify/react-native-skia';
 import { ImageURISource } from 'react-native';
+import { MoveTypes } from '../components/canvas/types';
 
 export interface Album {
   id: string;
@@ -41,6 +42,8 @@ export enum ElementTypes {
   Audio = 'audio',
   Table = 'table',
   Element = 'element',
+  Emoji = 'emoji',
+  Background = 'background',
 }
 
 export interface ElementBase {
@@ -139,18 +142,6 @@ export interface BackgroundPattern {
 
 export interface SketchElementAttributes {
   showDelete: boolean;
-}
-
-export enum MoveTypes {
-  Text = 'text',
-  LineStart = 'line-start',
-  LineEnd = 'line-end',
-  LineMove = 'line-move',
-  ImageMove = 'image-move',
-  ImageResize = 'image-resize',
-  TableResize = 'table-resize',
-  TableMove = 'table-move',
-  ElementMove = 'elem-move',
 }
 
 export interface MoveContext {

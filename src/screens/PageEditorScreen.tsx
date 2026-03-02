@@ -11,24 +11,26 @@ import {
   Platform,
   PermissionsAndroid,
   Alert,
-  PanResponder,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PathCommand } from '@shopify/react-native-skia';
+import { Canvas, Rect, Path } from '@shopify/react-native-skia';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Sound from 'react-native-nitro-sound';
 import EmojiPicker from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern } from '../types/Album';
-import { SketchElement, SketchElementAttributes } from '../components/canvas/types';
+import { SketchElement, SketchElementAttributes, MoveTypes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
-import Canvas from '../components/canvas/canvas';
+import CanvasComponent from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
 import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
 import { BackgroundSettingsModal } from '../components/BackgroundSettingsModal';
 import { CameraModal } from '../components/CameraModal';
-import { PageCard, PageCardRef } from '../components/PageCard';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
+import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGROUND_IMAGE_SOURCES, generatePatternPaths } from '../utils/backgroundPatterns';
 import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
@@ -37,81 +39,43 @@ import { MyIcon } from '../common/icons';
 const HEADER_HEIGHT = 60;
 const TOOLBAR_WIDTH = 90;
 
+import Slider from '@react-native-community/slider';
+
 // Rotation Slider Component
 interface RotationSliderProps {
-  value: number; // 0-360
+  value: number; // 0-360 (internal storage format)
   onChange: (value: number) => void;
   onRelease: () => void;
 }
 
 function RotationSlider({ value, onChange, onRelease }: RotationSliderProps) {
-  const sliderWidth = 250;
-  const knobSize = 40;
-  const trackHeight = 8;
-  const startValueRef = useRef(0);
-  const valueRef = useRef(value);
+  // Convert 0-360 to -180 to +180 for display (0 in middle)
+  const normalizeToDisplay = (deg: number) => {
+    // 0-180 stays as positive, 181-360 becomes -179 to -1
+    return deg > 180 ? deg - 360 : deg;
+  };
 
-  // Keep valueRef in sync with value prop
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
+  // Convert -180 to +180 back to 0-360 for storage
+  const normalizeToStorage = (deg: number) => {
+    return deg < 0 ? deg + 360 : deg;
+  };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => {
-        // Store the starting value when gesture begins
-        startValueRef.current = valueRef.current;
-        // Calculate position from touch
-        const touchX = e.nativeEvent.locationX;
-        const newValue = Math.max(0, Math.min(360, (touchX / sliderWidth) * 360));
-        onChange(newValue);
-      },
-      onPanResponderMove: (e, gestureState) => {
-        // Calculate position from starting value + gesture delta
-        const startPosition = (startValueRef.current / 360) * sliderWidth;
-        const position = startPosition + gestureState.dx;
-        const newValue = Math.max(0, Math.min(360, (position / sliderWidth) * 360));
-        onChange(newValue);
-      },
-      onPanResponderRelease: () => {
-        onRelease();
-      },
-    })
-  ).current;
-
-  const knobPosition = (value / 360) * (sliderWidth - knobSize);
+  const displayValue = normalizeToDisplay(value);
 
   return (
     <View style={styles.rotationSliderContainer}>
-      {/* Track */}
-      <View style={[styles.rotationTrack, { width: sliderWidth, height: trackHeight }]}>
-        {/* Filled portion */}
-        <View
-          style={[
-            styles.rotationTrackFilled,
-            { width: (value / 360) * sliderWidth, height: trackHeight },
-          ]}
-        />
-      </View>
-
-      {/* Knob */}
-      <View
-        style={[styles.rotationKnob, { left: knobPosition, width: knobSize, height: knobSize }]}
-        {...panResponder.panHandlers}
-      >
-        <MyIcon info={{ name: "rotate-3d-variant", size: 24, color: '#007AFF', type: "MDI" }} />
-      </View>
-
-      {/* Degree markers */}
-      <View style={[styles.rotationMarkers, { width: sliderWidth }]}>
-        <Text style={styles.markerText}>0°</Text>
-        <Text style={styles.markerText}>90°</Text>
-        <Text style={styles.markerText}>180°</Text>
-        <Text style={styles.markerText}>270°</Text>
-        <Text style={styles.markerText}>360°</Text>
-      </View>
+      <Slider
+        style={{ width: 200, height: 60 }}
+        minimumValue={-180}
+        maximumValue={180}
+        value={displayValue}
+        onValueChange={(val) => onChange(normalizeToStorage(Math.round(val)))}
+        onSlidingComplete={() => onRelease()}
+        minimumTrackTintColor="#007AFF"
+        maximumTrackTintColor="#E0E0E0"
+        thumbTintColor="#007AFF"
+        step={1}
+      />
     </View>
   );
 }
@@ -124,9 +88,10 @@ interface PageEditorScreenProps {
   pages?: AlbumPage[];
   onNavigatePage?: (pageId: string) => void;
   onCreatePage?: () => void;
+  onDeletePage?: () => void;
 }
 
-export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage }: PageEditorScreenProps) {
+export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage, onDeletePage }: PageEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const canvasRef = useRef<any>(null);
 
@@ -176,10 +141,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [loadingImagePicker, setLoadingImagePicker] = useState(false); // Track image picker loading
   const [showCameraModal, setShowCameraModal] = useState(false); // Track camera modal
 
-  // Thumbnail capture state
-  const [capturingThumbnail, setCapturingThumbnail] = useState(false);
-  const [thumbnailPage, setThumbnailPage] = useState<AlbumPageV2 | null>(null);
-  const thumbnailCardRef = useRef<PageCardRef>(null);
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
   const [currentEdited, setCurrentEdited] = useState<CurrentEdited>({});
@@ -357,9 +318,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   useEffect(() => {
     return () => {
       // Only cleanup if component is unmounting, not on every isRecording change
-      Sound.stopRecorder().catch(() => {}); // Ignore errors if no recorder
+      Sound.stopRecorder().catch(() => { }); // Ignore errors if no recorder
       Sound.removeRecordBackListener();
-      Sound.stopPlayer().catch(() => {}); // Ignore errors if no player
+      Sound.stopPlayer().catch(() => { }); // Ignore errors if no player
       Sound.removePlayBackListener();
     };
   }, []); // Empty deps - only run on mount/unmount
@@ -386,7 +347,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const PEN_SIZES = [2, 3, 5, 8];
   const TITLE_TEXT_SIZES = [28, 36, 48, 64];
   const BODY_TEXT_SIZES = [16, 20, 24, 28];
-  const EMOJI_PRESET_SIZES = [50, 75, 100]; // Preset emoji sizes
+  const EMOJI_PRESET_SIZES = [70, 100, 130]; // Preset emoji sizes (S/M/L)
   const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
   const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
 
@@ -420,11 +381,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const canvasWidth = pageWidth * ratio;
   const canvasHeight = pageHeight * ratio;
 
-  // Calculate side margin to center horizontally
-  const sideMargin = (availableWidth - canvasWidth) / 2;
+  // Calculate canvas positioning
+  const CANVAS_CONTAINER_PADDING = 12; // From canvasContainer style
 
-  // Calculate canvas top position
-  const canvasTop = HEADER_HEIGHT + insets.top;
+
+
+  // Absolute sideMargin for screen2Canvas calculation:
+  // TOOLBAR_WIDTH + container padding + canvas marginLeft
+  const sideMargin =  CANVAS_CONTAINER_PADDING;
+
+  // Canvas top position: header + safe area + container padding
+  const canvasTop = HEADER_HEIGHT + insets.top + CANVAS_CONTAINER_PADDING;
 
   // console.log('Render calculations:', {
   //   screenWidth: SCREEN_WIDTH,
@@ -557,56 +524,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       canvasHeight: pageHeight,
     };
 
-    // Generate thumbnail BEFORE navigating away (if needed)
-    if (page.pageNumber === 1) {
-      console.log('[PageEditorScreen] This is first page, checking if thumbnail needed...');
-
-      // Check if thumbnail exists
-      const metadata = await AlbumService.getAlbumMetadata(albumId);
-      const hasThumbnail = !!metadata.thumbnailPath;
-      console.log('[PageEditorScreen] hasThumbnail:', hasThumbnail);
-
-      const shouldGenerateThumbnail = pageModifiedRef.current || !hasThumbnail;
-      console.log('[PageEditorScreen] shouldGenerateThumbnail:', shouldGenerateThumbnail);
-
-      if (shouldGenerateThumbnail) {
-        console.log('[PageEditorScreen] Generating thumbnail BEFORE navigation...');
-        setThumbnailPage(savedPage);
-        setCapturingThumbnail(true);
-
-        // Wait for PageCard to render and capture
-        await new Promise<void>((resolve) => {
-          setTimeout(async () => {
-            console.log('[PageEditorScreen] Timeout finished, starting capture...');
-            try {
-              if (thumbnailCardRef.current) {
-                console.log('[PageEditorScreen] Calling captureScreenshot...');
-                const screenshotUri = await thumbnailCardRef.current.captureScreenshot();
-                console.log('[PageEditorScreen] Screenshot captured:', screenshotUri);
-                await AlbumService.generateThumbnail(albumId, screenshotUri);
-                console.log('[PageEditorScreen] Thumbnail generated successfully');
-              } else {
-                console.log('[PageEditorScreen] ERROR: thumbnailCardRef is null');
-              }
-            } catch (error) {
-              console.error('[PageEditorScreen] Failed to generate thumbnail:', error);
-            } finally {
-              console.log('[PageEditorScreen] Cleaning up thumbnail capture state');
-              setCapturingThumbnail(false);
-              setThumbnailPage(null);
-              pageModifiedRef.current = false;
-              resolve();
-            }
-          }, 500);
-        });
-      } else {
-        console.log('[PageEditorScreen] Skipping thumbnail - already exists and not modified');
-      }
-    } else {
-      console.log('[PageEditorScreen] Skipping thumbnail - not first page');
-    }
-
-    // Now save and exit
+    // Now save and exit (thumbnail will be generated by AlbumScreen)
     onSave(savedPage, true);
   };
 
@@ -676,6 +594,31 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     onSave(savedPage);
 
     onCreatePage();
+  };
+
+  const handleDeletePage = () => {
+    if (!onDeletePage) return;
+
+    // Show confirmation dialog
+    Alert.alert(
+      'מחיקת עמוד',
+      'האם אתה בטוח שברצונך למחוק את העמוד? פעולה זו לא ניתנת לביטול.',
+      [
+        {
+          text: 'ביטול',
+          style: 'cancel',
+        },
+        {
+          text: 'מחק',
+          style: 'destructive',
+          onPress: () => {
+            // Call the delete handler
+            onDeletePage();
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleUndo = () => {
@@ -1011,6 +954,22 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setAudioMode(false); // Exit audio mode
   };
 
+  const handleSetEmojiMode = () => {
+    // Save currently edited text before switching modes
+    if (currentEdited.textId) {
+      handleTextEditEnd(currentEdited.textId);
+      setCurrentEdited({});
+    }
+
+    setCurrentElementType(ElementTypes.Emoji);
+    currentElementTypeRef.current = ElementTypes.Emoji;
+    setShowToolOptions(true);
+    setAudioMode(false); // Exit audio mode
+
+    // Open emoji keyboard immediately
+    setShowEmojiKeyboard(true);
+  };
+
   const handleSetAudioMode = () => {
     // Save currently edited text before switching modes
     if (currentEdited.textId) {
@@ -1025,6 +984,19 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     // Clear current element type so no other tool appears active
     setCurrentElementType(ElementTypes.Text); // Use Text as neutral since it won't show options in audio mode
     currentElementTypeRef.current = ElementTypes.Text;
+  };
+
+  const handleSetBackgroundMode = () => {
+    // Save currently edited text before switching modes
+    if (currentEdited.textId) {
+      handleTextEditEnd(currentEdited.textId);
+      setCurrentEdited({});
+    }
+
+    setCurrentElementType(ElementTypes.Background);
+    currentElementTypeRef.current = ElementTypes.Background;
+    setShowToolOptions(true);
+    setAudioMode(false); // Exit audio mode
   };
 
   const checkAudioPermissions = async () => {
@@ -1290,6 +1262,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       x: canvasWidth / 2 - 30, // Center horizontally
       y: canvasHeight / 2 - 30, // Center vertically
       isEmoji: true, // Mark as emoji for special handling
+      width: emojiSize * 1.2, // Set width for hit detection (emojis are ~1.2x fontSize)
+      height: emojiSize * 1.2, // Set height for hit detection
     };
 
     // Add to queue
@@ -1308,6 +1282,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleEmojiClick = (emojiId: string) => {
+    // Switch to emoji mode when clicking an emoji
+    setCurrentElementType(ElementTypes.Emoji);
+    currentElementTypeRef.current = ElementTypes.Emoji;
+    setShowToolOptions(true);
+    setAudioMode(false);
+
     // Toggle selection - use ref to avoid stale closure
     if (currentEmojiIdRef.current === emojiId) {
       setCurrentEmojiId(null);
@@ -1373,7 +1353,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const emoji = textsRef.current.find(t => t.id === currentId);
     if (!emoji) return;
 
-    const updatedEmoji = { ...emoji, fontSize: newSize };
+    const updatedEmoji = {
+      ...emoji,
+      fontSize: newSize,
+      width: newSize * 1.2, // Update width for hit detection
+      height: newSize * 1.2, // Update height for hit detection
+    };
 
     queue.current.pushText(updatedEmoji);
     rebuildStateFromQueue();
@@ -1506,11 +1491,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const currentImages = imagesRef.current;
     console.log('handleMoveElement:', { type, id, p, imagesCount: currentImages.length });
 
-    // For text elements, always accumulate in editing changes (even if not currently focused)
-    if (type === 'text') {
+    // For text elements, always accumulate in editingTextChanges and update ref
+    if (type === MoveTypes.TextMove) {
       console.log('Moving text, accumulating in editingTextChanges');
-      setEditingTextChanges(prev => prev?.id === id ? { ...prev, x: p[0], y: p[1] } : { id, x: p[0], y: p[1] });
-    } else if (type === 'image-move' || type === 'image-resize') {
+      const newChanges = { id, x: p[0], y: p[1] };
+      setEditingTextChanges(prev => prev?.id === id ? { ...prev, ...newChanges } : newChanges);
+      editingTextChangesRef.current = newChanges; // Update ref immediately for handleMoveEnd
+    } else if (type === MoveTypes.ImageMove || type === MoveTypes.ImageResize) {
       // For images, track move/resize separately
       console.log('Moving/resizing image, using movingElement, images:', currentImages.map(i => ({ id: i.id, x: i.x, y: i.y })));
 
@@ -1530,7 +1517,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
 
       let moveData;
-      if (type === 'image-resize') {
+      if (type === MoveTypes.ImageResize) {
         // For resize, p contains the new bottom-right corner
         const width = p[0] - baseImage.x;
         const height = p[1] - baseImage.y;
@@ -1543,7 +1530,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setMovingElement(moveData);
       movingElementRef.current = moveData; // Set ref immediately to avoid timing issues
       console.log('movingElementRef.current after set:', movingElementRef.current);
-    } else if (type === 'elem-move') {
+    } else if (type === MoveTypes.ElementMove) {
       // For audio elements (generic elements)
       console.log('Moving audio element');
       const audio = audios.find(a => a.id === id);
@@ -1553,36 +1540,37 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
   };
 
-  const handleMoveEnd = async (type: any, id: string) => {
+  const handleMoveEnd = async (type: MoveTypes, id: string) => {
     const movingElem = movingElementRef.current;
     console.log('handleMoveEnd:', { type, id, movingElement: movingElem, displayImagesCount: displayImages.length, displayImages: displayImages.map(i => ({ id: i.id, x: i.x, y: i.y })) });
 
-    // For text, check if it's an emoji first
-    if (type === 'text') {
-      const textElem = displayTexts.find(t => t.id === id);
+    // For text, save the position from editingTextChanges (use ref to avoid stale closure)
+    if (type === MoveTypes.TextMove) {
+      const textChanges = editingTextChangesRef.current;
+      console.log('Text moved, saving from editingTextChanges:', textChanges);
 
-      // For emojis, save immediately like images
-      if (textElem?.isEmoji && editingTextChanges?.id === id) {
-        console.log('Emoji moved, saving immediately');
-        const emojiToSave = { ...textElem, ...editingTextChanges };
-        queue.current.pushText(emojiToSave);
-        setEditingTextChanges(null);
-        rebuildStateFromQueue();
-        await autoSave();
-        return;
+      if (textChanges && textChanges.id === id) {
+        const currentTexts = textsRef.current;
+        const textElem = currentTexts.find(t => t.id === id);
+        if (textElem) {
+          console.log('Saving text position:', textChanges.x, textChanges.y);
+          queue.current.pushText({
+            ...textElem,
+            x: textChanges.x,
+            y: textChanges.y
+          });
+          rebuildStateFromQueue();
+          await autoSave();
+        }
       }
 
-      // For regular text, don't save - just mark it as needing to be edited/saved
-      console.log('Text moved, changes will be saved when explicitly committed');
-      // If not currently being edited, mark it as edited so changes are visible
-      if (!currentEdited.textId) {
-        setCurrentEdited({ textId: id });
-      }
+      // Clear editingTextChanges after saving
+      setEditingTextChanges(null);
       return;
     }
 
     // For images, save only position/size (lightweight) after move/resize
-    if (type === 'image-move' || type === 'image-resize') {
+    if (type === MoveTypes.ImageMove || type === MoveTypes.ImageResize) {
       // Use movingElementRef if it matches, otherwise fall back to finding in displayImages
       let positionData;
 
@@ -1629,7 +1617,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited(newCurrentEdited);
       currentEditedRef.current = newCurrentEdited; // Update ref immediately too
       console.log('Set currentEdited after move:', newCurrentEdited);
-    } else if (type === 'elem-move') {
+    } else if (type === MoveTypes.ElementMove) {
       // For audio elements
       const audio = audios.find(a => a.id === id);
       if (audio && !audio.editMode) {
@@ -1681,20 +1669,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Off-screen thumbnail capture component */}
-      {capturingThumbnail && thumbnailPage && (
-        <View style={{ position: 'absolute', left: -10000, top: -10000 }}>
-          <PageCard
-            ref={thumbnailCardRef}
-            page={thumbnailPage}
-            albumId={albumId}
-            isEditMode={false}
-            onPress={() => {}}
-            autoPlayAudio={false}
-          />
-        </View>
-      )}
-
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.doneButton} onPress={handleBack} accessibilityLabel="סיום עריכה">
@@ -1752,60 +1726,60 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             return null;
           })()}
           <View style={styles.canvas}>
-            <Canvas
+            <CanvasComponent
               ref={canvasRef}
               style={{
-                marginLeft: sideMargin,
                 width: canvasWidth,
                 height: canvasHeight,
               }}
               offset={canvasOffsetRef.current}
-            canvasWidth={canvasWidth}
-            canvasHeight={canvasHeight}
-            ratio={ratio}
-            canvasTop={canvasTop}
-            zoom={1}
-            onZoom={() => { }} // Lock zoom - prevents pinch gesture
-            onMoveCanvas={() => { }} // Lock canvas position - prevents pan
-            sideMargin={sideMargin}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              ratio={ratio}
+              canvasTop={canvasTop}
 
-            // Element arrays
-            paths={paths}
-            texts={displayTexts}
-            images={displayImages}
-            lines={[]} // Not using lines
-            tables={[]} // Not using tables
-            elements={audios}
-            renderElements={handleRenderElements}
-            elementsAttr={handleElementsAttr}
+              zoom={1}
+              onZoom={() => { }} // Lock zoom - prevents pinch gesture
+              onMoveCanvas={() => { }} // Lock canvas position - prevents pan
+              sideMargin={sideMargin}
 
-            currentEdited={currentEdited}
-            onTextChanged={handleTextChanged}
+              // Element arrays
+              paths={paths}
+              texts={displayTexts}
+              images={displayImages}
+              lines={[]} // Not using lines
+              tables={[]} // Not using tables
+              elements={audios}
+              renderElements={handleRenderElements}
+              elementsAttr={handleElementsAttr}
 
-            // Sketch/drawing handlers
-            onSketchStart={() => { }}
-            onSketchStep={() => { }}
-            onSketchEnd={handleSketchEndStable}
-            sketchColor={isEraser ? '#00000000' : sketchColor}
-            sketchStrokeWidth={isEraser ? 20 : sketchStrokeWidth}
+              currentEdited={currentEdited}
+              onTextChanged={handleTextChanged}
 
-            // Click and move handlers
-            onCanvasClick={handleCanvasClick}
-            onMoveElement={handleMoveElement}
-            onMoveEnd={handleMoveEnd}
-            onDeleteElement={handleDeleteElement}
+              // Sketch/drawing handlers
+              onSketchStart={() => { }}
+              onSketchStep={() => { }}
+              onSketchEnd={handleSketchEndStable}
+              sketchColor={isEraser ? '#00000000' : sketchColor}
+              sketchStrokeWidth={isEraser ? 20 : sketchStrokeWidth}
 
-            // Background
-            imageSource={backgroundImage}
-            background={page.backgroundPath ? 0 : undefined}
-            backgroundPattern={backgroundPattern}
+              // Click and move handlers
+              onCanvasClick={handleCanvasClick}
+              onMoveElement={handleMoveElement}
+              onMoveEnd={handleMoveEnd}
+              onDeleteElement={handleDeleteElement}
 
-            currentElementType={currentElementType}
+              // Background
+              imageSource={backgroundImage}
+              background={page.backgroundPath ? 0 : undefined}
+              backgroundPattern={backgroundPattern}
 
-            // Emoji selection
-            currentEmojiId={currentEmojiId}
-            onEmojiClick={handleEmojiClick}
-          />
+              currentElementType={currentElementType}
+
+              // Emoji selection
+              currentEmojiId={currentEmojiId}
+              onEmojiClick={handleEmojiClick}
+            />
           </View>
 
           {/* Page Audio Indicator - render to the left of title text */}
@@ -1866,20 +1840,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.mainToolButton}
-            onPress={() => {
-              console.log('Background button pressed');
-              setShowBackgroundModal(true);
-            }}
+            style={[styles.mainToolButton, currentElementType === ElementTypes.Background && styles.mainToolButtonActive]}
+            onPress={handleSetBackgroundMode}
           >
-            <MyIcon info={{ name: "format-color-fill", size: 42, color: '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "format-color-fill", size: 42, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.mainToolButton}
-            onPress={handleOpenEmojiKeyboard}
+            style={[styles.mainToolButton, currentElementType === ElementTypes.Emoji && styles.mainToolButtonActive]}
+            onPress={handleSetEmojiMode}
           >
-            <MyIcon info={{ name: "emoticon-happy-outline", size: 42, color: '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "emoticon-happy-outline", size: 42, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           {/* Spacer to push new page button to bottom */}
@@ -1893,6 +1864,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               accessibilityLabel="עמוד חדש"
             >
               <MyIcon info={{ name: "plus", size: 36, color: '#007AFF', type: "MDI" }} />
+            </TouchableOpacity>
+          )}
+
+          {/* Delete Page Button */}
+          {onDeletePage && pages && pages.length > 1 && (
+            <TouchableOpacity
+              style={styles.deletePageButton}
+              onPress={handleDeletePage}
+              accessibilityLabel="מחק עמוד"
+            >
+              <MyIcon info={{ name: "delete", size: 36, color: '#FF3B30', type: "MDI" }} />
             </TouchableOpacity>
           )}
         </View>
@@ -1925,258 +1907,395 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 <MyIcon info={{ name: "close", size: 24, color: '#666', type: "MI" }} />
               </TouchableOpacity>
 
-            {!audioMode && currentElementType === ElementTypes.Sketch && (
-              <>
-                {/* Color Picker with Eraser */}
-                <View style={styles.optionsSection}>
-                  <Text style={styles.sectionLabel}>צבע</Text>
-                  <View style={styles.colorGrid}>
-                    {/* Eraser as first color option */}
-                    <TouchableOpacity
-                      style={[
-                        styles.colorSwatch,
-                        styles.eraserSwatch,
-                        isEraser && styles.colorSwatchActive
-                      ]}
-                      onPress={() => setIsEraser(true)}
-                    >
-                      <MyIcon info={{ name: "eraser", size: 16, color: '#666', type: "MDI" }} />
-                    </TouchableOpacity>
-
-                    {/* Regular colors */}
-                    {COLORS.map(color => (
+              {!audioMode && currentElementType === ElementTypes.Sketch && (
+                <>
+                  {/* Color Picker with Eraser */}
+                  <View style={styles.optionsSection}>
+                    <Text style={styles.sectionLabel}>צבע</Text>
+                    <View style={styles.colorGrid}>
+                      {/* Eraser as first color option */}
                       <TouchableOpacity
-                        key={color}
                         style={[
                           styles.colorSwatch,
-                          { backgroundColor: color },
-                          !isEraser && sketchColor === color && styles.colorSwatchActive
+                          styles.eraserSwatch,
+                          isEraser && styles.colorSwatchActive
                         ]}
-                        onPress={() => {
-                          console.log('[Color change] Setting color to:', color);
-                          setIsEraser(false);
-                          setSketchColor(color);
-                        }}
-                      />
-                    ))}
-                  </View>
-                </View>
-
-                {/* Size Picker */}
-                <View style={styles.optionsSection}>
-                  <Text style={styles.sectionLabel}>עובי</Text>
-                  <View style={styles.sizeGrid}>
-                    {PEN_SIZES.map(size => (
-                      <TouchableOpacity
-                        key={size}
-                        style={[styles.sizeButton, sketchStrokeWidth === size && styles.sizeButtonActive]}
-                        onPress={() => {
-                          console.log('[Size change] Setting stroke width to:', size);
-                          setSketchStrokeWidth(size);
-                        }}
+                        onPress={() => setIsEraser(true)}
                       >
-                        <Text style={[styles.sizeText, sketchStrokeWidth === size && styles.sizeTextActive]}>{size}</Text>
+                        <MyIcon info={{ name: "eraser", size: 16, color: '#666', type: "MDI" }} />
                       </TouchableOpacity>
-                    ))}
+
+                      {/* Regular colors */}
+                      {COLORS.map(color => (
+                        <TouchableOpacity
+                          key={color}
+                          style={[
+                            styles.colorSwatch,
+                            { backgroundColor: color },
+                            !isEraser && sketchColor === color && styles.colorSwatchActive
+                          ]}
+                          onPress={() => {
+                            console.log('[Color change] Setting color to:', color);
+                            setIsEraser(false);
+                            setSketchColor(color);
+                          }}
+                        />
+                      ))}
+                    </View>
                   </View>
-                </View>
-              </>
-            )}
 
-            {!audioMode && currentElementType === ElementTypes.Text && (
-              <>
-                {/* Title/Body Buttons */}
-                <View style={styles.optionsSection}>
-                  <TouchableOpacity
-                    style={[styles.optionButton, textMode === 'title' && currentEdited.textId && styles.optionButtonActive]}
-                    onPress={handleEditTitle}
-                  >
-                    <MyIcon info={{ name: "format-header-1", size: 24, color: textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, textMode === 'title' && currentEdited.textId && styles.optionLabelActive]}>כותרת</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.optionButton, textMode === 'body' && currentEdited.textId && styles.optionButtonActive]}
-                    onPress={handleEditBody}
-                  >
-                    <MyIcon info={{ name: "format-text", size: 24, color: textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>גוף</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Color Picker - Only shown when editing */}
-                {currentEdited.textId && (
-                  <>
-                    <View style={styles.optionsSection}>
-                      <Text style={styles.sectionLabel}>צבע</Text>
-                      <View style={styles.colorGrid}>
-                        {COLORS.map(color => (
-                          <TouchableOpacity
-                            key={color}
-                            style={[styles.colorSwatch, { backgroundColor: color }, textColor === color && styles.colorSwatchActive]}
-                            onPress={() => {
-                              setTextColor(color);
-                              if (currentEdited.textId) {
-                                setEditingTextChanges(prev => prev ? { ...prev, color } : { id: currentEdited.textId!, color });
-                              }
-                            }}
-                          />
-                        ))}
-                      </View>
-                    </View>
-
-                    {/* Size Picker */}
-                    <View style={styles.optionsSection}>
-                      <Text style={styles.sectionLabel}>גודל</Text>
-                      <View style={styles.sizeGrid}>
-                        {(textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map(size => (
-                          <TouchableOpacity
-                            key={size}
-                            style={[styles.sizeButton, textSize === size && styles.sizeButtonActive]}
-                            onPress={() => {
-                              setTextSize(size);
-                              if (currentEdited.textId) {
-                                setEditingTextChanges(prev => prev ? { ...prev, fontSize: size } : { id: currentEdited.textId!, fontSize: size });
-                              }
-                            }}
-                          >
-                            <Text style={[styles.sizeText, textSize === size && styles.sizeTextActive]}>{size}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  </>
-                )}
-              </>
-            )}
-
-            {!audioMode && currentElementType === ElementTypes.Image && (
-              <View style={styles.optionsSection}>
-                <TouchableOpacity
-                  style={styles.optionButton}
-                  onPress={handleAddImage}
-                  disabled={loadingImagePicker}
-                >
-                  {loadingImagePicker ? (
-                    <ActivityIndicator size="small" color="#007AFF" />
-                  ) : (
-                    <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
-                  )}
-                  <Text style={styles.optionLabel}>מגלריה</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.optionButton}
-                  onPress={() => setShowCameraModal(true)}
-                >
-                  <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
-                  <Text style={styles.optionLabel}>מצלמה</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {audioMode && (
-              <View style={styles.optionsSection}>
-                <Text style={styles.sectionLabel}>הקלטה</Text>
-
-                <TouchableOpacity
-                  style={[styles.optionButton, isRecording && styles.optionButtonActive]}
-                  onPress={isRecording ? handleStopRecording : handleStartRecording}
-                >
-                  <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
-                  <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? 'עצור הקלטה' : 'התחל הקלטה'}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
-                  onPress={handlePlayAudio}
-                  disabled={!pageAudioFile}
-                >
-                  <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                  <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>השמע</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
-                  onPress={handleOpenWordMapping}
-                  disabled={!pageAudioFile}
-                >
-                  <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                  <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מיפוי מילים</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.optionButton, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
-                  onPress={handleClearPageAudio}
-                  disabled={!pageAudioFile}
-                >
-                  <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
-                  <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מחק הקלטה</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Emoji Options - shown when emoji is selected */}
-            {currentEmojiId && (
-              <View style={styles.optionsSection}>
-                <Text style={styles.sectionLabel}>גודל אימוג'י</Text>
-
-                {/* Size adjustment row: (-) presets (+) */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {/* Minus button */}
-                  <TouchableOpacity
-                    style={styles.adjustButton}
-                    onPress={() => handleEmojiAdjustSize(-EMOJI_SIZE_STEP)}
-                  >
-                    <MyIcon info={{ name: "minus", size: 20, color: '#007AFF', type: "MDI" }} />
-                  </TouchableOpacity>
-
-                  {/* Preset sizes */}
-                  <View style={styles.sizeGrid}>
-                    {EMOJI_PRESET_SIZES.map(size => {
-                      const currentEmoji = displayTexts.find(t => t.id === currentEmojiId);
-                      const isActive = currentEmoji?.fontSize === size;
-                      return (
+                  {/* Size Picker */}
+                  <View style={styles.optionsSection}>
+                    <Text style={styles.sectionLabel}>עובי</Text>
+                    <View style={styles.sizeGrid}>
+                      {PEN_SIZES.map(size => (
                         <TouchableOpacity
                           key={size}
-                          style={[styles.sizeButton, isActive && styles.sizeButtonActive]}
-                          onPress={() => handleEmojiResize(size)}
+                          style={[styles.sizeButton, sketchStrokeWidth === size && styles.sizeButtonActive]}
+                          onPress={() => {
+                            console.log('[Size change] Setting stroke width to:', size);
+                            setSketchStrokeWidth(size);
+                          }}
                         >
-                          <Text style={[styles.sizeText, isActive && styles.sizeTextActive]}>{size}</Text>
+                          <Text style={[styles.sizeText, sketchStrokeWidth === size && styles.sizeTextActive]}>{size}</Text>
                         </TouchableOpacity>
-                      );
-                    })}
+                      ))}
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {!audioMode && currentElementType === ElementTypes.Text && (
+                <>
+                  {/* Title/Body Buttons */}
+                  <View style={styles.optionsSection}>
+                    <TouchableOpacity
+                      style={[styles.optionButton, textMode === 'title' && currentEdited.textId && styles.optionButtonActive]}
+                      onPress={handleEditTitle}
+                    >
+                      <MyIcon info={{ name: "format-header-1", size: 24, color: textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, textMode === 'title' && currentEdited.textId && styles.optionLabelActive]}>כותרת</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.optionButton, textMode === 'body' && currentEdited.textId && styles.optionButtonActive]}
+                      onPress={handleEditBody}
+                    >
+                      <MyIcon info={{ name: "format-text", size: 24, color: textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>גוף</Text>
+                    </TouchableOpacity>
                   </View>
 
-                  {/* Plus button */}
+                  {/* Color Picker - Only shown when editing */}
+                  {currentEdited.textId && (
+                    <>
+                      <View style={styles.optionsSection}>
+                        <Text style={styles.sectionLabel}>צבע</Text>
+                        <View style={styles.colorGrid}>
+                          {COLORS.map(color => (
+                            <TouchableOpacity
+                              key={color}
+                              style={[styles.colorSwatch, { backgroundColor: color }, textColor === color && styles.colorSwatchActive]}
+                              onPress={() => {
+                                setTextColor(color);
+                                if (currentEdited.textId) {
+                                  setEditingTextChanges(prev => prev ? { ...prev, color } : { id: currentEdited.textId!, color });
+                                }
+                              }}
+                            />
+                          ))}
+                        </View>
+                      </View>
+
+                      {/* Size Picker */}
+                      <View style={styles.optionsSection}>
+                        <Text style={styles.sectionLabel}>גודל</Text>
+                        <View style={styles.sizeGrid}>
+                          {(textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map(size => (
+                            <TouchableOpacity
+                              key={size}
+                              style={[styles.sizeButton, textSize === size && styles.sizeButtonActive]}
+                              onPress={() => {
+                                setTextSize(size);
+                                if (currentEdited.textId) {
+                                  setEditingTextChanges(prev => prev ? { ...prev, fontSize: size } : { id: currentEdited.textId!, fontSize: size });
+                                }
+                              }}
+                            >
+                              <Text style={[styles.sizeText, textSize === size && styles.sizeTextActive]}>{size}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+
+              {!audioMode && currentElementType === ElementTypes.Image && (
+                <View style={styles.optionsSection}>
                   <TouchableOpacity
-                    style={styles.adjustButton}
-                    onPress={() => handleEmojiAdjustSize(EMOJI_SIZE_STEP)}
+                    style={styles.optionButton}
+                    onPress={handleAddImage}
+                    disabled={loadingImagePicker}
                   >
-                    <MyIcon info={{ name: "plus", size: 20, color: '#007AFF', type: "MDI" }} />
+                    {loadingImagePicker ? (
+                      <ActivityIndicator size="small" color="#007AFF" />
+                    ) : (
+                      <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
+                    )}
+                    <Text style={styles.optionLabel}>מגלריה</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.optionButton}
+                    onPress={() => setShowCameraModal(true)}
+                  >
+                    <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
+                    <Text style={styles.optionLabel}>מצלמה</Text>
                   </TouchableOpacity>
                 </View>
+              )}
 
-                {/* Rotation Control */}
-                <View style={{ marginTop: 20 }}>
-                  <Text style={styles.sectionLabel}>סיבוב: {Math.round(emojiRotation ?? 0)}°</Text>
-                  <RotationSlider
-                    value={emojiRotation ?? 0}
-                    onChange={handleEmojiRotationChange}
-                    onRelease={handleEmojiRotationEnd}
-                  />
+              {audioMode && (
+                <View style={styles.optionsSection}>
+                  <Text style={styles.sectionLabel}>הקלטה</Text>
+
+                  <TouchableOpacity
+                    style={[styles.optionButton, isRecording && styles.optionButtonActive]}
+                    onPress={isRecording ? handleStopRecording : handleStartRecording}
+                  >
+                    <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
+                    <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? 'עצור הקלטה' : 'התחל הקלטה'}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
+                    onPress={handlePlayAudio}
+                    disabled={!pageAudioFile}
+                  >
+                    <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
+                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>השמע</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
+                    onPress={handleOpenWordMapping}
+                    disabled={!pageAudioFile}
+                  >
+                    <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
+                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מיפוי מילים</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.optionButton, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
+                    onPress={handleClearPageAudio}
+                    disabled={!pageAudioFile}
+                  >
+                    <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
+                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מחק הקלטה</Text>
+                  </TouchableOpacity>
                 </View>
+              )}
 
-                {/* Delete Button */}
-                <TouchableOpacity
-                  style={[styles.optionButton, styles.optionButtonDestructive]}
-                  onPress={handleEmojiDelete}
-                >
-                  <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
-                  <Text style={styles.optionLabel}>מחק אימוג'י</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              {/* Emoji Mode Options */}
+              {!audioMode && currentElementType === ElementTypes.Emoji && (
+                <>
+                  {/* Pick Emoji Button */}
+                  <View style={styles.optionsSection}>
+                    <TouchableOpacity
+                      style={styles.optionButton}
+                      onPress={handleOpenEmojiKeyboard}
+                    >
+                      <MyIcon info={{ name: "emoticon-happy-outline", size: 24, color: '#007AFF', type: "MDI" }} />
+                      <Text style={styles.optionLabel}>בחר אימוג'י</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Emoji Options - shown when emoji is selected */}
+                  {currentEmojiId && (
+                    <>
+                      <View style={styles.optionsSection}>
+                        <Text style={styles.sectionLabel}>גודל אימוג'י</Text>
+
+                        {/* Size adjustment row: (-) presets (+) */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          {/* Minus button */}
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => handleEmojiAdjustSize(-EMOJI_SIZE_STEP)}
+                          >
+                            <MyIcon info={{ name: "minus", size: 20, color: '#007AFF', type: "MDI" }} />
+                          </TouchableOpacity>
+
+                          {/* Preset sizes */}
+                          <View style={styles.sizeGrid}>
+                            {EMOJI_PRESET_SIZES.map((size, index) => {
+                              const currentEmoji = displayTexts.find(t => t.id === currentEmojiId);
+                              const isActive = currentEmoji?.fontSize === size;
+                              const labels = ['S', 'M', 'L'];
+                              return (
+                                <TouchableOpacity
+                                  key={size}
+                                  style={[styles.sizeButton, isActive && styles.sizeButtonActive]}
+                                  onPress={() => handleEmojiResize(size)}
+                                >
+                                  <Text style={[styles.sizeText, isActive && styles.sizeTextActive]}>{labels[index]}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+
+                          {/* Plus button */}
+                          <TouchableOpacity
+                            style={styles.adjustButton}
+                            onPress={() => handleEmojiAdjustSize(EMOJI_SIZE_STEP)}
+                          >
+                            <MyIcon info={{ name: "plus", size: 20, color: '#007AFF', type: "MDI" }} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Rotation Control */}
+                      <View style={styles.optionsSection}>
+                        <Text style={styles.sectionLabel}>
+                          סיבוב: {(() => {
+                            const deg = Math.round(emojiRotation ?? 0);
+                            const display = deg > 180 ? deg - 360 : deg;
+                            return display;
+                          })()}°
+                        </Text>
+                        <RotationSlider
+                          value={emojiRotation ?? 0}
+                          onChange={handleEmojiRotationChange}
+                          onRelease={handleEmojiRotationEnd}
+                        />
+                      </View>
+
+                      {/* Delete Button */}
+                      <View style={styles.optionsSection}>
+                        <TouchableOpacity
+                          style={[styles.optionButton, styles.optionButtonDestructive]}
+                          onPress={handleEmojiDelete}
+                        >
+                          <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
+                          <Text style={styles.optionLabel}>מחק אימוג'י</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* Background Mode Options */}
+              {!audioMode && currentElementType === ElementTypes.Background && (
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                  {/* Clear Background Button */}
+                  <View style={styles.optionsSection}>
+                    <TouchableOpacity
+                      style={[styles.optionButton, {position:"absolute", left:5, top: 0},  !backgroundPattern && styles.optionButtonActive]}
+                      onPress={() => handleApplyBackground(undefined)}
+                    >
+                      <MyIcon info={{ name: "delete", size: 24, color: !backgroundPattern ? '#007AFF' : '#555', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, !backgroundPattern && styles.optionLabelActive]}>ללא רקע</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Solid Colors */}
+                  <View style={[styles.optionsSection, {marginTop:35}]}>
+                    <Text style={styles.sectionLabel}>צבע אחיד</Text>
+                    <View style={styles.colorGrid}>
+                      {SOLID_COLOR_PRESETS.map((preset) => {
+                        const isActive = backgroundPattern?.type === 'solid' && backgroundPattern.color === preset.color;
+                        return (
+                          <TouchableOpacity
+                            key={preset.color}
+                            style={[
+                              styles.backgroundSwatch,
+                              { backgroundColor: preset.color },
+                              isActive && styles.backgroundSwatchActive
+                            ]}
+                            onPress={() => handleApplyBackground({ type: 'solid', color: preset.color })}
+                          />
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Patterns */}
+                  <View style={styles.optionsSection}>
+                    <Text style={styles.sectionLabel}>דפוסים</Text>
+                    <View style={styles.colorGrid}>
+                      {Object.keys(PATTERN_PRESETS).map((patternKey) => {
+                        const patternType = patternKey as keyof typeof PATTERN_PRESETS;
+                        const preset = PATTERN_PRESETS[patternType];
+                        const isActive = backgroundPattern?.type === 'pattern' && backgroundPattern.patternType === patternType;
+                        return (
+                          <TouchableOpacity
+                            key={patternKey}
+                            style={[
+                              styles.backgroundSwatch,
+                              { backgroundColor: preset.defaultBgColor },
+                              isActive && styles.backgroundSwatchActive
+                            ]}
+                            onPress={() => handleApplyBackground({
+                              type: 'pattern',
+                              patternType,
+                              patternColor: preset.defaultColor,
+                              backgroundColor: preset.defaultBgColor,
+                              patternScale: 1.0,
+                            })}
+                          >
+                            <View style={{ width: '100%', height: '100%', opacity: 0.6 }}>
+                              <Canvas style={{ flex: 1 }}>
+                                <Rect x={0} y={0} width={60} height={60} color={preset.defaultBgColor} />
+                                {generatePatternPaths({
+                                  type: 'pattern',
+                                  patternType,
+                                  patternColor: preset.defaultColor,
+                                  backgroundColor: preset.defaultBgColor,
+                                  patternScale: 0.5,
+                                }, 60, 60).map((path, idx) => (
+                                  <Path key={idx} path={path} color={preset.defaultColor} style="stroke" strokeWidth={1} />
+                                ))}
+                              </Canvas>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Background Images */}
+                  <View style={styles.optionsSection}>
+                    <Text style={styles.sectionLabel}>תמונות רקע</Text>
+                    <View style={styles.colorGrid}>
+                      {BACKGROUND_IMAGE_PRESETS.map((preset) => {
+                        const isActive = backgroundPattern?.type === 'image' && backgroundPattern.imageName === preset.fileName;
+                        return (
+                          <TouchableOpacity
+                            key={preset.fileName}
+                            style={[
+                              styles.backgroundSwatch,
+                              isActive && styles.backgroundSwatchActive
+                            ]}
+                            onPress={() => handleApplyBackground({
+                              type: 'image',
+                              imageName: preset.fileName,
+                            })}
+                          >
+                            <Image
+                              source={BACKGROUND_IMAGE_SOURCES[preset.fileName]}
+                              style={{ width: '100%', height: '100%', borderRadius: 4 }}
+                              resizeMode="cover"
+                            />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </ScrollView>
+              )}
             </View>
           </Animated.View>
         )}
@@ -2240,7 +2359,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         enableSearchAnimation={true}
         styles={{
           category: {
-            icon: { width:50 }, // Larger emoji icons for categories
+            icon: { width: 50 }, // Larger emoji icons for categories
             container: {
               padding: 10,
               minWidth: "50%",
@@ -2259,7 +2378,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: HEADER_HEIGHT,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
@@ -2332,6 +2451,17 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#007AFF',
   },
+  deletePageButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFE5E5',
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+    marginTop: 12,
+  },
   toolOptionsPanel: {
     position: 'absolute',
     right: 90,
@@ -2363,12 +2493,13 @@ const styles = StyleSheet.create({
     zIndex: 1001,
   },
   optionsSection: {
-    marginBottom: 24,
-    marginTop: 48, // Leave room for close button
+    marginBottom: 15,
+    marginTop: 15, // Leave room for close button
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 16,
+    
+    fontWeight: 'bold',
     color: '#666',
     marginBottom: 8,
     textAlign: 'center',
@@ -2475,41 +2606,19 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
   },
   rotationSliderContainer: {
-    paddingVertical: 20,
+    paddingVertical: 10,
     alignItems: 'center',
-    position: 'relative',
   },
-  rotationTrack: {
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
+  backgroundSwatch: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
     overflow: 'hidden',
   },
-  rotationTrackFilled: {
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
-  },
-  rotationKnob: {
-    position: 'absolute',
-    top: -16,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    borderWidth: 3,
+  backgroundSwatchActive: {
     borderColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  rotationMarkers: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  markerText: {
-    fontSize: 10,
-    color: '#888',
+    borderWidth: 3,
   },
 });
