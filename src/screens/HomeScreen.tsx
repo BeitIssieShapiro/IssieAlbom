@@ -193,7 +193,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>האלבומים שלי</Text>
         <TouchableOpacity

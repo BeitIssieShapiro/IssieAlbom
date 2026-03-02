@@ -9,6 +9,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, borderRadius, typography } from '../theme/colors';
 import Icon from '@react-native-vector-icons/ionicons';
+import { HEADER_HEIGHT } from '../types/Album';
 
 const languages = [
   { code: 'he', label: 'עברית', dir: 'rtl' as const },
@@ -55,12 +56,11 @@ interface AboutScreenProps {
 
 export function AboutScreen({ onClose }: AboutScreenProps) {
   const [lang, setLang] = useState('he');
-  const insets = useSafeAreaInsets();
   const currentLang = languages.find(l => l.code === lang) || languages[0];
   const content = aboutContent[lang as keyof typeof aboutContent] || aboutContent.he;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{content.title}</Text>
@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

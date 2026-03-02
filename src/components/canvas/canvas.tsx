@@ -809,7 +809,6 @@ function Canvas({
                 styles.container,
                 style,
                 {
-                    marginLeft: sideMargin,
                     width: canvasWidth,
                     height: canvasHeight,
                     transformOrigin: "0 0 0",

@@ -234,11 +234,20 @@ function TextElement({
         const isSelected = currentEmojiId === text.id;
         const rotationDegrees = text.rotation || 0;
 
+        // When selected, compensate for border (2px) + padding (4px) = 6px offset
+        const borderOffset = isSelected ? -6 : 0;
+        const adjustedPosStyle = isSelected ? {
+            ...posStyle,
+            left: posStyle.left !== undefined ? posStyle.left + borderOffset : undefined,
+            right: posStyle.right !== undefined ? posStyle.right + borderOffset : undefined,
+            top: posStyle.top + borderOffset,
+        } : posStyle;
+
         return (
             <Animated.View
                 key={text.id}
                 style={[
-                    posStyle,
+                    adjustedPosStyle,
                     { zIndex: 3000 },
                     isSelected && {
                         borderWidth: 2,

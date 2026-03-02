@@ -21,7 +21,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import Sound from 'react-native-nitro-sound';
 import EmojiPicker from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
-import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern } from '../types/Album';
+import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern, HEADER_HEIGHT } from '../types/Album';
 import { SketchElement, SketchElementAttributes, MoveTypes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
 import CanvasComponent from '../components/canvas/canvas';
@@ -35,9 +35,11 @@ import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
 import { MyIcon } from '../common/icons';
+import { colors, spacing, borderRadius } from '../theme/colors';
 
-const HEADER_HEIGHT = 60;
 const TOOLBAR_WIDTH = 90;
+const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
+
 
 import Slider from '@react-native-community/slider';
 
@@ -360,11 +362,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const BODY_TEXT_SIZES = [16, 20, 24, 28];
   const EMOJI_PRESET_SIZES = [70, 100, 130]; // Preset emoji sizes (S/M/L)
   const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
-  const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
 
   // Calculate available space for canvas (subtracting toolbar width from the right and margins)
-  const availableWidth = screenDimensions.width - TOOLBAR_WIDTH - (CANVAS_MARGIN * 2);
-  const availableHeight = screenDimensions.height - (HEADER_HEIGHT + insets.top) - (CANVAS_MARGIN * 2);
+  const availableWidth = screenDimensions.width - TOOLBAR_WIDTH - CANVAS_MARGIN * 2;
+  const availableHeight = screenDimensions.height - HEADER_HEIGHT - CANVAS_MARGIN * 2;
 
   // Get original page dimensions (screen dimensions when page was created)
   const v2Page = page as AlbumPageV2;
@@ -392,24 +393,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const canvasWidth = pageWidth * ratio;
   const canvasHeight = pageHeight * ratio;
 
-  // Calculate canvas positioning
-  const CANVAS_CONTAINER_PADDING = 12; // From canvasContainer style
-
 
 
   // Absolute sideMargin for screen2Canvas calculation:
   // TOOLBAR_WIDTH + container padding + canvas marginLeft
-  const sideMargin =  CANVAS_CONTAINER_PADDING;
+  const sideMargin = CANVAS_MARGIN + insets.left;
 
   // Canvas top position: header + safe area + container padding
-  const canvasTop = HEADER_HEIGHT + insets.top + CANVAS_CONTAINER_PADDING;
+  const canvasTop = HEADER_HEIGHT + CANVAS_MARGIN + insets.top;
 
   // console.log('Render calculations:', {
   //   screenWidth: SCREEN_WIDTH,
   //   screenHeight: SCREEN_HEIGHT,
   //   toolbarWidth: TOOLBAR_WIDTH,
   //   headerHeight: HEADER_HEIGHT,
-  //   insetsTop: insets.top,
   //   insetsBottom: insets.bottom,
   //   availableWidth,
   //   availableHeight,
@@ -1276,7 +1273,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handleEmojiPick = (emojiObject: EmojiType) => {
     // Create emoji as a text element with large font size
     const emojiId = getId('text'); // Use 'text' prefix so canvas treats it as text
-    const emojiSize = 60; // Default emoji size
+    const emojiSize = 100; // Default emoji size (M)
 
     const newEmoji: SketchText = {
       id: emojiId,
@@ -1285,8 +1282,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       color: '#000000', // Color doesn't matter for emojis
       rtl: false,
       alignment: 'Left',
-      x: canvasWidth / 2 - 30, // Center horizontally
-      y: canvasHeight / 2 - 30, // Center vertically
+      x: canvasWidth / 2 - 50, // Center horizontally
+      y: canvasHeight / 2 - 50, // Center vertically
       isEmoji: true, // Mark as emoji for special handling
       width: emojiSize * 1.2, // Set width for hit detection (emojis are ~1.2x fontSize)
       height: emojiSize * 1.2, // Set height for hit detection
@@ -1398,8 +1395,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const emoji = textsRef.current.find(t => t.id === currentId);
     if (!emoji) return;
 
-    // Adjust size with min/max bounds
-    const newSize = Math.max(20, Math.min(150, emoji.fontSize + delta));
+    // Adjust size with min bound (10), no max bound
+    const newSize = Math.max(10, emoji.fontSize + delta);
     const updatedEmoji = { ...emoji, fontSize: newSize };
 
     queue.current.pushText(updatedEmoji);
@@ -1694,54 +1691,61 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     : undefined;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        {/* Left side: Page Navigation and Undo/Redo */}
+        <View style={styles.headerLeft}>
+          {/* Page Navigation Controls */}
+          {pages && pages.length > 0 && (
+            <View style={styles.pageNavigation}>
+              <TouchableOpacity
+                style={[styles.iconButton, !hasPrevPage && styles.iconButtonDisabled]}
+                onPress={handlePrevPage}
+                disabled={!hasPrevPage}
+                accessibilityLabel="עמוד קודם"
+              >
+                <MyIcon info={{ name: "chevron-left", size: 32, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconButton, !hasNextPage && styles.iconButtonDisabled]}
+                onPress={handleNextPage}
+                disabled={!hasNextPage}
+                accessibilityLabel="עמוד הבא"
+              >
+                <MyIcon info={{ name: "chevron-right", size: 32, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Undo/Redo */}
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.iconButton, !queue.current.canUndo() && styles.iconButtonDisabled]}
+              onPress={handleUndo}
+              disabled={!queue.current.canUndo()}
+              accessibilityLabel="ביטול פעולה אחרונה"
+            >
+              <MyIcon info={{ name: "undo", size: 24, color: queue.current.canUndo() ? '#007AFF' : '#ccc', type: "MI" }} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconButton, !queue.current.canRedo() && styles.iconButtonDisabled]}
+              onPress={handleRedo}
+              disabled={!queue.current.canRedo()}
+              accessibilityLabel="ביצוע פעולה מחדש"
+            >
+              <MyIcon info={{ name: "redo", size: 24, color: queue.current.canRedo() ? '#007AFF' : '#ccc', type: "MI" }} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Center: Title */}
+        <Text style={styles.title}>עמוד {page.pageNumber}</Text>
+
+        {/* Right side: Done button */}
         <TouchableOpacity style={styles.doneButton} onPress={handleBack} accessibilityLabel="סיום עריכה">
           <Text style={styles.doneButtonText}>סיום</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>עמוד {page.pageNumber}</Text>
-
-        {/* Page Navigation Controls */}
-        {pages && pages.length > 0 && (
-          <View style={styles.pageNavigation}>
-            <TouchableOpacity
-              style={[styles.iconButton, !hasPrevPage && styles.iconButtonDisabled]}
-              onPress={handlePrevPage}
-              disabled={!hasPrevPage}
-              accessibilityLabel="עמוד קודם"
-            >
-              <MyIcon info={{ name: "chevron-left", size: 32, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconButton, !hasNextPage && styles.iconButtonDisabled]}
-              onPress={handleNextPage}
-              disabled={!hasNextPage}
-              accessibilityLabel="עמוד הבא"
-            >
-              <MyIcon info={{ name: "chevron-right", size: 32, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[styles.iconButton, !queue.current.canUndo() && styles.iconButtonDisabled]}
-            onPress={handleUndo}
-            disabled={!queue.current.canUndo()}
-            accessibilityLabel="ביטול פעולה אחרונה"
-          >
-            <MyIcon info={{ name: "undo", size: 24, color: queue.current.canUndo() ? '#007AFF' : '#ccc', type: "MI" }} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.iconButton, !queue.current.canRedo() && styles.iconButtonDisabled]}
-            onPress={handleRedo}
-            disabled={!queue.current.canRedo()}
-            accessibilityLabel="ביצוע פעולה מחדש"
-          >
-            <MyIcon info={{ name: "redo", size: 24, color: queue.current.canRedo() ? '#007AFF' : '#ccc', type: "MI" }} />
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Canvas */}
@@ -1768,6 +1772,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               onZoom={() => { }} // Lock zoom - prevents pinch gesture
               onMoveCanvas={() => { }} // Lock canvas position - prevents pan
               sideMargin={sideMargin}
+
 
               // Element arrays
               paths={paths}
@@ -1817,8 +1822,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             // Calculate position in screen coordinates
             // titleText.x/y are in canvas coordinates (unscaled)
             // Scale by ratio and add canvas offset
-            const screenX = titleText.x * ratio ;
-            const screenY = (titleText.y +15) * ratio ;
+            const screenX = titleText.x * ratio;
+            const screenY = (titleText.y + 15) * ratio;
 
             // Position audio icon to the left of the text start
             // Offset by 50px to the left and up a bit for visual centering
@@ -1840,7 +1845,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         </View>
 
         {/* Toolbar Level 1 - Right Side - Always Visible */}
-        <View style={[styles.toolbar, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={styles.toolbar}>
           <TouchableOpacity
             style={[styles.mainToolButton, currentElementType === ElementTypes.Text && styles.mainToolButtonActive]}
             onPress={handleSetTextMode}
@@ -2226,7 +2231,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Clear Background Button */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
-                      style={[styles.optionButton, {position:"absolute", left:5, top: 0},  !backgroundPattern && styles.optionButtonActive]}
+                      style={[styles.optionButton, { position: "absolute", left: 5, top: 0 }, !backgroundPattern && styles.optionButtonActive]}
                       onPress={() => handleApplyBackground(undefined)}
                     >
                       <MyIcon info={{ name: "delete", size: 24, color: !backgroundPattern ? '#007AFF' : '#555', type: "MDI" }} />
@@ -2235,7 +2240,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </View>
 
                   {/* Solid Colors */}
-                  <View style={[styles.optionsSection, {marginTop:35}]}>
+                  <View style={[styles.optionsSection, { marginTop: 35 }]}>
                     <Text style={styles.sectionLabel}>צבע אחיד</Text>
                     <View style={styles.colorGrid}>
                       {SOLID_COLOR_PRESETS.map((preset) => {
@@ -2410,27 +2415,35 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     height: HEADER_HEIGHT,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   doneButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.round,
     justifyContent: 'center',
     alignItems: 'center',
   },
   doneButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontWeight: '700',
+    color: colors.cardBackground,
   },
   title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
   headerActions: { flexDirection: 'row', gap: 8 },
-  pageNavigation: { flexDirection: 'row', gap: 4, marginRight: 8 },
+  pageNavigation: { flexDirection: 'row', gap: 4 },
   iconButton: { fontSize: 35, width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
   iconButtonDisabled: { opacity: 0.9 },
   editorContainer: {
@@ -2442,13 +2455,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     backgroundColor: '#f5f5f5',
-    padding: 12,
   },
   pageAudioContainer: {
     position: 'absolute',
     zIndex: 1000,
   },
   canvas: {
+    marginTop: CANVAS_MARGIN,
+    marginLeft: CANVAS_MARGIN,
     backgroundColor: '#fff',
     borderRadius: 8,
     boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.3)',
@@ -2531,7 +2545,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 16,
-    
+
     fontWeight: 'bold',
     color: '#666',
     marginBottom: 8,

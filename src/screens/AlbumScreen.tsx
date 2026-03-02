@@ -6,16 +6,18 @@ import {
   TouchableOpacity,
   View,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Carousel from 'react-native-reanimated-carousel';
-import { Album, AlbumPage } from '../types/Album';
+import { Album, AlbumPage, HEADER_HEIGHT } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { PageService } from '../services/PageService';
 import { PageCard, PageCardRef } from '../components/PageCard';
 import { PageEditorScreen } from './PageEditorScreen';
 import { MyIcon } from '../common/icons';
 import { colors, spacing, borderRadius } from '../theme/colors';
+
 
 interface AlbumScreenProps {
   album: Album;
@@ -30,6 +32,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingPage, setEditingPage] = useState<AlbumPage | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [isDeletingPage, setIsDeletingPage] = useState(false);
   const carouselRef = useRef<any>(null);
   const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
 
@@ -220,12 +223,15 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           text: 'מחיקה',
           style: 'destructive',
           onPress: async () => {
+            setIsDeletingPage(true);
             try {
               await PageService.deletePage(album.id, page.id);
               await loadPages();
             } catch (error) {
               console.error('Failed to delete page:', error);
               Alert.alert('שגיאה', 'מחיקת העמוד נכשלה');
+            } finally {
+              setIsDeletingPage(false);
             }
           },
         },
@@ -236,6 +242,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const handleDeletePageFromEditor = async () => {
     if (!editingPage) return;
 
+    setIsDeletingPage(true);
     try {
       const currentPageIndex = pages.findIndex(p => p.id === editingPage.id);
       await PageService.deletePage(album.id, editingPage.id);
@@ -256,6 +263,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     } catch (error) {
       console.error('Failed to delete page:', error);
       Alert.alert('שגיאה', 'מחיקת העמוד נכשלה');
+    } finally {
+      setIsDeletingPage(false);
     }
   };
 
@@ -275,21 +284,33 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 
   if (editingPage) {
     return (
-      <PageEditorScreen
-        page={editingPage}
-        albumId={album.id}
-        onSave={handleEditorSave}
-        onDiscard={handleEditorDiscard}
-        pages={pages}
-        onNavigatePage={handleNavigatePage}
-        onCreatePage={handleCreatePageFromEditor}
-        onDeletePage={handleDeletePageFromEditor}
-      />
+      <>
+        <PageEditorScreen
+          page={editingPage}
+          albumId={album.id}
+          onSave={handleEditorSave}
+          onDiscard={handleEditorDiscard}
+          pages={pages}
+          onNavigatePage={handleNavigatePage}
+          onCreatePage={handleCreatePageFromEditor}
+          onDeletePage={handleDeletePageFromEditor}
+        />
+
+        {/* Loading overlay for page deletion */}
+        {isDeletingPage && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.overlayContent}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.overlayText}>מוחק עמוד...</Text>
+            </View>
+          </View>
+        )}
+      </>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
           <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
@@ -322,7 +343,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               parallaxAdjacentItemScale: .85
             }}
             width={screenDimensions.width} // Item width (screen - horizontal padding)
-            height={screenDimensions.height - insets.top - 60}
+            height={screenDimensions.height -  HEADER_HEIGHT}
             data={pages}
 
             renderItem={({ item, index }) => {
@@ -384,6 +405,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           />
         </View>
       )}
+
+      {/* Loading overlay for page deletion */}
+      {isDeletingPage && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.overlayContent}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.overlayText}>מוחק עמוד...</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -394,6 +425,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    height:  HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
@@ -446,5 +478,34 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: spacing.md,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  overlayContent: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.large,
+    padding: spacing.xxl,
+    alignItems: 'center',
+    minWidth: 200,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  overlayText: {
+    fontSize: 18,
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+    fontWeight: '600',
   },
 });

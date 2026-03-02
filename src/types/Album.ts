@@ -140,6 +140,8 @@ export interface BackgroundPattern {
   imageName?: string; // e.g., 'paper.jpg', 'wood.jpg'
 }
 
+export const HEADER_HEIGHT = 80;
+
 export interface SketchElementAttributes {
   showDelete: boolean;
 }

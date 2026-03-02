@@ -4,12 +4,13 @@
  */
 
 import React, { useState } from 'react';
-import { StatusBar, useColorScheme } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar, useColorScheme, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Album } from './types/Album';
 import { AlbumService } from './services/AlbumService';
 import { HomeScreen } from './screens/HomeScreen';
 import { AlbumScreen } from './screens/AlbumScreen';
+import { colors } from './theme/colors';
 
 interface OpenedAlbum {
   album: Album;
@@ -34,16 +35,19 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      {openedAlbum ? (
-        <AlbumScreen
-          album={openedAlbum.album}
-          isFirstOpen={openedAlbum.isFirstOpen}
-          onBack={() => setOpenedAlbum(null)}
-        />
-      ) : (
-        <HomeScreen onOpenAlbum={handleOpenAlbum} />
-      )}
+      <SafeAreaView style={{width:"100%", height:"100%", backgroundColor:colors.headerBackground, zIndex:1}}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        {openedAlbum ? (
+          <AlbumScreen
+            album={openedAlbum.album}
+            isFirstOpen={openedAlbum.isFirstOpen}
+            onBack={() => setOpenedAlbum(null)}
+          />
+        ) : (
+          <HomeScreen onOpenAlbum={handleOpenAlbum} />
+        )}
+      </SafeAreaView>
+      <View style={{backgroundColor: colors.background, position:"absolute", bottom: 0, width:"100%", height: 200, zIndex:0}}/>
     </SafeAreaProvider>
   );
 }

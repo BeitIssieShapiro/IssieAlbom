@@ -9,7 +9,7 @@ import {
   View,
   PixelRatio,
 } from 'react-native';
-import { AlbumPage, AlbumPageV2, ElementTypes, WordTiming } from '../types/Album';
+import { AlbumPage, AlbumPageV2, ElementTypes, HEADER_HEIGHT, WordTiming } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from './canvas/types';
 import { loadPageWithMigration, compileQueueToElements } from '../utils/pageUtils';
 import { AttachmentService } from '../services/AttachmentService';
@@ -89,7 +89,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     // Calculate available space (no toolbar in view mode, but account for carousel margins)
     const availableWidth = screenDimensions.width;
     // Match carousel height calculation: screenDimensions.height - insets.top - 60
-    const availableHeight = screenDimensions.height - insets.top - 60;
+    const availableHeight = screenDimensions.height - HEADER_HEIGHT;
 
     // Get original page dimensions (screen dimensions when page was created)
     const originalWidth = (v2Page as AlbumPageV2).canvasWidth || screenDimensions.width;
