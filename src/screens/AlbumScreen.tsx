@@ -148,11 +148,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   }, [isFirstOpen, pages, editingPage]);
 
   const handlePagePress = (page: AlbumPage) => {
-    // In view mode, open editor for this page
-    if (!isEditMode) {
-      handleEditPage(page);
-    }
-    // In edit mode, clicking does nothing (use menu for actions)
+    // In view mode, clicking does nothing
+    // In edit mode, clicking also does nothing (use menu for actions)
   };
 
   const handleEditPage = (page: AlbumPage) => {

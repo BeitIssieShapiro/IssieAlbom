@@ -1,20 +1,21 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const NUM_COLUMNS = 6;
+const NUM_COLUMNS = 4;
 const CARD_MARGIN = 8;
 const LIST_PADDING = 8;
-const CARD_WIDTH = (SCREEN_WIDTH - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
 
 interface AddAlbumButtonProps {
   onPress: () => void;
+  screenWidth: number;
 }
 
-export function AddAlbumButton({ onPress }: AddAlbumButtonProps) {
+export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
+  const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
+
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, { width: cardWidth }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -28,17 +29,17 @@ export function AddAlbumButton({ onPress }: AddAlbumButtonProps) {
 
 const styles = StyleSheet.create({
   container: {
-    width: CARD_WIDTH,
     margin: CARD_MARGIN,
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#ddd',
     borderStyle: 'dashed',
+    boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.2)',
     overflow: 'hidden',
   },
   iconContainer: {
-    aspectRatio: 3 / 4,
+    aspectRatio: 16 / 9,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fafafa',

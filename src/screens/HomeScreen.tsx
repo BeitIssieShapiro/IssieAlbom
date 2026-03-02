@@ -17,8 +17,7 @@ import { AlbumService } from '../services/AlbumService';
 import { AlbumCard } from '../components/AlbumCard';
 import { AddAlbumButton } from '../components/AddAlbumButton';
 
-const NUM_COLUMNS = 6;
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const NUM_COLUMNS = 4;
 
 interface HomeScreenProps {
   onOpenAlbum: (album: Album) => void;
@@ -31,6 +30,24 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showNewAlbumModal, setShowNewAlbumModal] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
+
+  // Track screen dimensions for rotation support
+  const [screenDimensions, setScreenDimensions] = useState(() => {
+    const window = Dimensions.get('window');
+    return { width: window.width, height: window.height };
+  });
+
+  // Listen for dimension changes (device rotation)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('[HomeScreen] Dimensions changed:', window);
+      setScreenDimensions({ width: window.width, height: window.height });
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   const loadAlbums = useCallback(async () => {
     try {
@@ -130,7 +147,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 
   const renderItem = ({ item, index }: { item: Album | 'add'; index: number }) => {
     if (item === 'add') {
-      return <AddAlbumButton onPress={handleAddAlbum} />;
+      return <AddAlbumButton onPress={handleAddAlbum} screenWidth={screenDimensions.width} />;
     }
     return (
       <AlbumCard
@@ -138,6 +155,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
         onPress={handleAlbumPress}
         onRename={handleRenameAlbum}
         onDelete={confirmDeleteAlbum}
+        screenWidth={screenDimensions.width}
       />
     );
   };
@@ -268,7 +286,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 24,
-    width: SCREEN_WIDTH - 48,
+    width: '80%',
     maxWidth: 400,
   },
   modalTitle: {

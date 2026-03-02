@@ -7,9 +7,9 @@
 - ~~delete page~~ ✓ (delete button below new page, shows confirmation)
 - ~~play audio - clear highlight~~ ✓ (highlights cleared when playback ends or stopped)
 - ~~when recording and there is a text - map auto~~ ✓ (auto-generates word timings after recording)
+- ~~click on canvas in view - goes to edit (wrong)~~ ✓ (clicking in view mode now does nothing)
 - histogram not showing ?
 - paging more than one takes very long ?
-- click on canvas in view - goes to edit (wrong)
 
 ## To test
 - improve auto mapping hueristics

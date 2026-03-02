@@ -6,24 +6,23 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Dimensions,
 } from 'react-native';
 import { Album } from '../types/Album';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const NUM_COLUMNS = 6;
+const NUM_COLUMNS = 4;
 const CARD_MARGIN = 8;
 const LIST_PADDING = 8;
-const CARD_WIDTH = (SCREEN_WIDTH - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
 
 interface AlbumCardProps {
   album: Album;
   onPress: (album: Album) => void;
   onRename?: (album: Album) => void;
   onDelete?: (album: Album) => void;
+  screenWidth: number;
 }
 
-export function AlbumCard({ album, onPress, onRename, onDelete }: AlbumCardProps) {
+export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: AlbumCardProps) {
+  const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
   const [menuVisible, setMenuVisible] = useState(false);
   const formattedDate = new Date(album.createdAt).toLocaleDateString('he-IL');
 
@@ -38,7 +37,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete }: AlbumCardProps
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, { width: cardWidth }]}
       onPress={() => onPress(album)}
       activeOpacity={0.7}
     >
@@ -110,24 +109,20 @@ export function AlbumCard({ album, onPress, onRename, onDelete }: AlbumCardProps
 
 const styles = StyleSheet.create({
   container: {
-    width: CARD_WIDTH,
     margin: CARD_MARGIN,
     backgroundColor: '#fff',
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.2)',
     overflow: 'hidden',
   },
   imageContainer: {
-    aspectRatio: 3 / 4,
+    aspectRatio: 16 / 9,
     backgroundColor: '#f0f0f0',
   },
   previewImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   placeholder: {
     flex: 1,
