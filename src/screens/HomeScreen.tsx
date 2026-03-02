@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SplashScreen from 'react-native-splash-screen';
+import Icon from '@react-native-vector-icons/ionicons';
 import { Album } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { AlbumCard } from '../components/AlbumCard';
 import { AddAlbumButton } from '../components/AddAlbumButton';
+import { AboutScreen } from './AboutScreen';
 import { colors, spacing, borderRadius } from '../theme/colors';
 import { GlobalContext } from '../contexts/GlobalContext';
 
@@ -35,6 +37,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showNewAlbumModal, setShowNewAlbumModal] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
+  const [showAbout, setShowAbout] = useState(false);
 
   // Track screen dimensions for rotation support
   const [screenDimensions, setScreenDimensions] = useState(() => {
@@ -185,10 +188,20 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 
   const data: (Album | 'add')[] = [...albums, 'add'];
 
+  if (showAbout) {
+    return <AboutScreen onClose={() => setShowAbout(false)} />;
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>האלבומים שלי</Text>
+        <TouchableOpacity
+          onPress={() => setShowAbout(true)}
+          style={styles.aboutButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Icon name="information-circle-outline" size={32} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (
@@ -262,17 +275,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
     backgroundColor: colors.headerBackground,
     borderBottomWidth: 0,
-    alignItems: 'center',
+    position: 'relative',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: colors.primary,
     textAlign: 'center',
+  },
+  aboutButton: {
+    position: 'absolute',
+    right: spacing.lg,
+    padding: spacing.sm,
   },
   loadingContainer: {
     flex: 1,
