@@ -160,6 +160,14 @@ export function AudioElement({
               onWordChange(wordIndex);
             }
           }
+        } else {
+          // No word timings - highlight all text (index 0)
+          if (currentWordIndex !== 0) {
+            setCurrentWordIndex(0);
+            if (onWordChange) {
+              onWordChange(0);
+            }
+          }
         }
 
         if (e.currentPosition >= e.duration && e.duration > 0) {

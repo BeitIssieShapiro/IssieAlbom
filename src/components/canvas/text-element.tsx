@@ -196,10 +196,20 @@ function TextElement({
 
     // Split text into words for highlighting
     const renderTextWithHighlight = () => {
-        if (!wordTimings || wordTimings.length === 0 || currentWordIndex < 0) {
+        if (currentWordIndex < 0) {
             return text.text;
         }
 
+        // If no word timings, highlight entire text
+        if (!wordTimings || wordTimings.length === 0) {
+            return (
+                <Text style={{ backgroundColor: '#FFD700', color: '#000' }}>
+                    {text.text}
+                </Text>
+            );
+        }
+
+        // Split text by words and highlight based on word timings
         const words = text.text.split(/\s+/);
         return (
             <>

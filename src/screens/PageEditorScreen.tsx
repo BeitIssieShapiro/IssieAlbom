@@ -80,6 +80,17 @@ function RotationSlider({ value, onChange, onRelease }: RotationSliderProps) {
   );
 }
 
+// Simple word timing heuristics - distributes words evenly across audio duration
+function generateInitialWordTimings(words: string[], duration: number): WordTiming[] {
+  const SPEECH_START_DELAY = 0.5; // Start first word at 0.5s
+  const effectiveDuration = Math.max(duration - SPEECH_START_DELAY, 1);
+
+  return words.map((word, index) => ({
+    word,
+    startTime: SPEECH_START_DELAY + (index / words.length) * effectiveDuration,
+  }));
+}
+
 interface PageEditorScreenProps {
   page: AlbumPage;
   albumId: string;
@@ -1093,8 +1104,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
 
       console.log('[handleStopRecording] Final duration value:', duration);
-      // Save the audio file with duration
-      await handleUpdatePageAudio(result, duration);
+
+      // Auto-generate word mapping heuristics if there's title text
+      // Use ref to avoid stale closure
+      const titleText = textsRef.current.find(t => t.id === TITLE_TEXT_ID);
+      let wordTimings: WordTiming[] | undefined;
+
+      if (titleText && titleText.text && duration) {
+        console.log('[handleStopRecording] Auto-generating word mappings for title text');
+        const words = titleText.text.split(/\s+/).filter(w => w.length > 0);
+        wordTimings = generateInitialWordTimings(words, duration);
+        console.log('[handleStopRecording] Auto-generated word mappings:', wordTimings);
+      }
+
+      // Save the audio file with duration and word timings
+      await handleUpdatePageAudio(result, duration, wordTimings);
     } catch (error) {
       console.error('Failed to stop recording:', error);
       Alert.alert('שגיאה', 'עצירת ההקלטה נכשלה');
@@ -1102,11 +1126,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handlePlayAudio = async () => {
-    if (!pageAudioFile) return;
+    // Use refs to avoid stale closure
+    const currentFile = pageAudioFileRef.current;
+    if (!currentFile) return;
 
     try {
       // Convert relative path to absolute
-      const absolutePath = AttachmentService.getAbsolutePath(albumId, pageAudioFile);
+      const absolutePath = AttachmentService.getAbsolutePath(albumId, currentFile);
       const filePath = `file://${absolutePath}`;
       console.log('Playing audio from toolbar:', filePath);
       await Sound.startPlayer(filePath);
@@ -1122,8 +1148,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
   };
 
-  const handleUpdatePageAudio = async (filePath: string, duration?: number) => {
-    console.log('handleUpdatePageAudio - source file:', filePath, 'duration:', duration);
+  const handleUpdatePageAudio = async (filePath: string, duration?: number, wordTimings?: WordTiming[]) => {
+    console.log('handleUpdatePageAudio - source file:', filePath, 'duration:', duration, 'wordTimings:', wordTimings?.length);
 
     try {
       // Save audio to attachments directory and get relative path
@@ -1136,8 +1162,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         setPageAudioDuration(duration);
       }
 
-      // Use ref to get current word timings (avoid closure trap)
-      const currentWordTimings = pageAudioWordTimingsRef.current;
+      // Use provided word timings or current ones from ref
+      const timingsToUse = wordTimings || pageAudioWordTimingsRef.current;
 
       // Save to queue with hardcoded ID and relative path
       const pageAudio: SketchAudio = {
@@ -1146,7 +1172,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         x: 0, // Position doesn't matter for page audio
         y: 0,
         duration: duration !== undefined ? duration * 1000 : undefined, // Store in milliseconds
-        wordTimings: currentWordTimings.length > 0 ? currentWordTimings : undefined,
+        wordTimings: timingsToUse.length > 0 ? timingsToUse : undefined,
       };
 
       queue.current.pushAudio(pageAudio);
@@ -1788,11 +1814,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             const titleText = displayTexts.find(t => t.id === TITLE_TEXT_ID);
             if (!titleText) return null;
 
-            // Position audio to the left of title, using same coordinate system as canvas elements
+            // Calculate position in screen coordinates
+            // titleText.x/y are in canvas coordinates (unscaled)
+            // Scale by ratio and add canvas offset
+            const screenX = titleText.x * ratio ;
+            const screenY = (titleText.y +15) * ratio ;
+
+            // Position audio icon to the left of the text start
+            // Offset by 50px to the left and up a bit for visual centering
             return (
               <View style={[styles.pageAudioContainer, {
-                left: titleText.x - 60,
-                top: titleText.y - 30,
+                left: screenX - 50,
+                top: screenY - 5,
               }]}>
                 <AudioElement
                   audioFile={pageAudioFile}
