@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -10,13 +10,16 @@ import {
   Modal,
   TouchableOpacity,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SplashScreen from 'react-native-splash-screen';
 import { Album } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { AlbumCard } from '../components/AlbumCard';
 import { AddAlbumButton } from '../components/AddAlbumButton';
 import { colors, spacing, borderRadius } from '../theme/colors';
+import { GlobalContext } from '../contexts/GlobalContext';
 
 const NUM_COLUMNS = 4;
 
@@ -26,6 +29,7 @@ interface HomeScreenProps {
 
 export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const globalContext = useContext(GlobalContext);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -63,11 +67,29 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
-      await loadAlbums();
-      setIsLoading(false);
+      try {
+        await loadAlbums();
+      } finally {
+        setIsLoading(false);
+
+        // Hide splash screen after minimum 2 seconds from native start
+        const now = Date.now();
+        const nativeStartTime = globalContext?.nativeStartTime || now;
+        const elapsed = now - nativeStartTime;
+        const minDuration = 2000;
+        const remaining = Math.max(0, minDuration - elapsed);
+
+        console.log('[HomeScreen] Splash delay remaining:', remaining);
+        setTimeout(() => {
+          console.log('[HomeScreen] Hiding splash screen');
+          if (Platform.OS !== 'android') {
+            SplashScreen.hide();
+          }
+        }, remaining);
+      }
     };
     init();
-  }, [loadAlbums]);
+  }, [loadAlbums, globalContext]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

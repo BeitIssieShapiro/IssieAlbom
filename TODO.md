@@ -10,6 +10,11 @@
 - ~~click on canvas in view - goes to edit (wrong)~~ ✓ (clicking in view mode now does nothing)
 - histogram not showing ?
 - paging more than one takes very long ?
+- delete page - protect from any act and add busy
+- text size stops working after +++
+- camera/image for background?
+
+
 
 ## To test
 - improve auto mapping hueristics

@@ -23,12 +23,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     window = UIWindow(frame: UIScreen.main.bounds)
 
+    let launchTime = Date().timeIntervalSince1970 * 1000 // ms
+    let initialProps: [AnyHashable: Any] = ["nativeStartTime": launchTime]
+
     factory.startReactNative(
       withModuleName: "IssieAlbum",
       in: window,
+      initialProperties: initialProps,
       launchOptions: launchOptions
     )
 
+    RNSplashScreen.show()
     return true
   }
 }
