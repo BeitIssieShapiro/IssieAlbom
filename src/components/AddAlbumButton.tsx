@@ -1,9 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors, spacing, borderRadius, shadows } from '../theme/colors';
 
 const NUM_COLUMNS = 4;
-const CARD_MARGIN = 8;
-const LIST_PADDING = 8;
+const CARD_MARGIN = spacing.md;
+const LIST_PADDING = spacing.md;
 
 interface AddAlbumButtonProps {
   onPress: () => void;
@@ -30,30 +31,30 @@ export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
 const styles = StyleSheet.create({
   container: {
     margin: CARD_MARGIN,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#ddd',
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.large,
+    borderWidth: 3,
+    borderColor: colors.primary,
     borderStyle: 'dashed',
-    boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.2)',
+    boxShadow: shadows.card,
     overflow: 'hidden',
   },
   iconContainer: {
     aspectRatio: 16 / 9,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.background,
   },
   icon: {
-    fontSize: 48,
-    color: '#999',
+    fontSize: 64,
+    color: colors.primary,
     fontWeight: '300',
   },
   label: {
-    padding: 12,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    padding: spacing.md,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
     textAlign: 'center',
   },
 });

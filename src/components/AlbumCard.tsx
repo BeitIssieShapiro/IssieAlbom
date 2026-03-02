@@ -8,10 +8,11 @@ import {
   View,
 } from 'react-native';
 import { Album } from '../types/Album';
+import { colors, spacing, borderRadius, shadows } from '../theme/colors';
 
 const NUM_COLUMNS = 4;
-const CARD_MARGIN = 8;
-const LIST_PADDING = 8;
+const CARD_MARGIN = spacing.md;
+const LIST_PADDING = spacing.md;
 
 interface AlbumCardProps {
   album: Album;
@@ -110,14 +111,14 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
 const styles = StyleSheet.create({
   container: {
     margin: CARD_MARGIN,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.2)',
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.large,
+    boxShadow: shadows.card,
     overflow: 'hidden',
   },
   imageContainer: {
     aspectRatio: 16 / 9,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.background,
   },
   previewImage: {
     width: '100%',
@@ -128,82 +129,87 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e8e8e8',
+    backgroundColor: colors.accent2,
   },
   placeholderIcon: {
-    fontSize: 48,
+    fontSize: 56,
   },
   menuButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: borderRadius.medium,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   menuDots: {
-    fontSize: 12,
-    color: '#666',
-    letterSpacing: -1,
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: 'bold',
+    letterSpacing: 0,
   },
   info: {
-    padding: 12,
+    padding: spacing.md,
+    backgroundColor: colors.cardBackground,
   },
   name: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   date: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   menuOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(93, 78, 109, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   menuContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.large,
     width: 280,
     overflow: 'hidden',
+    boxShadow: shadows.card,
   },
   menuTitle: {
-    fontSize: 13,
-    color: '#888',
+    fontSize: 15,
+    color: colors.textSecondary,
     textAlign: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.border,
   },
   menuItem: {
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.border,
   },
   menuItemText: {
-    fontSize: 18,
-    color: '#007AFF',
+    fontSize: 20,
+    color: colors.primary,
     textAlign: 'center',
+    fontWeight: '600',
   },
   menuItemDestructive: {},
   menuItemTextDestructive: {
-    fontSize: 18,
-    color: '#FF3B30',
+    fontSize: 20,
+    color: colors.error,
     textAlign: 'center',
+    fontWeight: '600',
   },
   menuItemCancel: {
     borderBottomWidth: 0,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: colors.background,
   },
   menuItemTextCancel: {
-    fontSize: 18,
-    color: '#007AFF',
+    fontSize: 20,
+    color: colors.textPrimary,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

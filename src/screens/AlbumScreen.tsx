@@ -15,6 +15,7 @@ import { PageService } from '../services/PageService';
 import { PageCard, PageCardRef } from '../components/PageCard';
 import { PageEditorScreen } from './PageEditorScreen';
 import { MyIcon } from '../common/icons';
+import { colors, spacing, borderRadius } from '../theme/colors';
 
 interface AlbumScreenProps {
   album: Album;
@@ -291,7 +292,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: "#007AFF" }} />
+          <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>
           {album.name}
@@ -390,39 +391,42 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.headerBackground,
+    borderBottomWidth: 0,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.round,
   },
   editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.round,
     justifyContent: 'center',
     alignItems: 'center',
   },
   editButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontWeight: '700',
+    color: colors.cardBackground,
   },
   title: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
     textAlign: 'center',
   },
   loadingContainer: {
@@ -431,8 +435,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: colors.textSecondary,
   },
   pageContainer: {
     backgroundColor: "green",
@@ -441,6 +445,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listContent: {
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
 });

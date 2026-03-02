@@ -16,6 +16,7 @@ import { Album } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { AlbumCard } from '../components/AlbumCard';
 import { AddAlbumButton } from '../components/AddAlbumButton';
+import { colors, spacing, borderRadius } from '../theme/colors';
 
 const NUM_COLUMNS = 4;
 
@@ -236,21 +237,19 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // TODO: grid view, not flex
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    backgroundColor: colors.headerBackground,
+    borderBottomWidth: 0,
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.primary,
     textAlign: 'center',
   },
   loadingContainer: {
@@ -259,50 +258,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: colors.textSecondary,
   },
   listContent: {
-    padding: 8,
+    padding: spacing.md,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: spacing.xxl,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(93, 78, 109, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.large,
+    padding: spacing.xl,
     width: '80%',
     maxWidth: 400,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
+    color: colors.primary,
+    marginBottom: spacing.lg,
     textAlign: 'center',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: borderRadius.medium,
+    padding: spacing.md,
+    fontSize: 18,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.background,
+    color: colors.textPrimary,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -310,26 +316,26 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    padding: spacing.md,
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
-    marginRight: 8,
+    backgroundColor: colors.textLight,
+    marginRight: spacing.sm,
   },
   cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
+    color: colors.cardBackground,
+    fontSize: 18,
     fontWeight: '600',
   },
   createButton: {
-    backgroundColor: '#007AFF',
-    marginLeft: 8,
+    backgroundColor: colors.primary,
+    marginLeft: spacing.sm,
   },
   createButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: colors.cardBackground,
+    fontSize: 18,
     fontWeight: '600',
   },
 });
