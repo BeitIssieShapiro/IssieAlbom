@@ -1,0 +1,134 @@
+diff --git a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts
+index e6bdb9e..ea87363 100644
+--- a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts
++++ b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts
+@@ -95,6 +95,7 @@ export type KeyboardProps = {
+   selectedEmojis?: string[] | false
+   enableCategoryChangeGesture?: boolean
+   emojisByCategory?: EmojisByCategory[]
++  customKeywords?: Record<string, string[]>
+ }
+ export type ContextValues = {
+   activeCategoryIndex: number
+@@ -159,9 +160,10 @@ export const defaultTheme: Theme = {
+   },
+ }
+ 
+-export const defaultKeyboardContext: Required<KeyboardProps> & {
++export const defaultKeyboardContext: Omit<Required<KeyboardProps>, 'customKeywords'> & {
+   theme: Theme
+   styles: Styles
++  customKeywords?: Record<string, string[]>
+ } = {
+   open: false,
+   onClose: () => {},
+@@ -218,7 +220,7 @@ export const defaultKeyboardValues: ContextValues = {
+ }
+ 
+ export const KeyboardContext = React.createContext<
+-  Required<KeyboardProps> & ContextValues & { theme: Theme; styles: Styles }
++  Omit<Required<KeyboardProps>, 'customKeywords'> & ContextValues & { theme: Theme; styles: Styles; customKeywords?: Record<string, string[]> }
+ >({
+   ...defaultKeyboardContext,
+   ...defaultKeyboardValues,
+diff --git a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx
+index d3e8c49..0b43f98 100644
+--- a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx
++++ b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx
+@@ -161,17 +161,29 @@ export const KeyboardProvider: React.FC<ProviderProps> = React.memo((props) => {
+           .filter((emoji) => {
+             if (searchPhrase.length < 2) return false
+ 
++            const searchLower = searchPhrase.toLowerCase()
++
++            // Check English keywords
+             const isInKeywords =
+               emoji?.keywords &&
+               emoji.keywords.length > 0 &&
+               emoji.keywords.some((keyword) =>
+-                keyword.toLowerCase().includes(searchPhrase.toLowerCase()),
++                keyword.toLowerCase().includes(searchLower),
++              )
++
++            // Check custom keywords if provided
++            const isInCustomKeywords =
++              props.customKeywords &&
++              props.customKeywords[emoji.emoji] &&
++              props.customKeywords[emoji.emoji].some((keyword: string) =>
++                keyword.includes(searchLower),
+               )
+ 
+             return (
+-              emoji.name.toLowerCase().includes(searchPhrase.toLowerCase()) ||
++              emoji.name.toLowerCase().includes(searchLower) ||
+               emoji.emoji.toLowerCase().includes(searchPhrase) ||
+-              isInKeywords
++              isInKeywords ||
++              isInCustomKeywords
+             )
+           }),
+       })
+diff --git a/node_modules/rn-emoji-keyboard/src/index.tsx b/node_modules/rn-emoji-keyboard/src/index.tsx
+index 1e49cd4..fe44fc6 100644
+--- a/node_modules/rn-emoji-keyboard/src/index.tsx
++++ b/node_modules/rn-emoji-keyboard/src/index.tsx
+@@ -20,12 +20,14 @@ import no from './translation/no'
+ import ro from './translation/ro'
+ import np from './translation/np'
+ import se from './translation/se'
++import he from './translation/he'
++import ar from './translation/ar'
+ import EmojisData from './assets/emojis.json'
+ import type { EmojisByCategory } from './types'
+ 
+ export { EmojiKeyboard }
+ export { useRecentPicksPersistence }
+-export { en, pl, ko, it, fr, id, es, de, pt, ru, ua, vi, cs, ja, tr, no, ro, np, se }
++export { en, pl, ko, it, fr, id, es, de, pt, ru, ua, vi, cs, ja, tr, no, ro, np, se, he, ar }
+ export type { EmojisByCategory, EmojiType } from './types'
+ export const emojisByCategory = EmojisData as EmojisByCategory[]
+ 
+diff --git a/node_modules/rn-emoji-keyboard/src/translation/ar.ts b/node_modules/rn-emoji-keyboard/src/translation/ar.ts
+new file mode 100644
+index 0000000..fce225b
+--- /dev/null
++++ b/node_modules/rn-emoji-keyboard/src/translation/ar.ts
+@@ -0,0 +1,16 @@
++import type { CategoryTranslation } from '../types'
++
++const ar: CategoryTranslation = {
++  recently_used: 'مستخدم مؤخراً',
++  smileys_emotion: 'وجوه تعبيرية ومشاعر',
++  people_body: 'أشخاص وجسم',
++  animals_nature: 'حيوانات وطبيعة',
++  food_drink: 'طعام وشراب',
++  travel_places: 'سفر وأماكن',
++  activities: 'أنشطة',
++  objects: 'أشياء',
++  symbols: 'رموز',
++  flags: 'أعلام',
++  search: 'بحث',
++}
++export default ar
+diff --git a/node_modules/rn-emoji-keyboard/src/translation/he.ts b/node_modules/rn-emoji-keyboard/src/translation/he.ts
+new file mode 100644
+index 0000000..84512c4
+--- /dev/null
++++ b/node_modules/rn-emoji-keyboard/src/translation/he.ts
+@@ -0,0 +1,16 @@
++import type { CategoryTranslation } from '../types'
++
++const he: CategoryTranslation = {
++  recently_used: 'בשימוש לאחרונה',
++  smileys_emotion: 'סמיילים ורגשות',
++  people_body: 'אנשים וגוף',
++  animals_nature: 'חיות וטבע',
++  food_drink: 'אוכל ושתייה',
++  travel_places: 'טיולים ומקומות',
++  activities: 'פעילויות',
++  objects: 'חפצים',
++  symbols: 'סמלים',
++  flags: 'דגלים',
++  search: 'חיפוש',
++}
++export default he

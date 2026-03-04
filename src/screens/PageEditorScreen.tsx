@@ -19,8 +19,9 @@ import { PathCommand } from '@shopify/react-native-skia';
 import { Canvas, Rect, Path } from '@shopify/react-native-skia';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Sound from 'react-native-nitro-sound';
-import EmojiPicker from 'rn-emoji-keyboard';
+import EmojiPicker, { en, he } from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
+import heKeywords from '../assets/emoji-keywords-he.json';
 import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern, HEADER_HEIGHT } from '../types/Album';
 import { SketchElement, SketchElementAttributes, MoveTypes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
@@ -2395,6 +2396,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         defaultHeight="50%"
         enableSearchBar={true}
         enableSearchAnimation={true}
+        translation={he}
+        customKeywords={heKeywords}
         styles={{
           category: {
             icon: { width: 50 }, // Larger emoji icons for categories

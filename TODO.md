@@ -1,3 +1,17 @@
+##Todo after Racheli:
+- move emoji not working
+- add search image list (internet)
+- themes
+- patterns lighter lines
+- no undo after close
+- export: album/pdf/movie
+- search emoji in he
+- translation
+- title disapears while moving
+- change yellow bg
+
+
+
 # TODO
 - ~~title: move without icon~~ ✓ (text elements now always draggable, move icon removed)
 - ~~imoji - never focus~~ ✓ (emojis use same dragging system as text)
