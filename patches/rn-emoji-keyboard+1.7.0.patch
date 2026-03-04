@@ -1,3 +1,49 @@
+diff --git a/node_modules/rn-emoji-keyboard/src/EmojiPicker.tsx b/node_modules/rn-emoji-keyboard/src/EmojiPicker.tsx
+index 1d83bc5..fc30ad8 100644
+--- a/node_modules/rn-emoji-keyboard/src/EmojiPicker.tsx
++++ b/node_modules/rn-emoji-keyboard/src/EmojiPicker.tsx
+@@ -29,7 +29,7 @@ export const EmojiPicker = ({
+ 
+   React.useEffect(() => {
+     const shouldExpandHeight = keyboardVisible && !isExpanded
+-    const newAdditionalHeightValue = shouldExpandHeight ? keyboardHeight : 0
++    const newAdditionalHeightValue = shouldExpandHeight ? keyboardHeight * 0.2 : 0
+     Animated.timing(additionalHeight, {
+       toValue: newAdditionalHeightValue,
+       useNativeDriver: false,
+diff --git a/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx b/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx
+index 4a62562..1a62e1e 100644
+--- a/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx
++++ b/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx
+@@ -23,6 +23,19 @@ export const SearchBar = ({ scrollEmojiCategoryListToIndex }: SearchBarProps) =>
+     enableCategoryChangeAnimation,
+   } = React.useContext(KeyboardContext)
+   const inputRef = React.useRef<TextInput>(null)
++  const lastBlurTime = React.useRef(0)
++
++  const handleBlur = () => {
++    lastBlurTime.current = Date.now()
++  }
++
++  const handleFocus = () => {
++    const timeSinceBlur = Date.now() - lastBlurTime.current
++    if (timeSinceBlur < 1000 && timeSinceBlur > 0) {
++      inputRef.current?.blur()
++      return
++    }
++  }
+ 
+   const handleSearch = (text: string) => {
+     setSearchPhrase(text)
+@@ -69,6 +82,8 @@ export const SearchBar = ({ scrollEmojiCategoryListToIndex }: SearchBarProps) =>
+         ref={inputRef}
+         onTouchEndCapture={clearEmojiTonesData}
+         placeholderTextColor={theme.search.placeholder}
++        onBlur={handleBlur}
++        onFocus={handleFocus}
+       />
+       {!hideSearchBarClearIcon && !!searchPhrase && (
+         <TouchableOpacity onPress={clearPhrase} style={styles.button}>
 diff --git a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts
 index e6bdb9e..ea87363 100644
 --- a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts
@@ -32,16 +78,15 @@ index e6bdb9e..ea87363 100644
    ...defaultKeyboardContext,
    ...defaultKeyboardValues,
 diff --git a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx
-index d3e8c49..0b43f98 100644
+index d3e8c49..bce62a7 100644
 --- a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx
 +++ b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardProvider.tsx
-@@ -161,17 +161,29 @@ export const KeyboardProvider: React.FC<ProviderProps> = React.memo((props) => {
+@@ -161,17 +161,27 @@ export const KeyboardProvider: React.FC<ProviderProps> = React.memo((props) => {
            .filter((emoji) => {
              if (searchPhrase.length < 2) return false
  
 +            const searchLower = searchPhrase.toLowerCase()
 +
-+            // Check English keywords
              const isInKeywords =
                emoji?.keywords &&
                emoji.keywords.length > 0 &&
@@ -50,12 +95,11 @@ index d3e8c49..0b43f98 100644
 +                keyword.toLowerCase().includes(searchLower),
 +              )
 +
-+            // Check custom keywords if provided
 +            const isInCustomKeywords =
 +              props.customKeywords &&
 +              props.customKeywords[emoji.emoji] &&
 +              props.customKeywords[emoji.emoji].some((keyword: string) =>
-+                keyword.includes(searchLower),
++                keyword.includes(searchPhrase),
                )
  
              return (
@@ -90,15 +134,15 @@ index 1e49cd4..fe44fc6 100644
  
 diff --git a/node_modules/rn-emoji-keyboard/src/translation/ar.ts b/node_modules/rn-emoji-keyboard/src/translation/ar.ts
 new file mode 100644
-index 0000000..fce225b
+index 0000000..2b8450a
 --- /dev/null
 +++ b/node_modules/rn-emoji-keyboard/src/translation/ar.ts
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,17 @@
 +import type { CategoryTranslation } from '../types'
 +
 +const ar: CategoryTranslation = {
-+  recently_used: 'مستخدم مؤخراً',
-+  smileys_emotion: 'وجوه تعبيرية ومشاعر',
++  recently_used: 'المستخدمة مؤخراً',
++  smileys_emotion: 'وجوه وعواطف',
 +  people_body: 'أشخاص وجسم',
 +  animals_nature: 'حيوانات وطبيعة',
 +  food_drink: 'طعام وشراب',
@@ -109,13 +153,14 @@ index 0000000..fce225b
 +  flags: 'أعلام',
 +  search: 'بحث',
 +}
++
 +export default ar
 diff --git a/node_modules/rn-emoji-keyboard/src/translation/he.ts b/node_modules/rn-emoji-keyboard/src/translation/he.ts
 new file mode 100644
-index 0000000..84512c4
+index 0000000..5fc9199
 --- /dev/null
 +++ b/node_modules/rn-emoji-keyboard/src/translation/he.ts
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,17 @@
 +import type { CategoryTranslation } from '../types'
 +
 +const he: CategoryTranslation = {
@@ -124,11 +169,12 @@ index 0000000..84512c4
 +  people_body: 'אנשים וגוף',
 +  animals_nature: 'חיות וטבע',
 +  food_drink: 'אוכל ושתייה',
-+  travel_places: 'טיולים ומקומות',
++  travel_places: 'טיול ומקומות',
 +  activities: 'פעילויות',
 +  objects: 'חפצים',
 +  symbols: 'סמלים',
 +  flags: 'דגלים',
 +  search: 'חיפוש',
 +}
++
 +export default he
