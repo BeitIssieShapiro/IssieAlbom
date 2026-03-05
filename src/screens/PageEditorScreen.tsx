@@ -22,8 +22,8 @@ import Sound from 'react-native-nitro-sound';
 import EmojiPicker, { en, he } from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import heKeywords from '../assets/emoji-keywords-he.json';
-import { AlbumPage, AlbumPageV2, ElementTypes, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern, HEADER_HEIGHT } from '../types/Album';
-import { SketchElement, SketchElementAttributes, MoveTypes } from '../components/canvas/types';
+import { AlbumPage, AlbumPageV2, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern, HEADER_HEIGHT } from '../types/Album';
+import { SketchElement, SketchElementAttributes, MoveTypes, ElementTypes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
 import CanvasComponent from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
@@ -745,15 +745,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleTextEditEnd = (id: string) => {
     // Save all accumulated changes to queue when editing ends
-    const currentChanges = editingTextChangesRef.current;
 
     console.log('handleTextEditEnd START:', {
       id,
-      currentChanges
+      changes: editingTextChangesRef.current
     });
 
-    if (!currentChanges || currentChanges.id !== id) {
-      console.log('No changes to save for', id);
+    if (editingTextChangesRef.current?.id !== id) {
+      console.log('No text changes to save for', id);
       return;
     }
 
@@ -775,22 +774,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     // If not in queue, it's a brand new text - the changes ARE the complete text
     if (!baseText) {
       console.log('New text not in queue yet, using editingTextChanges as complete text');
-      textToSave = currentChanges as SketchText;
+      textToSave = editingTextChangesRef.current as SketchText;
     } else {
       // Merge changes with base text from queue
       console.log('Merging changes with base text from queue');
-      textToSave = { ...baseText, ...currentChanges };
-    }
-
-    // Enforce center alignment for title
-    if (id === TITLE_TEXT_ID) {
-      textToSave.alignment = 'Center';
+      textToSave = { ...baseText, ...editingTextChangesRef.current };
     }
 
     console.log('handleTextEditEnd: saving text', {
       id,
       baseText,
-      changes: currentChanges,
+      changes: editingTextChangesRef.current,
       textToSave
     });
 
@@ -868,14 +862,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const existingTitle = texts.find(t => t.id === TITLE_TEXT_ID);
 
     if (existingTitle) {
-      // Edit existing title - ensure it has center alignment
-      // Update alignment if needed
-      if (existingTitle.alignment !== 'Center') {
-        setEditingTextChanges({
-          id: TITLE_TEXT_ID,
-          alignment: 'Center',
-        });
-      }
       setCurrentEdited({ textId: TITLE_TEXT_ID });
       setTextSize(existingTitle.fontSize);
       setTextColor(existingTitle.color);
@@ -891,7 +877,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         fontSize: defaultTitleSize,
         color: textColor,
         rtl: false,
-        alignment: 'Center',
+        alignment: 'Left', //todo rtl
         x: centerX,
         y: topY,
         width: 200,
@@ -1519,32 +1505,27 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleMoveElement = (type: any, id: string, p: SketchPoint) => {
-    const currentImages = imagesRef.current;
-    console.log('handleMoveElement:', { type, id, p, imagesCount: currentImages.length });
+    console.log('handleMoveElement:', { type, id, p });
 
     // For text elements, always accumulate in editingTextChanges and update ref
     if (type === MoveTypes.TextMove) {
-      console.log('Moving text, accumulating in editingTextChanges');
       const newChanges = { id, x: p[0], y: p[1] };
+      console.log('Moving text', newChanges);
+
       setEditingTextChanges(prev => prev?.id === id ? { ...prev, ...newChanges } : newChanges);
       editingTextChangesRef.current = newChanges; // Update ref immediately for handleMoveEnd
+
     } else if (type === MoveTypes.ImageMove || type === MoveTypes.ImageResize) {
       // For images, track move/resize separately
-      console.log('Moving/resizing image, using movingElement, images:', currentImages.map(i => ({ id: i.id, x: i.x, y: i.y })));
+      console.log('Moving/resizing image, using movingElement, images:', imagesRef.current.map(i => ({ id: i.id, x: i.x, y: i.y })));
 
       // Get the base image to calculate size for resize operations
-      const baseImage = currentImages.find(i => i.id === id);
+      const baseImage = imagesRef.current.find(i => i.id === id);
       console.log('Found baseImage:', baseImage ? { id: baseImage.id, x: baseImage.x, y: baseImage.y, width: baseImage.width, height: baseImage.height } : 'NOT FOUND');
 
       if (!baseImage) {
-        console.error('Base image not found in images array for id:', id);
-        // Check if this is actually a text element (like an old emoji with wrong ID)
-        const textElem = texts.find(t => t.id === id);
-        if (textElem) {
-          console.log('Found as text element instead, treating as text');
-          setEditingTextChanges(prev => prev?.id === id ? { ...prev, x: p[0], y: p[1] } : { id, x: p[0], y: p[1] });
-        }
-        return;
+        console.log("Move/Resize image - not found");
+        return
       }
 
       let moveData;
@@ -1572,23 +1553,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleMoveEnd = async (type: MoveTypes, id: string) => {
-    const movingElem = movingElementRef.current;
-    console.log('handleMoveEnd:', { type, id, movingElement: movingElem, displayImagesCount: displayImages.length, displayImages: displayImages.map(i => ({ id: i.id, x: i.x, y: i.y })) });
+    console.log('handleMoveEnd:', { type, id});
 
     // For text, save the position from editingTextChanges (use ref to avoid stale closure)
     if (type === MoveTypes.TextMove) {
       const textChanges = editingTextChangesRef.current;
       console.log('Text moved, saving from editingTextChanges:', textChanges);
 
-      if (textChanges && textChanges.id === id) {
-        const currentTexts = textsRef.current;
-        const textElem = currentTexts.find(t => t.id === id);
+      if (textChanges && textChanges.id === id && currentEditedRef.current != id) {
+        const textElem = textsRef.current.find(t => t.id === id);
         if (textElem) {
-          console.log('Saving text position:', textChanges.x, textChanges.y);
+          console.log('Saving text changes after move:', textChanges);
           queue.current.pushText({
             ...textElem,
-            x: textChanges.x,
-            y: textChanges.y
+            ...textChanges
           });
           rebuildStateFromQueue();
           await autoSave();
