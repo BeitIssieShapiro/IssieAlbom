@@ -31,9 +31,10 @@ const NUM_COLUMNS = 4;
 
 interface HomeScreenProps {
   onOpenAlbum: (album: Album) => void;
+  refreshTrigger?: number;
 }
 
-export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
+export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const globalContext = useContext(GlobalContext);
   const { colors } = useTheme();
@@ -102,6 +103,14 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
     };
     init();
   }, [loadAlbums, globalContext]);
+
+  // Reload albums when refreshTrigger changes (after import)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      console.log('[HomeScreen] Refresh trigger detected, reloading albums');
+      loadAlbums();
+    }
+  }, [refreshTrigger, loadAlbums]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

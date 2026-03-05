@@ -70,5 +70,44 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>ZIP Archive</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.zip-archive</string>
+				<string>com.pkware.zip-archive</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.archive</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>ZIP Archive</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.pkware.zip-archive</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>zip</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/zip</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>

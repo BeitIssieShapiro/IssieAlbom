@@ -24,7 +24,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     window = UIWindow(frame: UIScreen.main.bounds)
 
     let launchTime = Date().timeIntervalSince1970 * 1000 // ms
-    let initialProps: [AnyHashable: Any] = ["nativeStartTime": launchTime]
+
+    // Extract and prepare initial URL if exists
+    var initialProps: [AnyHashable: Any] = ["nativeStartTime": launchTime]
+    if let url = launchOptions?[.url] as? URL,
+       let tempURL = securelyCopyToTemp(url: url) {
+      initialProps["url"] = tempURL.absoluteString
+      print("✅ Passing URL to React Native: \(tempURL.absoluteString)")
+    }
 
     factory.startReactNative(
       withModuleName: "IssieAlbum",
@@ -35,6 +42,52 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     RNSplashScreen.show()
     return true
+  }
+
+  // Handle URLs opened after app launch (share to app)
+  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    print("📥 Received URL: \(url)")
+    guard let tempURL = securelyCopyToTemp(url: url) else {
+      print("❌ Failed to copy file to temp")
+      return false
+    }
+
+    // Post notification to React Native
+    NotificationCenter.default.post(
+      name: Notification.Name("RCTOpenURLNotification"),
+      object: nil,
+      userInfo: ["url": tempURL.absoluteString]
+    )
+
+    print("✅ Posted URL notification: \(tempURL.absoluteString)")
+    return true
+  }
+
+  // Securely copy shared file to temp directory
+  private func securelyCopyToTemp(url: URL) -> URL? {
+    let hasAccess = url.startAccessingSecurityScopedResource()
+    defer {
+      if hasAccess {
+        url.stopAccessingSecurityScopedResource()
+      }
+    }
+
+    do {
+      let fileName = url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
+      let sanitizedFileName = fileName.replacingOccurrences(of: "/", with: "-")
+      let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(sanitizedFileName)
+
+      if FileManager.default.fileExists(atPath: tempURL.path) {
+        try FileManager.default.removeItem(at: tempURL)
+      }
+
+      try FileManager.default.copyItem(at: url, to: tempURL)
+      print("✅ File copied to temp: \(tempURL.path)")
+      return tempURL
+    } catch {
+      print("❌ Error copying file to temp: \(error)")
+      return nil
+    }
   }
 }
 

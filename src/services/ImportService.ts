@@ -22,22 +22,53 @@ export class ImportService {
       // Extract ZIP
       const extractedPath = await ZipUtils.unzip(zipPath, tempDir);
 
-      // Read export metadata
-      const metadataPath = `${extractedPath}/export.metadata`;
-      const metadataExists = await RNFS.exists(metadataPath);
+      // Try IssieAlbum format first (export.metadata)
+      const exportMetadataPath = `${extractedPath}/export.metadata`;
+      const exportMetadataExists = await RNFS.exists(exportMetadataPath);
 
-      if (!metadataExists) {
-        throw new Error('Invalid ZIP file: missing export metadata');
+      if (exportMetadataExists) {
+        // IssieAlbum format
+        const metadataContent = await RNFS.readFile(exportMetadataPath, 'utf8');
+        const metadata: ExportMetadata = JSON.parse(metadataContent);
+
+        return {
+          zipPath,
+          extractedPath,
+          metadata,
+        };
       }
 
-      const metadataContent = await RNFS.readFile(metadataPath, 'utf8');
-      const metadata: ExportMetadata = JSON.parse(metadataContent);
+      // Try IssieDocs format (backup.metadata)
+      const backupMetadataPath = `${extractedPath}/backup.metadata`;
+      const backupMetadataExists = await RNFS.exists(backupMetadataPath);
 
-      return {
-        zipPath,
-        extractedPath,
-        metadata,
-      };
+      if (backupMetadataExists) {
+        // IssieDocs format - check if it's a backup
+        const metadataContent = await RNFS.readFile(backupMetadataPath, 'utf8');
+        const backupMetadata = JSON.parse(metadataContent);
+
+        if (backupMetadata.backup === true) {
+          // This is an IssieDocs backup, not compatible with IssieAlbum
+          throw new Error('IssieDocs backups are not compatible with IssieAlbum. Please use IssieAlbum backup files only.');
+        }
+
+        // Convert to IssieAlbum format
+        const metadata: ExportMetadata = {
+          exportType: 'backup',
+          exportedAt: Date.now(),
+          appVersion: 'IssieDocs',
+          albumCount: 0, // Will be determined by counting ZIPs
+        };
+
+        return {
+          zipPath,
+          extractedPath,
+          metadata,
+        };
+      }
+
+      // No valid metadata found
+      throw new Error('Invalid ZIP file: missing export metadata');
     } catch (error) {
       // Clean up on error
       const exists = await RNFS.exists(tempDir);
@@ -52,12 +83,14 @@ export class ImportService {
    * Import an album from a ZIP file
    * @param zipInfo - ZIP information from extractZipInfo
    * @param newName - Optional new name if there's a conflict
-   * @returns Album ID of imported album
+   * @param silentSkip - If true, skip existing albums without showing dialog (for backup restore)
+   * @returns Album ID of imported album, or null if skipped
    */
   static async importAlbum(
     zipInfo: ZipInfo,
-    newName?: string
-  ): Promise<string> {
+    newName?: string,
+    silentSkip?: boolean
+  ): Promise<string | null> {
     console.log('[ImportService] Importing album:', zipInfo.metadata.albumName);
 
     try {
@@ -78,6 +111,13 @@ export class ImportService {
       // Check for name conflicts
       const exists = await AlbumService.albumExists(targetAlbumName);
       if (exists && !newName) {
+        if (silentSkip) {
+          // Silent skip for backup restore - return null instead of throwing
+          console.log('[ImportService] Album exists, skipping:', targetAlbumName);
+          // Clean up temp directory
+          await RNFS.unlink(zipInfo.extractedPath);
+          return null;
+        }
         // Show conflict resolution dialog
         const newAlbumName = await ImportService.resolveNameConflict(targetAlbumName);
         if (!newAlbumName) {

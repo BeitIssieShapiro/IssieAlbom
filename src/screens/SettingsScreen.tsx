@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,17 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { ThemeName, themes, themeDisplayNames } from '../theme/colors';
+import { ThemeName, themes } from '../theme/colors';
 import { LANGUAGES } from '../i18n/types';
+import { BackupService } from '../services/BackupService';
+import { ShareUtils } from '../utils/ShareUtils';
 
 interface SettingsScreenProps {
   visible: boolean;
@@ -25,6 +29,8 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
   const { themeName, colors, spacing, borderRadius, setTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const screenWidth = Dimensions.get('window').width;
+  const [backupInProgress, setBackupInProgress] = useState(false);
+  const [backupProgress, setBackupProgress] = useState({ current: 0, total: 0 });
 
   const handleThemeSelect = async (theme: ThemeName) => {
     try {
@@ -39,6 +45,55 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
       await setLanguage(lang as any);
     } catch (error) {
       console.error('Failed to change language:', error);
+    }
+  };
+
+  const handleBackup = async () => {
+    setBackupInProgress(true);
+    setBackupProgress({ current: 0, total: 0 });
+
+    try {
+      console.log('[SettingsScreen] Starting backup');
+      const backupPath = await BackupService.backupAllAlbums((current, total) => {
+        setBackupProgress({ current, total });
+      });
+
+      console.log('[SettingsScreen] Backup complete, sharing:', backupPath);
+      await ShareUtils.shareFile(
+        backupPath,
+        'application/zip',
+        t('backup.backupAllAlbums')
+      );
+
+      Alert.alert(
+        t('backup.backupComplete'),
+        t('backup.backupComplete')
+      );
+    } catch (error: any) {
+      console.error('[SettingsScreen] Backup failed:', error);
+
+      // Check if it was a user cancellation
+      if (error?.message?.includes('User did not share') || error?.message?.includes('cancelled')) {
+        console.log('[SettingsScreen] Backup cancelled by user');
+        return;
+      }
+
+      // Check if no albums
+      if (error?.message?.includes('No albums')) {
+        Alert.alert(
+          t('backup.backupFailed'),
+          t('backup.noAlbumsToBackup')
+        );
+        return;
+      }
+
+      Alert.alert(
+        t('backup.backupFailed'),
+        error.message || String(error)
+      );
+    } finally {
+      setBackupInProgress(false);
+      setBackupProgress({ current: 0, total: 0 });
     }
   };
 
@@ -227,6 +282,39 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
               );
             })}
           </View>
+
+          {/* Backup Section */}
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
+            {t('backup.title')}
+          </Text>
+
+          {backupInProgress && (
+            <View style={styles.progressContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+                {`${t('backup.backupInProgress')} ${backupProgress.current}/${backupProgress.total}`}
+              </Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.backupButton,
+              {
+                backgroundColor: colors.primary,
+                borderRadius: borderRadius.medium,
+                padding: spacing.lg,
+              },
+            ]}
+            onPress={handleBackup}
+            disabled={backupInProgress}
+            activeOpacity={0.7}
+          >
+            <Icon name="cloud-upload-outline" size={24} color="#FFF" />
+            <Text style={styles.backupButtonText}>
+              {t('backup.backupAllAlbums')}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
     </Modal>
@@ -321,5 +409,28 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  backupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 32,
+  },
+  backupButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+    padding: 12,
+  },
+  progressText: {
+    fontSize: 14,
   },
 });
