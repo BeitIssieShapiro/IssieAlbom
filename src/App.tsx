@@ -11,7 +11,7 @@ import { AlbumService } from './services/AlbumService';
 import { HomeScreen } from './screens/HomeScreen';
 import { AlbumScreen } from './screens/AlbumScreen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 interface OpenedAlbum {
   album: Album;
@@ -32,6 +32,7 @@ function AppContent() {
   const isDarkMode = useColorScheme() === 'dark';
   const [openedAlbum, setOpenedAlbum] = useState<OpenedAlbum | null>(null);
   const { colors } = useTheme();
+  const { direction } = useLanguage();
 
   const handleOpenAlbum = async (album: Album) => {
     try {
@@ -47,7 +48,7 @@ function AppContent() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={{width:"100%", height:"100%", backgroundColor:colors.headerBackground, zIndex:1}}>
+      <SafeAreaView style={{width:"100%", height:"100%", backgroundColor:colors.headerBackground, zIndex:1, direction}}>
         <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
         {openedAlbum ? (
           <AlbumScreen

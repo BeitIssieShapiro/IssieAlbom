@@ -233,7 +233,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
           keyExtractor={(item) => (item === 'add' ? 'add-button' : item.id)}
           numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.listContent}
-          columnWrapperStyle={{ flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' }}
+          columnWrapperStyle={{ flexDirection: 'row' }}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
           }

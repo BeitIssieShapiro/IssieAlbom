@@ -30,7 +30,7 @@ interface AlbumScreenProps {
 export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const [pages, setPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -51,6 +51,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     const window = Dimensions.get('window');
     return { width: window.width, height: window.height };
   });
+
+  // Helper functions for RTL carousel index conversion
+  // In RTL, carousel data is reversed, so we need to convert between visual and actual indices
+  const toCarouselIndex = useCallback((pageIndex: number) => {
+    return isRTL ? pages.length - 1 - pageIndex : pageIndex;
+  }, [isRTL, pages.length]);
+
+  const fromCarouselIndex = useCallback((carouselIndex: number) => {
+    return isRTL ? pages.length - 1 - carouselIndex : carouselIndex;
+  }, [isRTL, pages.length]);
 
   // Listen for dimension changes (device rotation)
   useEffect(() => {
@@ -316,17 +326,22 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={onBack}>
-          <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
-          {album.name}
-        </Text>
+        {/* Edit/Done button - Start side (Left in LTR, Right in RTL) */}
         <TouchableOpacity
           style={[styles.editButton, { backgroundColor: colors.primary }]}
           onPress={handleToggleEditMode}
         >
           <Text style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? t('album.done') : t('album.edit')}</Text>
+        </TouchableOpacity>
+
+        {/* Album title - Center */}
+        <Text style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
+          {album.name}
+        </Text>
+
+        {/* Home button - End side (Right in LTR, Left in RTL) */}
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={onBack}>
+          <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
         </TouchableOpacity>
       </View>
 
@@ -339,6 +354,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           <Carousel
             ref={carouselRef}
             loop={false}
+            vertical={false}
+            style={{ width: screenDimensions.width }}
 
             mode="parallax"
             modeConfig={{
@@ -348,18 +365,19 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             }}
             width={screenDimensions.width} // Item width (screen - horizontal padding)
             height={screenDimensions.height - HEADER_HEIGHT}
-            data={pages}
+            data={isRTL ? [...pages].reverse() : pages}
 
             renderItem={({ item, index }) => {
-              console.log('[AlbumScreen] Rendering carousel item:', index, item.id);
+              const actualPageIndex = fromCarouselIndex(index);
+              console.log('[AlbumScreen] Rendering carousel item:', index, 'actual page:', actualPageIndex, item.id);
               return (
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={() => {
-                    console.log('[AlbumScreen] Clicked on page:', index, 'current:', currentPageIndex);
+                    console.log('[AlbumScreen] Clicked on carousel index:', index, 'actual page:', actualPageIndex, 'current:', currentPageIndex);
                     // If clicking on a non-current page, slide to it
-                    if (index !== currentPageIndex) {
-                      console.log('[AlbumScreen] Scrolling to page:', index);
+                    if (actualPageIndex !== currentPageIndex) {
+                      console.log('[AlbumScreen] Scrolling to carousel index:', index);
                       carouselRef.current?.scrollTo({ index, animated: true });
                     } else {
                       // If clicking on current page, use normal press handler
@@ -376,17 +394,18 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                     onPress={() => { }} // Disable PageCard's own press handler
                     onEdit={handleEditPage}
                     onDelete={handleDeletePage}
-                    autoPlayAudio={currentPageIndex === index}
+                    autoPlayAudio={currentPageIndex === actualPageIndex}
                   />
                 </TouchableOpacity>
               );
             }}
             enabled={!isEditMode}
             onSnapToItem={(index) => {
-              console.log('[AlbumScreen] Snapped to page:', index);
-              setCurrentPageIndex(index);
+              const actualPageIndex = fromCarouselIndex(index);
+              console.log('[AlbumScreen] Snapped to carousel index:', index, 'actual page:', actualPageIndex);
+              setCurrentPageIndex(actualPageIndex);
             }}
-            defaultIndex={currentPageIndex}
+            defaultIndex={toCarouselIndex(currentPageIndex)}
             windowSize={3}
           />
         </View>

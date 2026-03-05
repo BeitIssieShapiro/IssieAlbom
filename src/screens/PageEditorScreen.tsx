@@ -359,7 +359,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   // Animate tool options panel
   useEffect(() => {
     Animated.timing(slideAnim, {
-      toValue: showToolOptions ? 0 : 240,
+      toValue: showToolOptions ? 0 : 240, // 0 = visible, 240 = hidden off-screen
       duration: 250,
       useNativeDriver: true,
     }).start();
@@ -1751,7 +1751,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Left side: Page Navigation and Undo/Redo */}
+        {/* Start side: Done button (Left in LTR, Right in RTL) */}
+        <TouchableOpacity style={[styles.doneButton, { backgroundColor: colors.primary }]} onPress={handleBack} accessibilityLabel={t('album.done')}>
+          <Text style={[styles.doneButtonText, { color: colors.cardBackground }]}>{t('album.done')}</Text>
+        </TouchableOpacity>
+
+        {/* Center: Title */}
+        <Text style={styles.title}>{t('editor.page')} {page.pageNumber}</Text>
+
+        {/* End side: Page Navigation and Undo/Redo (Right in LTR, Left in RTL) */}
         <View style={styles.headerLeft}>
           {/* Page Navigation Controls */}
           {pages && pages.length > 0 && (
@@ -1762,7 +1770,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 disabled={!hasPrevPage}
                 accessibilityLabel="עמוד קודם"
               >
-                <MyIcon info={{ name: "chevron-left", size: 32, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+                <MyIcon info={{ name: isRTL ? "chevron-right" : "chevron-left", size: 32, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.iconButton, !hasNextPage && styles.iconButtonDisabled]}
@@ -1770,7 +1778,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 disabled={!hasNextPage}
                 accessibilityLabel="עמוד הבא"
               >
-                <MyIcon info={{ name: "chevron-right", size: 32, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+                <MyIcon info={{ name: isRTL ? "chevron-left" : "chevron-right", size: 32, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
               </TouchableOpacity>
             </View>
           )}
@@ -1795,24 +1803,90 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Center: Title */}
-        <Text style={styles.title}>{t('editor.page')} {page.pageNumber}</Text>
-
-        {/* Right side: Done button */}
-        <TouchableOpacity style={[styles.doneButton, { backgroundColor: colors.primary }]} onPress={handleBack} accessibilityLabel={t('album.done')}>
-          <Text style={[styles.doneButtonText, { color: colors.cardBackground }]}>{t('album.done')}</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Canvas */}
+      {/* Editor Container: Toolbar on start side, Canvas on end side */}
       <View style={styles.editorContainer}>
+        {/* Toolbar Level 1 - Start Side (Left in LTR, Right in RTL due to direction property) */}
+        <View style={[styles.toolbar, { borderEndWidth: 1, borderEndColor: '#e0e0e0' }]}>
+          <TouchableOpacity
+            style={[styles.mainToolButton, currentElementType === ElementTypes.Text && styles.mainToolButtonActive]}
+            onPress={handleSetTextMode}
+          >
+            <MyIcon info={{ name: "format-text", size: 38, color: currentElementType === ElementTypes.Text ? '#007AFF' : '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.mainToolButton, currentElementType === ElementTypes.Image && styles.mainToolButtonActive]}
+            onPress={handleSetImageMode}
+          >
+            <MyIcon info={{ name: "image", size: 38, color: currentElementType === ElementTypes.Image ? '#007AFF' : '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.mainToolButton, audioMode && styles.mainToolButtonActive]}
+            onPress={handleSetAudioMode}
+          >
+            <MyIcon info={{ name: "microphone", size: 38, color: audioMode ? '#007AFF' : '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.mainToolButton, currentElementType === ElementTypes.Sketch && styles.mainToolButtonActive]}
+            onPress={() => {
+              handleSetSketchMode();
+              setIsEraser(false);
+            }}
+          >
+            <MyIcon info={{ name: "pencil", size: 38, color: currentElementType === ElementTypes.Sketch ? '#007AFF' : '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.mainToolButton, currentElementType === ElementTypes.Background && styles.mainToolButtonActive]}
+            onPress={handleSetBackgroundMode}
+          >
+            <MyIcon info={{ name: "format-color-fill", size: 38, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.mainToolButton, currentElementType === ElementTypes.Emoji && styles.mainToolButtonActive]}
+            onPress={handleSetEmojiMode}
+          >
+            <MyIcon info={{ name: "emoticon-happy-outline", size: 38, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
+          </TouchableOpacity>
+
+          {/* Spacer to push new page button to bottom */}
+          <View style={{ flex: 1 }} />
+
+          {/* New Page Button */}
+          {onCreatePage && (
+            <TouchableOpacity
+              style={styles.newPageButton}
+              onPress={handleNewPage}
+              accessibilityLabel="עמוד חדש"
+            >
+              <MyIcon info={{ name: "plus", size: 32, color: '#007AFF', type: "MDI" }} />
+            </TouchableOpacity>
+          )}
+
+          {/* Delete Page Button */}
+          {onDeletePage && pages && pages.length > 1 && (
+            <TouchableOpacity
+              style={styles.deletePageButton}
+              onPress={handleDeletePage}
+              accessibilityLabel="מחק עמוד"
+            >
+              <MyIcon info={{ name: "delete", size: 32, color: '#FF3B30', type: "MDI" }} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Canvas Container - End Side (Right in LTR, Left in RTL due to direction property) */}
         <View style={styles.canvasContainer}>
           {(() => {
             //console.log('Canvas positioning:', { sideMargin, canvasWidth, canvasHeight, availableWidth });
             return null;
           })()}
-          <View style={styles.canvas}>
+          <View style={[styles.canvas, { marginEnd: CANVAS_MARGIN }]}>
             <CanvasComponent
               ref={canvasRef}
               style={{
@@ -1901,86 +1975,37 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           })()}
         </View>
 
-        {/* Toolbar Level 1 - Right Side - Always Visible */}
-        <View style={styles.toolbar}>
-          <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Text && styles.mainToolButtonActive]}
-            onPress={handleSetTextMode}
-          >
-            <MyIcon info={{ name: "format-text", size: 38, color: currentElementType === ElementTypes.Text ? '#007AFF' : '#555', type: "MDI" }} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Image && styles.mainToolButtonActive]}
-            onPress={handleSetImageMode}
-          >
-            <MyIcon info={{ name: "image", size: 38, color: currentElementType === ElementTypes.Image ? '#007AFF' : '#555', type: "MDI" }} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.mainToolButton, audioMode && styles.mainToolButtonActive]}
-            onPress={handleSetAudioMode}
-          >
-            <MyIcon info={{ name: "microphone", size: 38, color: audioMode ? '#007AFF' : '#555', type: "MDI" }} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Sketch && styles.mainToolButtonActive]}
-            onPress={() => {
-              handleSetSketchMode();
-              setIsEraser(false);
-            }}
-          >
-            <MyIcon info={{ name: "pencil", size: 38, color: currentElementType === ElementTypes.Sketch ? '#007AFF' : '#555', type: "MDI" }} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Background && styles.mainToolButtonActive]}
-            onPress={handleSetBackgroundMode}
-          >
-            <MyIcon info={{ name: "format-color-fill", size: 38, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Emoji && styles.mainToolButtonActive]}
-            onPress={handleSetEmojiMode}
-          >
-            <MyIcon info={{ name: "emoticon-happy-outline", size: 38, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
-          </TouchableOpacity>
-
-          {/* Spacer to push new page button to bottom */}
-          <View style={{ flex: 1 }} />
-
-          {/* New Page Button */}
-          {onCreatePage && (
-            <TouchableOpacity
-              style={styles.newPageButton}
-              onPress={handleNewPage}
-              accessibilityLabel="עמוד חדש"
-            >
-              <MyIcon info={{ name: "plus", size: 32, color: '#007AFF', type: "MDI" }} />
-            </TouchableOpacity>
-          )}
-
-          {/* Delete Page Button */}
-          {onDeletePage && pages && pages.length > 1 && (
-            <TouchableOpacity
-              style={styles.deletePageButton}
-              onPress={handleDeletePage}
-              accessibilityLabel="מחק עמוד"
-            >
-              <MyIcon info={{ name: "delete", size: 32, color: '#FF3B30', type: "MDI" }} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Toolbar Level 2 - Tool Options - Slides Over Canvas */}
+        {/* Toolbar Level 2 - Tool Options - Next to Main Toolbar */}
         {showToolOptions && (
           <Animated.View
             style={[
               styles.toolOptionsPanel,
-              {
-                transform: [{ translateX: slideAnim }],
+              isRTL ? {
+                right: 90, // In RTL: toolbar is on right, sub-toolbar next to it on left
+                left: undefined,
+                borderLeftWidth: 1,
+                borderLeftColor: '#e0e0e0',
+                borderRightWidth: 0,
+                shadowOffset: { width: -2, height: 0 },
+                transform: [{
+                  translateX: slideAnim.interpolate({
+                    inputRange: [0, 240],
+                    outputRange: [0, 240], // Slide RIGHT to hide (positive)
+                  })
+                }],
+              } : {
+                left: 90, // In LTR: toolbar is on left, sub-toolbar next to it on right
+                right: undefined,
+                borderRightWidth: 1,
+                borderRightColor: '#e0e0e0',
+                borderLeftWidth: 0,
+                shadowOffset: { width: 2, height: 0 },
+                transform: [{
+                  translateX: slideAnim.interpolate({
+                    inputRange: [0, 240],
+                    outputRange: [0, -240], // Slide LEFT to hide (negative)
+                  })
+                }],
               }
             ]}
             pointerEvents="box-none"
@@ -1988,7 +2013,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             <View style={{ flex: 1, backgroundColor: '#fff' }} pointerEvents="auto">
               {/* Close Button */}
               <TouchableOpacity
-                style={styles.closeButton}
+                style={[
+                  styles.closeButton,
+                  isRTL ? { left: 12 } : { right: 12 }
+                ]}
                 onPress={() => {
                   console.log('[Close toolbar] Closing tool options');
                   // Save text before closing
@@ -2065,7 +2093,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Title/Body Buttons */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
-                      style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, textMode === 'title' && currentEdited.textId && styles.optionButtonActive]}
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, textMode === 'title' && currentEdited.textId && styles.optionButtonActive]}
                       onPress={handleEditTitle}
                     >
                       <MyIcon info={{ name: "format-header-1", size: 24, color: textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
@@ -2073,7 +2101,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, textMode === 'body' && currentEdited.textId && styles.optionButtonActive]}
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, textMode === 'body' && currentEdited.textId && styles.optionButtonActive]}
                       onPress={handleEditBody}
                     >
                       <MyIcon info={{ name: "format-text", size: 24, color: textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
@@ -2130,7 +2158,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {!audioMode && currentElementType === ElementTypes.Image && (
                 <View style={styles.optionsSection}>
                   <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
+                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
                     onPress={handleAddImage}
                     disabled={loadingImagePicker}
                   >
@@ -2143,7 +2171,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
+                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
                     onPress={() => setShowCameraModal(true)}
                   >
                     <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
@@ -2151,7 +2179,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
+                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
                     onPress={() => setShowSearchImageModal(true)}
                   >
                     <MyIcon info={{ name: "image-search", size: 24, color: '#007AFF', type: "MDI" }} />
@@ -2165,7 +2193,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, isRecording && styles.optionButtonActive]}
+                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, isRecording && styles.optionButtonActive]}
                     onPress={isRecording ? handleStopRecording : handleStartRecording}
                   >
                     <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
@@ -2173,7 +2201,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
+                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handlePlayAudio}
                     disabled={!pageAudioFile}
                   >
@@ -2182,7 +2210,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
+                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handleOpenWordMapping}
                     disabled={!pageAudioFile}
                   >
@@ -2191,7 +2219,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
+                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handleClearPageAudio}
                     disabled={!pageAudioFile}
                   >
@@ -2208,7 +2236,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Pick Emoji Button */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
-                      style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
                       onPress={handleOpenEmojiKeyboard}
                     >
                       <MyIcon info={{ name: "emoticon-happy-outline", size: 24, color: '#007AFF', type: "MDI" }} />
@@ -2279,7 +2307,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       {/* Delete Button */}
                       <View style={styles.optionsSection}>
                         <TouchableOpacity
-                          style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, styles.optionButtonDestructive]}
+                          style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive]}
                           onPress={handleEmojiDelete}
                         >
                           <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
@@ -2536,7 +2564,6 @@ const styles = StyleSheet.create({
   },
   canvas: {
     marginTop: CANVAS_MARGIN,
-    marginLeft: CANVAS_MARGIN,
     backgroundColor: '#fff',
     borderRadius: 8,
     boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.3)',
@@ -2545,8 +2572,6 @@ const styles = StyleSheet.create({
   toolbar: {
     width: 90,
     backgroundColor: '#fff',
-    borderLeftWidth: 1,
-    borderLeftColor: '#e0e0e0',
     paddingVertical: 8,
     alignItems: 'center',
     gap: 12,
@@ -2585,17 +2610,14 @@ const styles = StyleSheet.create({
   },
   toolOptionsPanel: {
     position: 'absolute',
-    right: 90,
     top: 0,
     bottom: 0,
     width: 240,
     backgroundColor: '#fff',
-    borderLeftWidth: 1,
-    borderLeftColor: '#e0e0e0',
     paddingVertical: 16,
     paddingHorizontal: 16,
     shadowColor: '#000',
-    shadowOffset: { width: -2, height: 0 },
+    shadowOffset: { width: 2, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 10,
@@ -2604,7 +2626,6 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     top: 12,
-    right: 12,
     width: 32,
     height: 32,
     borderRadius: 16,

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
-import { Alert, I18nManager } from 'react-native';
 import { getLocales } from 'react-native-localize';
 import { LanguageCode, Direction, LANGUAGES } from '../i18n/types';
 import { t as translateFunction } from '../i18n/i18n';
@@ -73,28 +72,10 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
       // Save to preferences
       await PreferencesService.setLanguage(lang);
 
-      // Get language direction
-      const langInfo = LANGUAGES.find(l => l.code === lang);
-      const newDir = langInfo?.dir || 'ltr';
-      const shouldBeRTL = newDir === 'rtl';
-
-      console.log('[LanguageContext] Changing language to:', lang, 'RTL:', shouldBeRTL, 'Current RTL:', I18nManager.isRTL);
-
-      // Check if RTL needs to change
-      if (I18nManager.isRTL !== shouldBeRTL) {
-        I18nManager.forceRTL(shouldBeRTL);
-
-        // Alert user to restart app
-        Alert.alert(
-          translateFunction('settings.restartRequired', lang),
-          translateFunction('settings.restartMessage', lang),
-          [{ text: translateFunction('settings.ok', lang) }]
-        );
-      }
-
-      // Update state
-      setLanguageState(lang);
       console.log('[LanguageContext] Language changed to:', lang);
+
+      // Update state - direction will be handled by App.tsx
+      setLanguageState(lang);
     } catch (error) {
       console.error('[LanguageContext] Failed to set language:', error);
     }

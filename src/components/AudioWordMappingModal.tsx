@@ -208,7 +208,7 @@ export function AudioWordMappingModal({
 }: AudioWordMappingModalProps) {
   console.log('[AudioWordMappingModal] Component initialized with propDuration:', propDuration);
 
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   // Simple state - single source of truth
   const [audioDuration, setAudioDuration] = useState(propDuration || 10);
@@ -415,10 +415,10 @@ export function AudioWordMappingModal({
     // Use dragging timings if available (current positions during drag)
     const currentTimings = draggingTimingsRef.current.length > 0 ? draggingTimingsRef.current : currentWordTimings;
 
-    const timeToX = (time: number) => (time / currentAudioDuration) * waveformWidth;
+    const timeToXLocal = (time: number) => (time / currentAudioDuration) * waveformWidth;
 
-    const minX = wordIndex > 0 ? timeToX(currentTimings[wordIndex - 1].startTime) + WORD_GAP : 0;
-    const maxX = wordIndex < currentTimings.length - 1 ? timeToX(currentTimings[wordIndex + 1].startTime) - WORD_GAP : waveformWidth;
+    const minX = wordIndex > 0 ? timeToXLocal(currentTimings[wordIndex - 1].startTime) + WORD_GAP : 0;
+    const maxX = wordIndex < currentTimings.length - 1 ? timeToXLocal(currentTimings[wordIndex + 1].startTime) - WORD_GAP : waveformWidth;
     const constrainedX = Math.max(minX, Math.min(maxX, newX));
     const newTime = (constrainedX / waveformWidth) * currentAudioDuration;
 
@@ -494,10 +494,10 @@ export function AudioWordMappingModal({
             <>
               {/* Word Markers */}
               <View style={styles.wordsContainer}>
-                <View style={styles.wordsRow}>
+                <View style={[styles.wordsRow, isRTL && { transform: [{ scaleX: -1 }] }]}>
                   {wordTimings.map((wt, index) => {
                     const waveformWidth = MODAL_WIDTH - 40;
-                    const WORD_GAP = 10; // Minimum gap between words in pixels
+                    const WORD_GAP = 10;
                     const minX = index > 0 ? timeToX(wordTimings[index - 1].startTime) + WORD_GAP : 0;
                     const maxX = index < wordTimings.length - 1 ? timeToX(wordTimings[index + 1].startTime) - WORD_GAP : waveformWidth;
                     const pos = timeToX(wt.startTime);
@@ -509,6 +509,7 @@ export function AudioWordMappingModal({
                         position={pos}
                         minX={minX}
                         maxX={maxX}
+                        isRTL={isRTL}
                         onDragMove={(currentX) => handleWordMarkerDragMove(index, currentX)}
                         onDragEnd={(newX) => handleWordMarkerDragEnd(index, newX)}
                         isActive={currentTime >= wt.startTime &&
@@ -520,7 +521,7 @@ export function AudioWordMappingModal({
               </View>
 
               {/* Waveform */}
-              <View style={styles.waveformContainer}>
+              <View style={[styles.waveformContainer, isRTL && { transform: [{ scaleX: -1 }] }]}>
                 <AudioWaveform
                   audioFile={audioFile}
                   albumId={albumId}
@@ -600,11 +601,12 @@ interface WordMarkerProps {
   onDragMove: (currentX: number) => void;
   onDragEnd: (newX: number) => void;
   isActive: boolean;
+  isRTL: boolean;
   minX?: number;
   maxX?: number;
 }
 
-const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, onDragEnd, isActive, minX = 0, maxX = 1000 }: WordMarkerProps) {
+const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, onDragEnd, isActive, isRTL, minX = 0, maxX = 1000 }: WordMarkerProps) {
   const [localPosition, setLocalPosition] = useState(position);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef(position);
@@ -616,6 +618,7 @@ const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, 
   const maxXRef = useRef(maxX);
   const onDragMoveRef = useRef(onDragMove);
   const onDragEndRef = useRef(onDragEnd);
+  const isRTLRef = useRef(isRTL);
 
   // Sync localPosition to ref
   useEffect(() => {
@@ -639,6 +642,10 @@ const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, 
     onDragEndRef.current = onDragEnd;
   }, [onDragEnd]);
 
+  useEffect(() => {
+    isRTLRef.current = isRTL;
+  }, [isRTL]);
+
   // Only update local position when prop changes AND we're not dragging AND position actually changed
   useEffect(() => {
     if (!isDragging && Math.abs(position - prevPositionRef.current) > 0.1) {
@@ -658,13 +665,16 @@ const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, 
         dragStartRef.current = localPositionRef.current;
       },
       onPanResponderMove: (_, gesture) => {
-        const newX = dragStartRef.current + gesture.dx;
+        // In RTL, parent is flipped with scaleX(-1), so gesture.dx is inverted
+        const dx = isRTLRef.current ? -gesture.dx : gesture.dx;
+        const newX = dragStartRef.current + dx;
         const constrainedX = Math.max(minXRef.current, Math.min(maxXRef.current, newX));
         setLocalPosition(constrainedX);
         onDragMoveRef.current(constrainedX);
       },
       onPanResponderRelease: (_, gesture) => {
-        const finalX = dragStartRef.current + gesture.dx;
+        const dx = isRTLRef.current ? -gesture.dx : gesture.dx;
+        const finalX = dragStartRef.current + dx;
         const constrainedX = Math.max(minXRef.current, Math.min(maxXRef.current, finalX));
         setIsDragging(false);
         onDragEndRef.current(constrainedX);
@@ -684,7 +694,13 @@ const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, 
       ]}
       {...panResponder.panHandlers}
     >
-      <Text style={[styles.wordText, isActive && styles.wordTextActive]}>{word}</Text>
+      <Text style={[
+        styles.wordText,
+        isActive && styles.wordTextActive,
+        isRTL && { transform: [{ scaleX: -1 }] } // Flip text back only for text
+      ]}>
+        {word}
+      </Text>
     </View>
   );
 }, (prevProps, nextProps) => {
@@ -693,6 +709,7 @@ const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, 
     prevProps.word === nextProps.word &&
     Math.abs(prevProps.position - nextProps.position) < 0.1 &&
     prevProps.isActive === nextProps.isActive &&
+    prevProps.isRTL === nextProps.isRTL &&
     prevProps.minX === nextProps.minX &&
     prevProps.maxX === nextProps.maxX
   );
