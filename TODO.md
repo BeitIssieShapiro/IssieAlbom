@@ -3,12 +3,12 @@
 - add search image list (internet)
 - themes
 - patterns lighter lines
-- no undo after close
 - export: album/pdf/movie
-V- search emoji in he
 - translation
 - title disapears while moving
 - change yellow bg
+V- no undo after close
+V- search emoji in he
 
 
 

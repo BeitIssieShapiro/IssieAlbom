@@ -125,7 +125,12 @@ export default class DoQueue {
     this._doneQueue.push(queueElem);
   }
 
-  undo(): boolean {
+  undo(baselineLength?: number): boolean {
+    // If baseline is provided, don't allow undo past that point
+    if (baselineLength !== undefined && this._doneQueue.length <= baselineLength) {
+      return false;
+    }
+
     if (this._doneQueue.length > 0) {
       // Don't undo if only background remains
       if (this._doneQueue.length === 1 && this._doneQueue[0].type === 'background') {
@@ -134,7 +139,7 @@ export default class DoQueue {
 
       const elem = this._doneQueue.pop()!;
       if (elem.withPrevious) {
-        this.undo();
+        this.undo(baselineLength);
       }
       this._undoQueue.push(elem);
       return true;
@@ -164,7 +169,12 @@ export default class DoQueue {
     return undefined;
   }
 
-  canUndo(): boolean {
+  canUndo(baselineLength?: number): boolean {
+    // If baseline is provided, don't allow undo past that point
+    if (baselineLength !== undefined && this._doneQueue.length <= baselineLength) {
+      return false;
+    }
+
     return this._doneQueue.length > 0 &&
            !(this._doneQueue.length === 1 && this._doneQueue[0].type === 'background');
   }
@@ -175,6 +185,10 @@ export default class DoQueue {
 
   getAll(): QueueElement[] {
     return this._doneQueue;
+  }
+
+  getQueueLength(): number {
+    return this._doneQueue.length;
   }
 
   clear() {

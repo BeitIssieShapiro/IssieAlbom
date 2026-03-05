@@ -140,6 +140,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   // Track if page was modified (for thumbnail generation)
   const pageModifiedRef = useRef(false);
 
+  // Track baseline queue length when page is loaded (for limiting undo to current session)
+  const baselineQueueLength = useRef<number | undefined>(undefined);
+
   // Canvas state (external to Canvas component)
   const [paths, setPaths] = useState<SketchPath[]>([]);
   const [texts, setTexts] = useState<SketchText[]>([]);
@@ -443,6 +446,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
       setBackgroundPattern(undefined);
     }
+
+    // Set baseline queue length to limit undo to current editing session
+    baselineQueueLength.current = queue.current.getQueueLength();
+    console.log('[PageEditorScreen] Set baseline queue length:', baselineQueueLength.current);
   }, [page.id]);
 
   // Rebuild paths/texts/images/audios arrays from queue using shared utility
@@ -640,7 +647,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
     }
 
-    if (queue.current.undo()) {
+    if (queue.current.undo(baselineQueueLength.current)) {
       rebuildStateFromQueue();
 
       // If an emoji is selected, reload its rotation from the undone state
@@ -1722,12 +1729,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           {/* Undo/Redo */}
           <View style={styles.headerActions}>
             <TouchableOpacity
-              style={[styles.iconButton, !queue.current.canUndo() && styles.iconButtonDisabled]}
+              style={[styles.iconButton, !queue.current.canUndo(baselineQueueLength.current) && styles.iconButtonDisabled]}
               onPress={handleUndo}
-              disabled={!queue.current.canUndo()}
+              disabled={!queue.current.canUndo(baselineQueueLength.current)}
               accessibilityLabel="ביטול פעולה אחרונה"
             >
-              <MyIcon info={{ name: "undo", size: 24, color: queue.current.canUndo() ? '#007AFF' : '#ccc', type: "MI" }} />
+              <MyIcon info={{ name: "undo", size: 24, color: queue.current.canUndo(baselineQueueLength.current) ? '#007AFF' : '#ccc', type: "MI" }} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, !queue.current.canRedo() && styles.iconButtonDisabled]}

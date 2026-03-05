@@ -749,7 +749,7 @@ function Canvas({
     }, []);
 
     const handleCursorPositionChange = useCallback((top2cursorHeight: number, text: SketchText) => {
-        console.log("handleCursorPositionChange", top2cursorHeight)
+        //console.log("handleCursorPositionChange", top2cursorHeight)
         text.tempTop2CursorHeight = top2cursorHeight / ratioRef.current;
         onTextCursorChange?.();
     }, []);
@@ -771,7 +771,7 @@ function Canvas({
         //const prevHeight = text.height || 0;
         const normHeight = canvasHeightRef.current / ratioRef.current;
         text.height = height / ratioRef.current;
-        trace("handleTextLayout", normHeight, text.height, "bottom", text.y + height / ratioRef.current)
+        //trace("handleTextLayout", normHeight, text.height, "bottom", text.y + height / ratioRef.current)
         if (!text.tableId && text.y + height / ratioRef.current > normHeight) {
             trace("non table y-overflow")
             // change in height passed end of page
