@@ -3,6 +3,21 @@
  * @format
  */
 
+// Polyfills for PDF generation
+import TextEncoder from 'react-native-fast-encoder';
+import { Buffer } from 'buffer';
+
+// @ts-ignore
+window.TextEncoder = TextEncoder;
+// @ts-ignore
+window.TextDecoder = TextEncoder;
+
+// Make Buffer available globally
+if (typeof global !== 'undefined') {
+  // @ts-ignore
+  global.Buffer = Buffer;
+}
+
 import React, { useState } from 'react';
 import { StatusBar, useColorScheme, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';

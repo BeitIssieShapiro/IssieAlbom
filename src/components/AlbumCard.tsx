@@ -21,10 +21,11 @@ interface AlbumCardProps {
   onPress: (album: Album) => void;
   onRename?: (album: Album) => void;
   onDelete?: (album: Album) => void;
+  onShare?: (album: Album) => void;
   screenWidth: number;
 }
 
-export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: AlbumCardProps) {
+export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenWidth }: AlbumCardProps) {
   const { colors } = useTheme();
   const { t, language } = useLanguage();
   const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
@@ -49,7 +50,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
     onPress(album);
   };
 
-  const handleMenuOption = (action: 'rename' | 'delete') => {
+  const handleMenuOption = (action: 'rename' | 'delete' | 'share') => {
     setMenuVisible(false);
     // Delay action to ensure modal unmounts properly
     setTimeout(() => {
@@ -57,6 +58,8 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
         onRename?.(album);
       } else if (action === 'delete') {
         onDelete?.(album);
+      } else if (action === 'share') {
+        onShare?.(album);
       }
     }, 100);
   };
@@ -120,6 +123,12 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
               onPress={() => handleMenuOption('rename')}
             >
               <Text style={[styles.menuItemText, { color: colors.primary }]}>{t('albumCard.menuRename')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={() => handleMenuOption('share')}
+            >
+              <Text style={[styles.menuItemText, { color: colors.primary }]}>{t('export.share')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemDestructive, { borderBottomColor: colors.border }]}

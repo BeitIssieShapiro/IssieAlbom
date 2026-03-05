@@ -19,6 +19,7 @@ import { Album } from '../types/Album';
 import { AlbumService } from '../services/AlbumService';
 import { AlbumCard } from '../components/AlbumCard';
 import { AddAlbumButton } from '../components/AddAlbumButton';
+import { ExportModal } from '../components/ExportModal';
 import { AboutScreen } from './AboutScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { spacing, borderRadius } from '../theme/colors';
@@ -44,6 +45,8 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   const [newAlbumName, setNewAlbumName] = useState('');
   const [showAbout, setShowAbout] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [albumToExport, setAlbumToExport] = useState<Album | null>(null);
 
   // Track screen dimensions for rotation support
   const [screenDimensions, setScreenDimensions] = useState(() => {
@@ -177,6 +180,18 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
     );
   };
 
+  const handleShareAlbum = (album: Album) => {
+    setAlbumToExport(album);
+    setExportModalVisible(true);
+  };
+
+  const handleExportModalClose = async () => {
+    setExportModalVisible(false);
+    setAlbumToExport(null);
+    // Refresh albums list in case thumbnail changed
+    await loadAlbums();
+  };
+
   const renderItem = ({ item, index }: { item: Album | 'add'; index: number }) => {
     if (item === 'add') {
       return <AddAlbumButton onPress={handleAddAlbum} screenWidth={screenDimensions.width} />;
@@ -187,6 +202,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
         onPress={handleAlbumPress}
         onRename={handleRenameAlbum}
         onDelete={confirmDeleteAlbum}
+        onShare={handleShareAlbum}
         screenWidth={screenDimensions.width}
       />
     );
@@ -296,6 +312,15 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
           </View>
         </View>
       </Modal>
+
+      {albumToExport && (
+        <ExportModal
+          visible={exportModalVisible}
+          albumId={albumToExport.id}
+          albumName={albumToExport.name}
+          onClose={handleExportModalClose}
+        />
+      )}
     </View>
   );
 }

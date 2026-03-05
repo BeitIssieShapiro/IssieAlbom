@@ -220,3 +220,25 @@ export function isPageV2(page: AlbumPage): page is AlbumPageV2 {
 export function isLegacyPage(page: AlbumPage): page is AlbumPageLegacy {
   return !isPageV2(page);
 }
+
+// Export metadata types
+export interface ExportMetadata {
+  exportType: 'album' | 'backup';
+  exportedAt: number;
+  appVersion: string;
+
+  // Album-specific metadata
+  albumId?: string;
+  albumName?: string;
+  pageCount?: number;
+
+  // Backup-specific metadata
+  albumCount?: number;
+}
+
+export interface ZipInfo {
+  zipPath: string;
+  extractedPath: string;
+  metadata: ExportMetadata;
+}
+

@@ -139,6 +139,47 @@ interface Translations {
     searchPlaceholder: string;
     noResults: string;
   };
+
+  // Export/Import
+  export: {
+    share: string;
+    exportAsAlbum: string;
+    exportAsPDF: string;
+    exportingAlbum: string;
+    exportingPDF: string;
+    exportComplete: string;
+    exportFailed: string;
+    generatingPDF: string;
+    capturingPages: string;
+  };
+
+  import: {
+    importAlbum: string;
+    importingAlbum: string;
+    importComplete: string;
+    importFailed: string;
+    invalidZipFile: string;
+    albumAlreadyExists: string;
+    renameAlbum: string;
+    replaceAlbum: string;
+    enterNewName: string;
+  };
+
+  // Backup/Restore
+  backup: {
+    title: string;
+    backupAllAlbums: string;
+    restoreFromBackup: string;
+    backupInProgress: string;
+    backupComplete: string;
+    restoreInProgress: string;
+    restoreComplete: string;
+    albumsImported: string;
+    albumsSkipped: string;
+    backupFailed: string;
+    restoreFailed: string;
+    noAlbumsToBackup: string;
+  };
 }
 
 export const translations: Record<LanguageCode, Translations> = {
@@ -270,6 +311,45 @@ export const translations: Record<LanguageCode, Translations> = {
       searchPlaceholder: 'הקלד מילת חיפוש...',
       noResults: 'לא נמצאו תוצאות',
     },
+
+    export: {
+      share: 'שיתוף',
+      exportAsAlbum: 'ייצוא כאלבום (ZIP)',
+      exportAsPDF: 'ייצוא כ-PDF',
+      exportingAlbum: 'מייצא אלבום...',
+      exportingPDF: 'מייצר PDF...',
+      exportComplete: 'הייצוא הושלם',
+      exportFailed: 'הייצוא נכשל',
+      generatingPDF: 'יוצר PDF',
+      capturingPages: 'לוכד עמודים',
+    },
+
+    import: {
+      importAlbum: 'ייבוא אלבום',
+      importingAlbum: 'מייבא אלבום...',
+      importComplete: 'הייבוא הושלם',
+      importFailed: 'הייבוא נכשל',
+      invalidZipFile: 'קובץ ZIP לא תקין',
+      albumAlreadyExists: 'אלבום בשם זה כבר קיים',
+      renameAlbum: 'שנה שם',
+      replaceAlbum: 'החלף',
+      enterNewName: 'הזן שם חדש:',
+    },
+
+    backup: {
+      title: 'גיבוי ושחזור',
+      backupAllAlbums: 'גבה את כל האלבומים',
+      restoreFromBackup: 'שחזר מגיבוי',
+      backupInProgress: 'מבצע גיבוי...',
+      backupComplete: 'הגיבוי הושלם',
+      restoreInProgress: 'משחזר מגיבוי...',
+      restoreComplete: 'השחזור הושלם',
+      albumsImported: 'אלבומים יובאו',
+      albumsSkipped: 'אלבומים דולגו',
+      backupFailed: 'הגיבוי נכשל',
+      restoreFailed: 'השחזור נכשל',
+      noAlbumsToBackup: 'אין אלבומים לגיבוי',
+    },
   },
 
   en: {
@@ -400,6 +480,45 @@ export const translations: Record<LanguageCode, Translations> = {
       searchPlaceholder: 'Enter search term...',
       noResults: 'No results found',
     },
+
+    export: {
+      share: 'Share',
+      exportAsAlbum: 'Export as Album (ZIP)',
+      exportAsPDF: 'Export as PDF',
+      exportingAlbum: 'Exporting album...',
+      exportingPDF: 'Generating PDF...',
+      exportComplete: 'Export complete',
+      exportFailed: 'Export failed',
+      generatingPDF: 'Generating PDF',
+      capturingPages: 'Capturing pages',
+    },
+
+    import: {
+      importAlbum: 'Import Album',
+      importingAlbum: 'Importing album...',
+      importComplete: 'Import complete',
+      importFailed: 'Import failed',
+      invalidZipFile: 'Invalid ZIP file',
+      albumAlreadyExists: 'An album with this name already exists',
+      renameAlbum: 'Rename',
+      replaceAlbum: 'Replace',
+      enterNewName: 'Enter new name:',
+    },
+
+    backup: {
+      title: 'Backup & Restore',
+      backupAllAlbums: 'Backup All Albums',
+      restoreFromBackup: 'Restore from Backup',
+      backupInProgress: 'Backing up...',
+      backupComplete: 'Backup complete',
+      restoreInProgress: 'Restoring...',
+      restoreComplete: 'Restore complete',
+      albumsImported: 'Albums imported',
+      albumsSkipped: 'Albums skipped',
+      backupFailed: 'Backup failed',
+      restoreFailed: 'Restore failed',
+      noAlbumsToBackup: 'No albums to backup',
+    },
   },
 
   ar: {
@@ -529,6 +648,45 @@ export const translations: Record<LanguageCode, Translations> = {
       search: 'بحث',
       searchPlaceholder: 'أدخل كلمة البحث...',
       noResults: 'لم يتم العثور على نتائج',
+    },
+
+    export: {
+      share: 'مشاركة',
+      exportAsAlbum: 'تصدير كألبوم (ZIP)',
+      exportAsPDF: 'تصدير كـ PDF',
+      exportingAlbum: 'جاري تصدير الألبوم...',
+      exportingPDF: 'جاري إنشاء PDF...',
+      exportComplete: 'اكتمل التصدير',
+      exportFailed: 'فشل التصدير',
+      generatingPDF: 'إنشاء PDF',
+      capturingPages: 'التقاط الصفحات',
+    },
+
+    import: {
+      importAlbum: 'استيراد ألبوم',
+      importingAlbum: 'جاري استيراد الألبوم...',
+      importComplete: 'اكتمل الاستيراد',
+      importFailed: 'فشل الاستيراد',
+      invalidZipFile: 'ملف ZIP غير صالح',
+      albumAlreadyExists: 'يوجد ألبوم بهذا الاسم بالفعل',
+      renameAlbum: 'إعادة تسمية',
+      replaceAlbum: 'استبدال',
+      enterNewName: 'أدخل اسمًا جديدًا:',
+    },
+
+    backup: {
+      title: 'النسخ الاحتياطي والاستعادة',
+      backupAllAlbums: 'نسخ احتياطي لجميع الألبومات',
+      restoreFromBackup: 'استعادة من النسخ الاحتياطي',
+      backupInProgress: 'جاري النسخ الاحتياطي...',
+      backupComplete: 'اكتمل النسخ الاحتياطي',
+      restoreInProgress: 'جاري الاستعادة...',
+      restoreComplete: 'اكتملت الاستعادة',
+      albumsImported: 'الألبومات المستوردة',
+      albumsSkipped: 'الألبومات المتخطاة',
+      backupFailed: 'فشل النسخ الاحتياطي',
+      restoreFailed: 'فشلت الاستعادة',
+      noAlbumsToBackup: 'لا توجد ألبومات للنسخ الاحتياطي',
     },
   },
 };
