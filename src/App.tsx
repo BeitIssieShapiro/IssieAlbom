@@ -11,6 +11,7 @@ import { AlbumService } from './services/AlbumService';
 import { HomeScreen } from './screens/HomeScreen';
 import { AlbumScreen } from './screens/AlbumScreen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 interface OpenedAlbum {
   album: Album;
@@ -20,7 +21,9 @@ interface OpenedAlbum {
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

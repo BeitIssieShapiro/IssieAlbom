@@ -227,9 +227,9 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           />
         </View>
 
-        {/* Page Audio - hidden in view, only plays audio */}
+        {/* Page Audio - hidden off-screen, only plays audio */}
         {pageAudio?.audioPath && autoPlayAudio && (
-          <View style={{ width: 0, height: 0, overflow: 'hidden' }}>
+          <View style={{ position: 'absolute', left: -10000, top: -10000, width: 1, height: 1 }}>
             <AudioElement
               audioFile={pageAudio.audioPath}
               albumId={albumId}

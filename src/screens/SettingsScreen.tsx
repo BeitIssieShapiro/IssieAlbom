@@ -11,7 +11,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { ThemeName, themes, themeDisplayNames } from '../theme/colors';
+import { LANGUAGES } from '../i18n/types';
 
 interface SettingsScreenProps {
   visible: boolean;
@@ -21,6 +23,7 @@ interface SettingsScreenProps {
 export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
   const insets = useSafeAreaInsets();
   const { themeName, colors, spacing, borderRadius, setTheme } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
   const screenWidth = Dimensions.get('window').width;
 
   const handleThemeSelect = async (theme: ThemeName) => {
@@ -28,6 +31,14 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
       await setTheme(theme);
     } catch (error) {
       console.error('Failed to change theme:', error);
+    }
+  };
+
+  const handleLanguageSelect = async (lang: string) => {
+    try {
+      await setLanguage(lang as any);
+    } catch (error) {
+      console.error('Failed to change language:', error);
     }
   };
 
@@ -57,7 +68,7 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
             },
           ]}
         >
-          <Text style={[styles.title, { color: colors.primary }]}>הגדרות</Text>
+          <Text style={[styles.title, { color: colors.primary }]}>{t('settings.title')}</Text>
           <TouchableOpacity
             onPress={onClose}
             style={styles.closeButton}
@@ -71,8 +82,58 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
         <ScrollView
           contentContainerStyle={[styles.content, { padding: spacing.xl }]}
         >
+          {/* Language Selection */}
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            בחר ערכת נושא
+            {t('settings.selectLanguage')}
+          </Text>
+
+          <View style={styles.languageGrid}>
+            {LANGUAGES.map((lang) => {
+              const isSelected = lang.code === language;
+              const cardWidth = screenWidth > 600 ? 250 : (screenWidth - spacing.xl * 3) / 2;
+
+              return (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.languageCard,
+                    {
+                      width: cardWidth,
+                      borderRadius: borderRadius.medium,
+                      borderWidth: isSelected ? 3 : 2,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      backgroundColor: colors.cardBackground,
+                      padding: spacing.lg,
+                    },
+                  ]}
+                  onPress={() => handleLanguageSelect(lang.code)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.languageName,
+                      {
+                        color: isSelected ? colors.primary : colors.textPrimary,
+                        fontWeight: isSelected ? 'bold' : '600',
+                      },
+                    ]}
+                  >
+                    {lang.label}
+                  </Text>
+
+                  {isSelected && (
+                    <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
+                      <Icon name="checkmark" size={20} color="#FFF" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Theme Selection */}
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
+            {t('settings.selectTheme')}
           </Text>
 
           <View style={styles.themeGrid}>
@@ -153,7 +214,7 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
                       },
                     ]}
                   >
-                    {themeDisplayNames[theme]}
+                    {t(`themes.${theme}` as any)}
                   </Text>
 
                   {/* Selected Indicator */}
@@ -201,6 +262,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
+    textAlign: 'center',
+  },
+  languageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    gap: 16,
+    marginBottom: 20,
+  },
+  languageCard: {
+    marginBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 80,
+  },
+  languageName: {
+    fontSize: 22,
     textAlign: 'center',
   },
   themeGrid: {

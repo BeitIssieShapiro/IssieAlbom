@@ -22,8 +22,9 @@ import Sound from 'react-native-nitro-sound';
 import EmojiPicker, { en, he } from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import heKeywords from '../assets/emoji-keywords-he.json';
-import { AlbumPage, AlbumPageV2, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern, HEADER_HEIGHT } from '../types/Album';
-import { SketchElement, SketchElementAttributes, MoveTypes, ElementTypes } from '../components/canvas/types';
+import arKeywords from '../assets/emoji-keywords-ar.json';
+import { AlbumPage, AlbumPageV2, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern, HEADER_HEIGHT, ElementTypes } from '../types/Album';
+import { SketchElement, SketchElementAttributes, MoveTypes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
 import CanvasComponent from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
@@ -38,6 +39,7 @@ import { AlbumService } from '../services/AlbumService';
 import { MyIcon } from '../common/icons';
 import { spacing, borderRadius } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const TOOLBAR_WIDTH = 90;
 const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
@@ -110,6 +112,7 @@ interface PageEditorScreenProps {
 export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage, onDeletePage }: PageEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { t, isRTL, language } = useLanguage();
   const canvasRef = useRef<any>(null);
 
   // Track screen dimensions (updated on rotation)
@@ -626,15 +629,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // Show confirmation dialog
     Alert.alert(
-      'מחיקת עמוד',
-      'האם אתה בטוח שברצונך למחוק את העמוד? פעולה זו לא ניתנת לביטול.',
+      t('album.deletePageTitle'),
+      t('album.deletePageMessage'),
       [
         {
-          text: 'ביטול',
+          text: t('home.cancel'),
           style: 'cancel',
         },
         {
-          text: 'מחק',
+          text: t('home.delete'),
           style: 'destructive',
           onPress: () => {
             // Call the delete handler
@@ -885,8 +888,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         text: '',
         fontSize: defaultTitleSize,
         color: textColor,
-        rtl: false,
-        alignment: 'Left', //todo rtl
+        rtl: isRTL,
+        alignment: isRTL ? 'Right' : 'Left',
         x: centerX,
         y: topY,
         width: 200,
@@ -924,8 +927,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         text: '',
         fontSize: defaultBodySize,
         color: textColor,
-        rtl: false,
-        alignment: 'Left',
+        rtl: isRTL,
+        alignment: isRTL ? 'Right' : 'Left',
         x: centerX,
         y: centerY,
         width: 200,
@@ -972,6 +975,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited({});
     }
 
+    console.log('[handleSetEmojiMode] Setting emoji mode, currentElementType:', ElementTypes.Emoji);
     setCurrentElementType(ElementTypes.Emoji);
     currentElementTypeRef.current = ElementTypes.Emoji;
     setShowToolOptions(true);
@@ -1004,6 +1008,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited({});
     }
 
+    console.log('[handleSetBackgroundMode] Setting background mode, currentElementType:', ElementTypes.Background);
     setCurrentElementType(ElementTypes.Background);
     currentElementTypeRef.current = ElementTypes.Background;
     setShowToolOptions(true);
@@ -1026,7 +1031,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         ) {
           return true;
         } else {
-          Alert.alert('הרשאות', 'יש לאפשר הרשאות הקלטה ושמירת קבצים');
+          Alert.alert(t('editor.permissions'), t('editor.permissionsMessage'));
           return false;
         }
       } catch (err) {
@@ -1056,7 +1061,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       console.log('Recording started from toolbar');
     } catch (error) {
       console.error('Failed to start recording:', error);
-      Alert.alert('שגיאה', 'ההקלטה נכשלה');
+      Alert.alert(t('home.error'), t('editor.errorRecording'));
     }
   };
 
@@ -1121,7 +1126,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       await handleUpdatePageAudio(result, duration, wordTimings);
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      Alert.alert('שגיאה', 'עצירת ההקלטה נכשלה');
+      Alert.alert(t('home.error'), t('editor.errorStopRecording'));
     }
   };
 
@@ -1144,7 +1149,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       });
     } catch (error) {
       console.error('Failed to play audio:', error);
-      Alert.alert('שגיאה', 'הפעלת ההקלטה נכשלה');
+      Alert.alert(t('home.error'), t('editor.errorPlayRecording'));
     }
   };
 
@@ -1184,7 +1189,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       console.log('Page audio saved to queue:', pageAudio);
     } catch (error) {
       console.error('Failed to save audio attachment:', error);
-      Alert.alert('שגיאה', 'שמירת ההקלטה נכשלה');
+      Alert.alert(t('home.error'), t('editor.errorSaveRecording'));
     }
   };
 
@@ -1283,8 +1288,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       text: emojiObject.emoji,
       fontSize: emojiSize,
       color: '#000000', // Color doesn't matter for emojis
-      rtl: false,
-      alignment: 'Left',
+      rtl: isRTL,
+      alignment: isRTL ? 'Right' : 'Left',
       x: canvasWidth / 2 - 50, // Center horizontally
       y: canvasHeight / 2 - 50, // Center vertically
       isEmoji: true, // Mark as emoji for special handling
@@ -1461,7 +1466,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           setCurrentEdited({ imageId: imageId });
         } catch (error) {
           console.error('Failed to save image attachment:', error);
-          Alert.alert('שגיאה', 'שמירת התמונה נכשלה');
+          Alert.alert(t('home.error'), t('editor.errorSaveImage'));
         }
       }
     } finally {
@@ -1509,7 +1514,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited({ imageId: imageId });
     } catch (error) {
       console.error('Failed to save camera image:', error);
-      Alert.alert('שגיאה', 'שמירת התמונה נכשלה');
+      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
 
@@ -1741,11 +1746,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         </View>
 
         {/* Center: Title */}
-        <Text style={styles.title}>עמוד {page.pageNumber}</Text>
+        <Text style={styles.title}>{t('editor.page')} {page.pageNumber}</Text>
 
         {/* Right side: Done button */}
-        <TouchableOpacity style={[styles.doneButton, { backgroundColor: colors.primary }]} onPress={handleBack} accessibilityLabel="סיום עריכה">
-          <Text style={[styles.doneButtonText, { color: colors.cardBackground }]}>סיום</Text>
+        <TouchableOpacity style={[styles.doneButton, { backgroundColor: colors.primary }]} onPress={handleBack} accessibilityLabel={t('album.done')}>
+          <Text style={[styles.doneButtonText, { color: colors.cardBackground }]}>{t('album.done')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1950,7 +1955,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 <>
                   {/* Color Picker with Eraser */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>צבע</Text>
+                    <Text style={styles.sectionLabel}>{t('editor.color')}</Text>
                     <View style={styles.colorGrid}>
                       {/* Eraser as first color option */}
                       <TouchableOpacity
@@ -1985,7 +1990,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                   {/* Size Picker */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>עובי</Text>
+                    <Text style={styles.sectionLabel}>{t('editor.thickness')}</Text>
                     <View style={styles.sizeGrid}>
                       {PEN_SIZES.map(size => (
                         <TouchableOpacity
@@ -2013,7 +2018,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleEditTitle}
                     >
                       <MyIcon info={{ name: "format-header-1", size: 24, color: textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, textMode === 'title' && currentEdited.textId && styles.optionLabelActive]}>כותרת</Text>
+                      <Text style={[styles.optionLabel, textMode === 'title' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textTitle')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -2021,7 +2026,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleEditBody}
                     >
                       <MyIcon info={{ name: "format-text", size: 24, color: textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>גוף</Text>
+                      <Text style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textBody')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -2029,7 +2034,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {currentEdited.textId && (
                     <>
                       <View style={styles.optionsSection}>
-                        <Text style={styles.sectionLabel}>צבע</Text>
+                        <Text style={styles.sectionLabel}>{t('editor.color')}</Text>
                         <View style={styles.colorGrid}>
                           {COLORS.map(color => (
                             <TouchableOpacity
@@ -2048,7 +2053,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                       {/* Size Picker */}
                       <View style={styles.optionsSection}>
-                        <Text style={styles.sectionLabel}>גודל</Text>
+                        <Text style={styles.sectionLabel}>{t('editor.size')}</Text>
                         <View style={styles.sizeGrid}>
                           {(textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map(size => (
                             <TouchableOpacity
@@ -2083,7 +2088,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     ) : (
                       <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
                     )}
-                    <Text style={styles.optionLabel}>מגלריה</Text>
+                    <Text style={styles.optionLabel}>{t('editor.fromGallery')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2091,21 +2096,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     onPress={() => setShowCameraModal(true)}
                   >
                     <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
-                    <Text style={styles.optionLabel}>מצלמה</Text>
+                    <Text style={styles.optionLabel}>{t('editor.camera')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
               {audioMode && (
                 <View style={styles.optionsSection}>
-                  <Text style={styles.sectionLabel}>הקלטה</Text>
+                  <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
                   <TouchableOpacity
                     style={[styles.optionButton, isRecording && styles.optionButtonActive]}
                     onPress={isRecording ? handleStopRecording : handleStartRecording}
                   >
                     <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? 'עצור הקלטה' : 'התחל הקלטה'}</Text>
+                    <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? t('editor.stopRecording') : t('editor.startRecording')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2114,7 +2119,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     disabled={!pageAudioFile}
                   >
                     <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>השמע</Text>
+                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.play')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2123,7 +2128,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     disabled={!pageAudioFile}
                   >
                     <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מיפוי מילים</Text>
+                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.wordMapping')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -2132,7 +2137,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     disabled={!pageAudioFile}
                   >
                     <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>מחק הקלטה</Text>
+                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.deleteRecording')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -2140,6 +2145,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {/* Emoji Mode Options */}
               {!audioMode && currentElementType === ElementTypes.Emoji && (
                 <>
+                  {console.log('[RENDER] Showing Emoji toolbar options, currentElementType:', currentElementType)}
                   {/* Pick Emoji Button */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
@@ -2147,7 +2153,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleOpenEmojiKeyboard}
                     >
                       <MyIcon info={{ name: "emoticon-happy-outline", size: 24, color: '#007AFF', type: "MDI" }} />
-                      <Text style={styles.optionLabel}>בחר אימוג'י</Text>
+                      <Text style={styles.optionLabel}>{t('editor.emoji')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -2155,7 +2161,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {currentEmojiId && (
                     <>
                       <View style={styles.optionsSection}>
-                        <Text style={styles.sectionLabel}>גודל אימוג'י</Text>
+                        <Text style={styles.sectionLabel}>{t('editor.emojiSize')}</Text>
 
                         {/* Size adjustment row: (-) presets (+) */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -2198,7 +2204,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       {/* Rotation Control */}
                       <View style={styles.optionsSection}>
                         <Text style={styles.sectionLabel}>
-                          סיבוב: {(() => {
+                          {t('editor.rotation')}: {(() => {
                             const deg = Math.round(emojiRotation ?? 0);
                             const display = deg > 180 ? deg - 360 : deg;
                             return display;
@@ -2218,7 +2224,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                           onPress={handleEmojiDelete}
                         >
                           <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
-                          <Text style={styles.optionLabel}>מחק אימוג'י</Text>
+                          <Text style={styles.optionLabel}>{t('editor.deleteEmoji')}</Text>
                         </TouchableOpacity>
                       </View>
                     </>
@@ -2229,6 +2235,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {/* Background Mode Options */}
               {!audioMode && currentElementType === ElementTypes.Background && (
                 <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                  {console.log('[RENDER] Showing Background toolbar options, currentElementType:', currentElementType)}
                   {/* Clear Background Button */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
@@ -2236,13 +2243,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={() => handleApplyBackground(undefined)}
                     >
                       <MyIcon info={{ name: "delete", size: 24, color: !backgroundPattern ? '#007AFF' : '#555', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, !backgroundPattern && styles.optionLabelActive]}>ללא רקע</Text>
+                      <Text style={[styles.optionLabel, !backgroundPattern && styles.optionLabelActive]}>{t('editor.noBackground')}</Text>
                     </TouchableOpacity>
                   </View>
 
                   {/* Solid Colors */}
                   <View style={[styles.optionsSection, { marginTop: 35 }]}>
-                    <Text style={styles.sectionLabel}>צבע אחיד</Text>
+                    <Text style={styles.sectionLabel}>{t('editor.solidColor')}</Text>
                     <View style={styles.colorGrid}>
                       {SOLID_COLOR_PRESETS.map((preset) => {
                         const isActive = backgroundPattern?.type === 'solid' && backgroundPattern.color === preset.color;
@@ -2263,7 +2270,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                   {/* Patterns */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>דפוסים</Text>
+                    <Text style={styles.sectionLabel}>{t('background.patterns')}</Text>
                     <View style={styles.colorGrid}>
                       {Object.keys(PATTERN_PRESETS).map((patternKey) => {
                         const patternType = patternKey as keyof typeof PATTERN_PRESETS;
@@ -2307,7 +2314,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                   {/* Background Images */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>תמונות רקע</Text>
+                    <Text style={styles.sectionLabel}>{t('background.image')}</Text>
                     <View style={styles.colorGrid}>
                       {BACKGROUND_IMAGE_PRESETS.map((preset) => {
                         const isActive = backgroundPattern?.type === 'image' && backgroundPattern.imageName === preset.fileName;
@@ -2396,8 +2403,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         defaultHeight="50%"
         enableSearchBar={true}
         enableSearchAnimation={true}
-        translation={he}
-        customKeywords={heKeywords}
+        translation={language === 'en' ? en : he}
+        customKeywords={language === 'ar' ? arKeywords : (language === 'he' ? heKeywords : undefined)}
         styles={{
           category: {
             icon: { width: 50 }, // Larger emoji icons for categories

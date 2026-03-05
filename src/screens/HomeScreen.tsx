@@ -23,6 +23,7 @@ import { AboutScreen } from './AboutScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { spacing, borderRadius } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { GlobalContext } from '../contexts/GlobalContext';
 
 const NUM_COLUMNS = 4;
@@ -35,6 +36,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const globalContext = useContext(GlobalContext);
   const { colors } = useTheme();
+  const { t, direction, isRTL } = useLanguage();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -67,9 +69,9 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
       setAlbums(loadedAlbums);
     } catch (error) {
       console.error('Failed to load albums:', error);
-      Alert.alert('שגיאה', 'טעינת האלבומים נכשלה');
+      Alert.alert(t('home.error'), t('home.errorLoadAlbums'));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const init = async () => {
@@ -112,7 +114,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   const handleCreateAlbum = async () => {
     const trimmedName = newAlbumName.trim();
     if (!trimmedName) {
-      Alert.alert('שגיאה', 'נא להזין שם לאלבום');
+      Alert.alert(t('home.error'), t('home.errorEnterName'));
       return;
     }
 
@@ -122,8 +124,8 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
       onOpenAlbum(newAlbum);
     } catch (error) {
       console.error('Failed to create album:', error);
-      const errorMessage = error instanceof Error ? error.message : 'יצירת האלבום נכשלה';
-      Alert.alert('שגיאה', errorMessage);
+      const errorMessage = error instanceof Error ? error.message : t('home.errorCreateAlbum');
+      Alert.alert(t('home.error'), errorMessage);
     }
   };
 
@@ -133,12 +135,12 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 
   const confirmDeleteAlbum = (album: Album) => {
     Alert.alert(
-      'מחיקת אלבום',
-      `האם למחוק את "${album.name}"? לא ניתן לבטל פעולה זו.`,
+      t('home.deleteAlbumTitle'),
+      t('home.deleteAlbumMessage', { name: album.name }),
       [
-        { text: 'ביטול', style: 'cancel' },
+        { text: t('home.cancel'), style: 'cancel' },
         {
-          text: 'מחיקה',
+          text: t('home.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -146,7 +148,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
               await loadAlbums();
             } catch (error) {
               console.error('Failed to delete album:', error);
-              Alert.alert('שגיאה', 'מחיקת האלבום נכשלה');
+              Alert.alert(t('home.error'), t('home.errorDeleteAlbum'));
             }
           },
         },
@@ -156,8 +158,8 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 
   const handleRenameAlbum = (album: Album) => {
     Alert.prompt(
-      'שינוי שם אלבום',
-      'הזן שם חדש:',
+      t('home.renameAlbumTitle'),
+      t('home.renameAlbumPrompt'),
       async (newName) => {
         if (newName && newName.trim()) {
           try {
@@ -165,8 +167,8 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
             await loadAlbums();
           } catch (error) {
             console.error('Failed to rename album:', error);
-            const errorMessage = error instanceof Error ? error.message : 'שינוי שם האלבום נכשל';
-            Alert.alert('שגיאה', errorMessage);
+            const errorMessage = error instanceof Error ? error.message : t('home.errorRenameAlbum');
+            Alert.alert(t('home.error'), errorMessage);
           }
         }
       },
@@ -211,7 +213,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="menu-outline" size={32} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.primary }]}>האלבומים שלי</Text>
+        <Text style={[styles.title, { color: colors.primary }]}>{t('home.title')}</Text>
         <TouchableOpacity
           onPress={() => setShowAbout(true)}
           style={styles.aboutButton}
@@ -222,7 +224,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>טוען אלבומים...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('home.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -231,14 +233,14 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
           keyExtractor={(item) => (item === 'add' ? 'add-button' : item.id)}
           numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.listContent}
-          columnWrapperStyle={{ flexDirection: 'row-reverse' }}
+          columnWrapperStyle={{ flexDirection: direction === 'rtl' ? 'row-reverse' : 'row' }}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                אין אלבומים עדיין. לחצו על + ליצירת האלבום הראשון!
+                {t('home.empty')}
               </Text>
             </View>
           }
@@ -257,14 +259,16 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
             backgroundColor: colors.cardBackground,
             shadowColor: colors.primary,
           }]}>
-            <Text style={[styles.modalTitle, { color: colors.primary }]}>אלבום חדש</Text>
+            <Text style={[styles.modalTitle, { color: colors.primary }]}>{t('home.newAlbumPrompt')}</Text>
             <TextInput
               style={[styles.input, {
                 borderColor: colors.border,
                 backgroundColor: colors.background,
                 color: colors.textPrimary,
+                textAlign: isRTL ? 'right' : 'left',
+                writingDirection: direction,
               }]}
-              placeholder="שם האלבום"
+              placeholder={t('home.albumNamePlaceholder')}
               value={newAlbumName}
               onChangeText={setNewAlbumName}
               autoFocus
@@ -278,7 +282,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
                 }]}
                 onPress={() => setShowNewAlbumModal(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>ביטול</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.createButton, {
@@ -286,7 +290,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
                 }]}
                 onPress={handleCreateAlbum}
               >
-                <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>יצירה</Text>
+                <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.create')}</Text>
               </TouchableOpacity>
             </View>
           </View>

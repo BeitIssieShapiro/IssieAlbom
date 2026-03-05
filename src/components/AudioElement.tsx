@@ -4,6 +4,7 @@ import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
 import { WordTiming } from '../types/Album';
 import { AttachmentService } from '../services/AttachmentService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface AudioElementProps {
   audioFile?: string; // Relative path to audio file
@@ -28,6 +29,7 @@ export function AudioElement({
   wordTimings = [],
   onWordChange,
 }: AudioElementProps) {
+  const { t } = useLanguage();
   const [recording, setRecording] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
@@ -80,7 +82,7 @@ export function AudioElement({
         ) {
           return true;
         } else {
-          Alert.alert('הרשאות', 'יש לאפשר הרשאות הקלטה ושמירת קבצים');
+          Alert.alert(t('editor.permissions'), t('editor.permissionsMessage'));
           return false;
         }
       } catch (err) {
@@ -110,7 +112,7 @@ export function AudioElement({
       console.log('Recording started');
     } catch (error) {
       console.error('Failed to start recording:', error);
-      Alert.alert('שגיאה', 'ההקלטה נכשלה');
+      Alert.alert(t('home.error'), t('editor.errorRecording'));
     }
   };
 
@@ -183,7 +185,7 @@ export function AudioElement({
       console.log('Playback started successfully');
     } catch (error) {
       console.error('Failed to start playback:', error);
-      Alert.alert('שגיאה', 'הפעלת ההקלטה נכשלה');
+      Alert.alert(t('home.error'), t('editor.errorPlayRecording'));
     }
   };
 

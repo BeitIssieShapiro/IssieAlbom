@@ -13,6 +13,7 @@ import { Canvas, Rect, Path } from '@shopify/react-native-skia';
 import { BackgroundPattern } from '../types/Album';
 import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGROUND_IMAGE_SOURCES, generatePatternPaths } from '../utils/backgroundPatterns';
 import { MyIcon } from '../common/icons';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MODAL_WIDTH = SCREEN_WIDTH * 0.9;
@@ -30,6 +31,7 @@ export function BackgroundSettingsModal({
   onApply,
   onClose,
 }: BackgroundSettingsModalProps) {
+  const { t } = useLanguage();
   const [selectedTab, setSelectedTab] = useState<'solid' | 'pattern' | 'image'>(
     currentPattern?.type || 'solid'
   );
@@ -85,7 +87,7 @@ export function BackgroundSettingsModal({
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
-            <Text style={styles.title}>רקע עמוד</Text>
+            <Text style={styles.title}>{t('background.title')}</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <MyIcon info={{ name: 'close', size: 24, color: '#666', type: 'MDI' }} />
             </TouchableOpacity>
@@ -98,7 +100,7 @@ export function BackgroundSettingsModal({
               onPress={() => setSelectedTab('solid')}
             >
               <Text style={[styles.tabText, selectedTab === 'solid' && styles.tabTextActive]}>
-                צבע אחיד
+                {t('background.solidColors')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -106,7 +108,7 @@ export function BackgroundSettingsModal({
               onPress={() => setSelectedTab('pattern')}
             >
               <Text style={[styles.tabText, selectedTab === 'pattern' && styles.tabTextActive]}>
-                תבניות
+                {t('background.patterns')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -114,7 +116,7 @@ export function BackgroundSettingsModal({
               onPress={() => setSelectedTab('image')}
             >
               <Text style={[styles.tabText, selectedTab === 'image' && styles.tabTextActive]}>
-                תמונות
+                {t('background.image')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -196,10 +198,10 @@ export function BackgroundSettingsModal({
           {/* Actions */}
           <View style={styles.actions}>
             <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-              <Text style={styles.clearButtonText}>נקה רקע</Text>
+              <Text style={styles.clearButtonText}>{t('background.removeBackground')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-              <Text style={styles.applyButtonText}>החל</Text>
+              <Text style={styles.applyButtonText}>{t('home.create')}</Text>
             </TouchableOpacity>
           </View>
         </View>

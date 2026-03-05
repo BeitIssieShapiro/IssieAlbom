@@ -18,6 +18,7 @@ import { PageEditorScreen } from './PageEditorScreen';
 import { MyIcon } from '../common/icons';
 import { spacing, borderRadius } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 
 interface AlbumScreenProps {
@@ -29,6 +30,7 @@ interface AlbumScreenProps {
 export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const [pages, setPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -125,9 +127,9 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       setPages(loadedPages);
     } catch (error) {
       console.error('Failed to load pages:', error);
-      Alert.alert('שגיאה', 'טעינת העמודים נכשלה');
+      Alert.alert(t('home.error'), t('album.errorLoadPages'));
     }
-  }, [album.id]);
+  }, [album.id, t]);
 
   useEffect(() => {
     const init = async () => {
@@ -170,7 +172,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       await loadPages();
     } catch (error) {
       console.error('Failed to save page:', error);
-      Alert.alert('שגיאה', 'שמירת העמוד נכשלה');
+      Alert.alert(t('home.error'), t('album.errorSavePage'));
     }
 
     // Only exit edit mode if explicitly requested
@@ -207,7 +209,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       }
     } catch (error) {
       console.error('Failed to create page:', error);
-      Alert.alert('שגיאה', 'יצירת העמוד נכשלה');
+      Alert.alert(t('home.error'), t('album.errorCreatePage'));
     }
   };
 
@@ -217,12 +219,12 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 
   const handleDeletePage = (page: AlbumPage) => {
     Alert.alert(
-      'מחיקת עמוד',
-      `האם למחוק את עמוד ${page.pageNumber}?`,
+      t('album.deletePageTitle'),
+      t('album.deletePageMessage'),
       [
-        { text: 'ביטול', style: 'cancel' },
+        { text: t('home.cancel'), style: 'cancel' },
         {
-          text: 'מחיקה',
+          text: t('home.delete'),
           style: 'destructive',
           onPress: async () => {
             setIsDeletingPage(true);
@@ -231,7 +233,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               await loadPages();
             } catch (error) {
               console.error('Failed to delete page:', error);
-              Alert.alert('שגיאה', 'מחיקת העמוד נכשלה');
+              Alert.alert(t('home.error'), t('album.errorDeletePage'));
             } finally {
               setIsDeletingPage(false);
             }
@@ -264,7 +266,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       await loadPages();
     } catch (error) {
       console.error('Failed to delete page:', error);
-      Alert.alert('שגיאה', 'מחיקת העמוד נכשלה');
+      Alert.alert(t('home.error'), t('album.errorDeletePage'));
     } finally {
       setIsDeletingPage(false);
     }
@@ -284,6 +286,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 
   // PanResponder is no longer needed - carousel handles gestures
 
+  // If editing a page, show the editor instead of the album view
   if (editingPage) {
     return (
       <>
@@ -297,13 +300,12 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           onCreatePage={handleCreatePageFromEditor}
           onDeletePage={handleDeletePageFromEditor}
         />
-
         {/* Loading overlay for page deletion */}
         {isDeletingPage && (
           <View style={styles.loadingOverlay}>
             <View style={styles.overlayContent}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.overlayText}>מוחק עמוד...</Text>
+              <Text style={styles.overlayText}>{t('delete.page')}</Text>
             </View>
           </View>
         )}
@@ -324,13 +326,13 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           style={[styles.editButton, { backgroundColor: colors.primary }]}
           onPress={handleToggleEditMode}
         >
-          <Text style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? 'סיום' : 'ערוך'}</Text>
+          <Text style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? t('album.done') : t('album.edit')}</Text>
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>טוען עמודים...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('home.loading')}</Text>
         </View>
       ) : pages.length > 0 ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -345,7 +347,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               parallaxAdjacentItemScale: .85
             }}
             width={screenDimensions.width} // Item width (screen - horizontal padding)
-            height={screenDimensions.height -  HEADER_HEIGHT}
+            height={screenDimensions.height - HEADER_HEIGHT}
             data={pages}
 
             renderItem={({ item, index }) => {
@@ -371,7 +373,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                     page={item}
                     albumId={album.id}
                     isEditMode={isEditMode}
-                    onPress={() => {}} // Disable PageCard's own press handler
+                    onPress={() => { }} // Disable PageCard's own press handler
                     onEdit={handleEditPage}
                     onDelete={handleDeletePage}
                     autoPlayAudio={currentPageIndex === index}
@@ -390,7 +392,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         </View>
       ) : (
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>אין עמודים באלבום</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('album.noPages')}</Text>
         </View>
       )}
 
@@ -402,7 +404,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             page={thumbnailPage}
             albumId={album.id}
             isEditMode={false}
-            onPress={() => {}}
+            onPress={() => { }}
             autoPlayAudio={false}
           />
         </View>
@@ -420,6 +422,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           </View>
         </View>
       )}
+
     </View>
   );
 }
@@ -429,7 +432,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height:  HEADER_HEIGHT,
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,

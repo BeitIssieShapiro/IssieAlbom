@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { spacing, borderRadius, shadows } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const NUM_COLUMNS = 4;
 const CARD_MARGIN = spacing.md;
@@ -14,6 +15,7 @@ interface AddAlbumButtonProps {
 
 export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
 
   return (
@@ -29,7 +31,7 @@ export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
       <View style={[styles.iconContainer, { backgroundColor: colors.background }]}>
         <Text style={[styles.icon, { color: colors.primary }]}>+</Text>
       </View>
-      <Text style={[styles.label, { color: colors.primary }]}>אלבום חדש</Text>
+      <Text style={[styles.label, { color: colors.primary }]}>{t('home.newAlbum')}</Text>
     </TouchableOpacity>
   );
 }

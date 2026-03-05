@@ -1,14 +1,17 @@
 import RNFS from 'react-native-fs';
 import { ThemeName } from '../theme/colors';
+import { LanguageCode } from '../i18n/types';
 
 const PREFERENCES_FILE = `${RNFS.DocumentDirectoryPath}/preferences.json`;
 
 export interface Preferences {
   theme: ThemeName;
+  language?: LanguageCode;
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
   theme: 'girly',
+  language: undefined, // Will be detected from device
 };
 
 export const PreferencesService = {
@@ -63,5 +66,22 @@ export const PreferencesService = {
   async getTheme(): Promise<ThemeName> {
     const preferences = await this.loadPreferences();
     return preferences.theme;
+  },
+
+  /**
+   * Update language preference
+   */
+  async setLanguage(language: LanguageCode): Promise<void> {
+    const preferences = await this.loadPreferences();
+    preferences.language = language;
+    await this.savePreferences(preferences);
+  },
+
+  /**
+   * Get current language preference
+   */
+  async getLanguage(): Promise<LanguageCode | undefined> {
+    const preferences = await this.loadPreferences();
+    return preferences.language;
   },
 };

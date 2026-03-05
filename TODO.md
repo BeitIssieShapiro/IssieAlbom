@@ -7,7 +7,7 @@ In IssieDocs (sibling project, there is a search component that goes to the inte
 
 - patterns lighter lines
 - export: album/pdf/movie
-- translation
+V- translation (en/he/ar with full RTL support, device detection, emoji keyboard)
 V- themes
 V- change yellow bg
 V- title disapears while moving

@@ -13,6 +13,7 @@ import { AudioWaveform } from './AudioWaveform';
 import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
 import { AttachmentService } from '../services/AttachmentService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -206,6 +207,8 @@ export function AudioWordMappingModal({
   onDelete,
 }: AudioWordMappingModalProps) {
   console.log('[AudioWordMappingModal] Component initialized with propDuration:', propDuration);
+
+  const { t } = useLanguage();
 
   // Simple state - single source of truth
   const [audioDuration, setAudioDuration] = useState(propDuration || 10);
@@ -476,7 +479,7 @@ export function AudioWordMappingModal({
         <View style={styles.modalContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {hasTitle ? 'מיפוי מילים לשמע' : 'ניהול שמע'}
+              {hasTitle ? t('audioWordMapping.title') : t('audioWordMapping.title')}
             </Text>
             <TouchableOpacity
               style={styles.closeButton}

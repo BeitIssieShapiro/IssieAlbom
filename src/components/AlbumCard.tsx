@@ -10,6 +10,7 @@ import {
 import { Album } from '../types/Album';
 import { spacing, borderRadius, shadows } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const NUM_COLUMNS = 4;
 const CARD_MARGIN = spacing.md;
@@ -25,17 +26,39 @@ interface AlbumCardProps {
 
 export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: AlbumCardProps) {
   const { colors } = useTheme();
+  const { t, language } = useLanguage();
   const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
   const [menuVisible, setMenuVisible] = useState(false);
-  const formattedDate = new Date(album.createdAt).toLocaleDateString('he-IL');
+
+  const locale = { en: 'en-US', he: 'he-IL', ar: 'ar-SA' }[language];
+  const formattedDate = new Date(album.createdAt).toLocaleDateString(locale);
+
+  // Close modal when component unmounts (e.g., when navigating away)
+  React.useEffect(() => {
+    return () => {
+      setMenuVisible(false);
+    };
+  }, []);
+
+  const handleCardPress = () => {
+    // Ensure modal is closed before navigating
+    if (menuVisible) {
+      setMenuVisible(false);
+      return;
+    }
+    onPress(album);
+  };
 
   const handleMenuOption = (action: 'rename' | 'delete') => {
     setMenuVisible(false);
-    if (action === 'rename') {
-      onRename?.(album);
-    } else if (action === 'delete') {
-      onDelete?.(album);
-    }
+    // Delay action to ensure modal unmounts properly
+    setTimeout(() => {
+      if (action === 'rename') {
+        onRename?.(album);
+      } else if (action === 'delete') {
+        onDelete?.(album);
+      }
+    }, 100);
   };
 
   return (
@@ -44,7 +67,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
         width: cardWidth,
         backgroundColor: colors.cardBackground,
       }]}
-      onPress={() => onPress(album)}
+      onPress={handleCardPress}
       activeOpacity={0.7}
     >
       <View style={[styles.imageContainer, { backgroundColor: colors.background }]}>
@@ -75,6 +98,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
       </View>
 
       <Modal
+        key={`modal-${album.id}`}
         visible={menuVisible}
         transparent
         animationType="fade"
@@ -95,19 +119,19 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
               style={[styles.menuItem, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('rename')}
             >
-              <Text style={[styles.menuItemText, { color: colors.primary }]}>שינוי שם</Text>
+              <Text style={[styles.menuItemText, { color: colors.primary }]}>{t('albumCard.menuRename')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemDestructive, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('delete')}
             >
-              <Text style={[styles.menuItemTextDestructive, { color: colors.error }]}>מחיקה</Text>
+              <Text style={[styles.menuItemTextDestructive, { color: colors.error }]}>{t('albumCard.menuDelete')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemCancel, { backgroundColor: colors.background }]}
               onPress={() => setMenuVisible(false)}
             >
-              <Text style={[styles.menuItemTextCancel, { color: colors.textPrimary }]}>ביטול</Text>
+              <Text style={[styles.menuItemTextCancel, { color: colors.textPrimary }]}>{t('albumCard.menuCancel')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
