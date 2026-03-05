@@ -5,7 +5,7 @@
 - patterns lighter lines
 - no undo after close
 - export: album/pdf/movie
-- search emoji in he
+V- search emoji in he
 - translation
 - title disapears while moving
 - change yellow bg

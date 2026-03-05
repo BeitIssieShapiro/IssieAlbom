@@ -11,10 +11,72 @@ index 1d83bc5..fc30ad8 100644
      Animated.timing(additionalHeight, {
        toValue: newAdditionalHeightValue,
        useNativeDriver: false,
+diff --git a/node_modules/rn-emoji-keyboard/src/components/Categories.tsx b/node_modules/rn-emoji-keyboard/src/components/Categories.tsx
+index f6f5df8..4d4c5a7 100644
+--- a/node_modules/rn-emoji-keyboard/src/components/Categories.tsx
++++ b/node_modules/rn-emoji-keyboard/src/components/Categories.tsx
+@@ -25,8 +25,11 @@ export const Categories = (p: Props) => {
+     styles: themeStyles,
+     enableCategoryChangeAnimation,
+     setShouldAnimateScroll,
++    translation,
+   } = React.useContext(KeyboardContext)
+ 
++  const isRTL = (translation as any)?.isRTL || false
++
+   const scrollNav = React.useRef(new Animated.Value(0)).current
+   const handleScrollToCategory = React.useCallback(
+     (index: number) => {
+@@ -115,6 +118,7 @@ export const Categories = (p: Props) => {
+           ListHeaderComponent={activeIndicator}
+           ListHeaderComponentStyle={styles.activeIndicatorContainer}
+           extraData={activeCategoryIndex}
++          inverted={isRTL}
+         />
+       </View>
+     </View>
+diff --git a/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx b/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx
+index 6869a04..1fb741b 100644
+--- a/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx
++++ b/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx
+@@ -169,10 +169,16 @@ export const EmojiCategory = React.memo(
+ 
+     const flatListData = data.slice(0, maxIndex)
+ 
++    const isRTL = (translation as any)?.isRTL || false
++
+     return (
+       <View style={[styles.container, { width }]}>
+         {!hideHeader && (
+-          <Text style={[styles.sectionTitle, themeStyles.header, { color: theme.header }]}>
++          <Text style={[
++            styles.sectionTitle,
++            themeStyles.header,
++            { color: theme.header, textAlign: isRTL ? 'right' : 'left', writingDirection: isRTL ? 'rtl' : 'ltr' }
++          ]}>
+             {translation[title]}
+           </Text>
+         )}
+@@ -183,6 +189,8 @@ export const EmojiCategory = React.memo(
+             onEndReachedThreshold={0.3}
+             keyExtractor={keyExtractor}
+             numColumns={numberOfColumns}
++            key={`flatlist-${numberOfColumns}-${isRTL ? 'rtl' : 'ltr'}`}
++            columnWrapperStyle={isRTL ? { flexDirection: 'row-reverse' } : undefined}
+             renderItem={renderItem}
+             onScroll={handleOnScroll}
+             ListFooterComponent={<ListFooterComponent categoryPosition={categoryPosition} />}
 diff --git a/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx b/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx
-index 4a62562..1a62e1e 100644
+index 4a62562..cd67b6c 100644
 --- a/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx
 +++ b/node_modules/rn-emoji-keyboard/src/components/SearchBar.tsx
+@@ -1,5 +1,5 @@
+ import * as React from 'react'
+-import { View, StyleSheet, TextInput, TouchableOpacity } from 'react-native'
++import { View, StyleSheet, TextInput, TouchableOpacity, I18nManager } from 'react-native'
+ import { KeyboardContext } from '../contexts/KeyboardContext'
+ import { Icon } from './Icon'
+ 
 @@ -23,6 +23,19 @@ export const SearchBar = ({ scrollEmojiCategoryListToIndex }: SearchBarProps) =>
      enableCategoryChangeAnimation,
    } = React.useContext(KeyboardContext)
@@ -35,7 +97,31 @@ index 4a62562..1a62e1e 100644
  
    const handleSearch = (text: string) => {
      setSearchPhrase(text)
-@@ -69,6 +82,8 @@ export const SearchBar = ({ scrollEmojiCategoryListToIndex }: SearchBarProps) =>
+@@ -53,22 +66,30 @@ export const SearchBar = ({ scrollEmojiCategoryListToIndex }: SearchBarProps) =>
+     scrollEmojiCategoryListToIndex(0)
+   }
+ 
++  const isRTL = (translation as any)?.isRTL || false
++
+   return (
+     <View
+       style={[
+         styles.container,
+         themeStyles.searchBar.container,
+-        { backgroundColor: theme.search.background },
++        { backgroundColor: theme.search.background, flexDirection: isRTL ? 'row-reverse' : 'row' },
+       ]}
+     >
+       <TextInput
+-        style={[styles.input, themeStyles.searchBar.text, { color: theme.search.text }]}
++        style={[
++          styles.input,
++          themeStyles.searchBar.text,
++          { color: theme.search.text, textAlign: isRTL ? 'right' : 'left', writingDirection: isRTL ? 'rtl' : 'ltr' }
++        ]}
+         value={searchPhrase}
+         onChangeText={handleSearch}
+         placeholder={translation.search}
          ref={inputRef}
          onTouchEndCapture={clearEmojiTonesData}
          placeholderTextColor={theme.search.placeholder}
@@ -134,13 +220,13 @@ index 1e49cd4..fe44fc6 100644
  
 diff --git a/node_modules/rn-emoji-keyboard/src/translation/ar.ts b/node_modules/rn-emoji-keyboard/src/translation/ar.ts
 new file mode 100644
-index 0000000..2b8450a
+index 0000000..59f8896
 --- /dev/null
 +++ b/node_modules/rn-emoji-keyboard/src/translation/ar.ts
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +import type { CategoryTranslation } from '../types'
 +
-+const ar: CategoryTranslation = {
++const ar: CategoryTranslation & { isRTL?: boolean } = {
 +  recently_used: 'المستخدمة مؤخراً',
 +  smileys_emotion: 'وجوه وعواطف',
 +  people_body: 'أشخاص وجسم',
@@ -152,18 +238,19 @@ index 0000000..2b8450a
 +  symbols: 'رموز',
 +  flags: 'أعلام',
 +  search: 'بحث',
++  isRTL: true,
 +}
 +
 +export default ar
 diff --git a/node_modules/rn-emoji-keyboard/src/translation/he.ts b/node_modules/rn-emoji-keyboard/src/translation/he.ts
 new file mode 100644
-index 0000000..5fc9199
+index 0000000..fe4ed95
 --- /dev/null
 +++ b/node_modules/rn-emoji-keyboard/src/translation/he.ts
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +import type { CategoryTranslation } from '../types'
 +
-+const he: CategoryTranslation = {
++const he: CategoryTranslation & { isRTL?: boolean } = {
 +  recently_used: 'בשימוש לאחרונה',
 +  smileys_emotion: 'סמיילים ורגשות',
 +  people_body: 'אנשים וגוף',
@@ -175,6 +262,7 @@ index 0000000..5fc9199
 +  symbols: 'סמלים',
 +  flags: 'דגלים',
 +  search: 'חיפוש',
++  isRTL: true,
 +}
 +
 +export default he
