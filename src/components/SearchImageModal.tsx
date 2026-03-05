@@ -21,14 +21,12 @@ interface SearchImageModalProps {
   visible: boolean;
   onSelectImage: (filePath: string) => void;
   onClose: () => void;
-  targetFile: string;
 }
 
 export function SearchImageModal({
   visible,
   onSelectImage,
   onClose,
-  targetFile,
 }: SearchImageModalProps) {
   const { t, language, isRTL } = useLanguage();
   const { colors } = useTheme();
@@ -61,8 +59,10 @@ export function SearchImageModal({
   const handleSelectImage = async (item: any) => {
     setIsDownloading(item.id);
     try {
-      const filePath = await downloadImage(item.url, targetFile);
-      onSelectImage(filePath);
+      // Download to temporary location
+      const tempPath = `${RNFS.TemporaryDirectoryPath}/search_${Date.now()}.jpg`;
+      await downloadImage(item.url, tempPath);
+      onSelectImage(tempPath);
       onClose();
     } catch (error) {
       console.error('Download failed:', error);

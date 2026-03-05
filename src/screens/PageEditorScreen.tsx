@@ -1525,9 +1525,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     try {
       setShowSearchImageModal(false);
 
-      // filePath is already the full path, extract just the filename
-      const fileName = filePath.split('/').pop() || '';
-      const relativePath = `attachments/${fileName}`;
+      // Save image to attachments directory and get relative path
+      // The filePath is the temporary downloaded file, we need to save it properly
+      const relativePath = await AttachmentService.saveImageAttachment(albumId, filePath);
 
       // Get image dimensions (we'll use a square aspect ratio for search images)
       const aspectRatio = 1; // Square
@@ -1653,32 +1653,33 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       // Use movingElementRef if it matches, otherwise fall back to finding in displayImages
       let positionData;
 
-      if (movingElement && movingElement.id === id) {
+      if (movingElementRef.current && movingElementRef.current.id === id) {
         // Use the tracked changes from movingElement
         positionData = {
-          id: movingElement.id,
-          x: movingElement.x,
-          y: movingElement.y,
-          width: movingElement.width!,
-          height: movingElement.height!,
+          id: movingElementRef.current.id,
+          x: movingElementRef.current.x,
+          y: movingElementRef.current.y,
+          width: movingElementRef.current.width!,
+          height: movingElementRef.current.height!,
         };
         console.log('Using movingElementRef data:', positionData);
-      } else {
-        // Fallback: find in displayImages
-        console.log('movingElementRef not available, falling back to displayImages');
-        const img = displayImages.find(i => i.id === id);
-        if (!img) {
-          console.error('Image not found in displayImages:', id);
-          return;
-        }
-        positionData = {
-          id: img.id,
-          x: img.x,
-          y: img.y,
-          width: img.width,
-          height: img.height,
-        };
-      }
+      } 
+      // else {
+      //   // Fallback: find in displayImages
+      //   console.log('movingElementRef not available, falling back to displayImages');
+      //   const img = displayImages.find(i => i.id === id);
+      //   if (!img) {
+      //     console.error('Image not found in displayImages:', id);
+      //     return;
+      //   }
+      //   positionData = {
+      //     id: img.id,
+      //     x: img.x,
+      //     y: img.y,
+      //     width: img.width,
+      //     height: img.height,
+      //   };
+      // }
 
       console.log('Saving image position:', positionData);
 
@@ -1906,21 +1907,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             style={[styles.mainToolButton, currentElementType === ElementTypes.Text && styles.mainToolButtonActive]}
             onPress={handleSetTextMode}
           >
-            <MyIcon info={{ name: "format-text", size: 42, color: currentElementType === ElementTypes.Text ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "format-text", size: 38, color: currentElementType === ElementTypes.Text ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.mainToolButton, currentElementType === ElementTypes.Image && styles.mainToolButtonActive]}
             onPress={handleSetImageMode}
           >
-            <MyIcon info={{ name: "image", size: 42, color: currentElementType === ElementTypes.Image ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "image", size: 38, color: currentElementType === ElementTypes.Image ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.mainToolButton, audioMode && styles.mainToolButtonActive]}
             onPress={handleSetAudioMode}
           >
-            <MyIcon info={{ name: "microphone", size: 42, color: audioMode ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "microphone", size: 38, color: audioMode ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1930,21 +1931,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               setIsEraser(false);
             }}
           >
-            <MyIcon info={{ name: "pencil", size: 42, color: currentElementType === ElementTypes.Sketch ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "pencil", size: 38, color: currentElementType === ElementTypes.Sketch ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.mainToolButton, currentElementType === ElementTypes.Background && styles.mainToolButtonActive]}
             onPress={handleSetBackgroundMode}
           >
-            <MyIcon info={{ name: "format-color-fill", size: 42, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "format-color-fill", size: 38, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.mainToolButton, currentElementType === ElementTypes.Emoji && styles.mainToolButtonActive]}
             onPress={handleSetEmojiMode}
           >
-            <MyIcon info={{ name: "emoticon-happy-outline", size: 42, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "emoticon-happy-outline", size: 38, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           {/* Spacer to push new page button to bottom */}
@@ -1957,7 +1958,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               onPress={handleNewPage}
               accessibilityLabel="עמוד חדש"
             >
-              <MyIcon info={{ name: "plus", size: 36, color: '#007AFF', type: "MDI" }} />
+              <MyIcon info={{ name: "plus", size: 32, color: '#007AFF', type: "MDI" }} />
             </TouchableOpacity>
           )}
 
@@ -1968,7 +1969,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               onPress={handleDeletePage}
               accessibilityLabel="מחק עמוד"
             >
-              <MyIcon info={{ name: "delete", size: 36, color: '#FF3B30', type: "MDI" }} />
+              <MyIcon info={{ name: "delete", size: 32, color: '#FF3B30', type: "MDI" }} />
             </TouchableOpacity>
           )}
         </View>
@@ -2456,7 +2457,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         visible={showSearchImageModal}
         onSelectImage={handleSearchImageSelect}
         onClose={() => setShowSearchImageModal(false)}
-        targetFile={`${AttachmentService.getAttachmentsPath(albumId)}/search_${Date.now()}.jpg`}
       />
 
       {/* Emoji Picker */}
@@ -2547,9 +2547,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderLeftWidth: 1,
     borderLeftColor: '#e0e0e0',
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
-    gap: 20,
+    gap: 12,
   },
   mainToolButton: {
     width: 70,
@@ -2563,9 +2563,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F0FE',
   },
   newPageButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#E8F0FE',
@@ -2573,15 +2573,15 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
   },
   deletePageButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFE5E5',
     borderWidth: 2,
     borderColor: '#FF3B30',
-    marginTop: 12,
+    marginTop: 8,
   },
   toolOptionsPanel: {
     position: 'absolute',
