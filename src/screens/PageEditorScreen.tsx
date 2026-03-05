@@ -31,6 +31,7 @@ import { AudioElement } from '../components/AudioElement';
 import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
 import { BackgroundSettingsModal } from '../components/BackgroundSettingsModal';
 import { CameraModal } from '../components/CameraModal';
+import { SearchImageModal } from '../components/SearchImageModal';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGROUND_IMAGE_SOURCES, generatePatternPaths } from '../utils/backgroundPatterns';
 import { PageService } from '../services/PageService';
@@ -163,6 +164,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [currentEmojiId, setCurrentEmojiId] = useState<string | null>(null); // Track selected emoji
   const [loadingImagePicker, setLoadingImagePicker] = useState(false); // Track image picker loading
   const [showCameraModal, setShowCameraModal] = useState(false); // Track camera modal
+  const [showSearchImageModal, setShowSearchImageModal] = useState(false); // Track image search modal
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
@@ -1490,6 +1492,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const imageWidth = canvasWidth * 0.45;
       const imageHeight = imageWidth / aspectRatio;
 
+      // Add image to center of canvas
       const newImage: SketchImage = {
         id: imageId,
         imagePath: relativePath,
@@ -1517,6 +1520,53 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       Alert.alert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
+
+  const handleSearchImageSelect = async (filePath: string) => {
+    try {
+      setShowSearchImageModal(false);
+
+      // filePath is already the full path, extract just the filename
+      const fileName = filePath.split('/').pop() || '';
+      const relativePath = `attachments/${fileName}`;
+
+      // Get image dimensions (we'll use a square aspect ratio for search images)
+      const aspectRatio = 1; // Square
+
+      const imageId = getId('image');
+
+      // Set image to 45% of canvas width
+      const imageWidth = canvasWidth * 0.45;
+      const imageHeight = imageWidth / aspectRatio;
+
+      // Add image to center of canvas
+      const newImage: SketchImage = {
+        id: imageId,
+        imagePath: relativePath,
+        x: canvasWidth / 2 - imageWidth / 2,
+        y: canvasHeight / 2 - imageHeight / 2,
+        width: imageWidth,
+        height: imageHeight,
+        aspectRatio: aspectRatio,
+      };
+
+      console.log('Adding search image to queue:', { id: imageId, imagePath: relativePath });
+
+      // Commit full image to queue
+      queue.current.pushImage(newImage);
+
+      rebuildStateFromQueue();
+
+      // Auto-save to disk without closing editor
+      await autoSave();
+
+      // Set as currently edited to show handles
+      setCurrentEdited({ imageId: imageId });
+    } catch (error) {
+      console.error('Failed to add search image:', error);
+      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+    }
+  };
+
 
   const handleMoveElement = (type: any, id: string, p: SketchPoint) => {
     console.log('handleMoveElement:', { type, id, p });
@@ -2014,7 +2064,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Title/Body Buttons */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
-                      style={[styles.optionButton, textMode === 'title' && currentEdited.textId && styles.optionButtonActive]}
+                      style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, textMode === 'title' && currentEdited.textId && styles.optionButtonActive]}
                       onPress={handleEditTitle}
                     >
                       <MyIcon info={{ name: "format-header-1", size: 24, color: textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
@@ -2022,7 +2072,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.optionButton, textMode === 'body' && currentEdited.textId && styles.optionButtonActive]}
+                      style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, textMode === 'body' && currentEdited.textId && styles.optionButtonActive]}
                       onPress={handleEditBody}
                     >
                       <MyIcon info={{ name: "format-text", size: 24, color: textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
@@ -2079,7 +2129,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {!audioMode && currentElementType === ElementTypes.Image && (
                 <View style={styles.optionsSection}>
                   <TouchableOpacity
-                    style={styles.optionButton}
+                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
                     onPress={handleAddImage}
                     disabled={loadingImagePicker}
                   >
@@ -2092,11 +2142,19 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.optionButton}
+                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
                     onPress={() => setShowCameraModal(true)}
                   >
                     <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
                     <Text style={styles.optionLabel}>{t('editor.camera')}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
+                    onPress={() => setShowSearchImageModal(true)}
+                  >
+                    <MyIcon info={{ name: "image-search", size: 24, color: '#007AFF', type: "MDI" }} />
+                    <Text style={styles.optionLabel}>{t('imageSearch.title')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -2106,7 +2164,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, isRecording && styles.optionButtonActive]}
+                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, isRecording && styles.optionButtonActive]}
                     onPress={isRecording ? handleStopRecording : handleStartRecording}
                   >
                     <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
@@ -2114,7 +2172,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
+                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handlePlayAudio}
                     disabled={!pageAudioFile}
                   >
@@ -2123,7 +2181,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, !pageAudioFile && styles.optionButtonDisabled]}
+                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handleOpenWordMapping}
                     disabled={!pageAudioFile}
                   >
@@ -2132,7 +2190,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.optionButton, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
+                    style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handleClearPageAudio}
                     disabled={!pageAudioFile}
                   >
@@ -2149,7 +2207,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Pick Emoji Button */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
-                      style={styles.optionButton}
+                      style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }]}
                       onPress={handleOpenEmojiKeyboard}
                     >
                       <MyIcon info={{ name: "emoticon-happy-outline", size: 24, color: '#007AFF', type: "MDI" }} />
@@ -2220,7 +2278,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       {/* Delete Button */}
                       <View style={styles.optionsSection}>
                         <TouchableOpacity
-                          style={[styles.optionButton, styles.optionButtonDestructive]}
+                          style={[styles.optionButton, { flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, styles.optionButtonDestructive]}
                           onPress={handleEmojiDelete}
                         >
                           <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
@@ -2239,7 +2297,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Clear Background Button */}
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
-                      style={[styles.optionButton, { position: "absolute", left: 5, top: 0 }, !backgroundPattern && styles.optionButtonActive]}
+                      style={[styles.optionButton, { position: "absolute", left: 5, top: 0, flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, !backgroundPattern && styles.optionButtonActive]}
                       onPress={() => handleApplyBackground(undefined)}
                     >
                       <MyIcon info={{ name: "delete", size: 24, color: !backgroundPattern ? '#007AFF' : '#555', type: "MDI" }} />
@@ -2391,6 +2449,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         visible={showCameraModal}
         onCapture={handleCameraCapture}
         onCancel={() => setShowCameraModal(false)}
+      />
+
+      {/* Image Search Modal */}
+      <SearchImageModal
+        visible={showSearchImageModal}
+        onSelectImage={handleSearchImageSelect}
+        onClose={() => setShowSearchImageModal(false)}
+        targetFile={`${AttachmentService.getAttachmentsPath(albumId)}/search_${Date.now()}.jpg`}
       />
 
       {/* Emoji Picker */}

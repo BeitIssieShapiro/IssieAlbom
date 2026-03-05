@@ -131,6 +131,14 @@ interface Translations {
   camera: {
     takePhoto: string;
   };
+
+  // Image Search Modal
+  imageSearch: {
+    title: string;
+    search: string;
+    searchPlaceholder: string;
+    noResults: string;
+  };
 }
 
 export const translations: Record<LanguageCode, Translations> = {
@@ -255,6 +263,13 @@ export const translations: Record<LanguageCode, Translations> = {
     camera: {
       takePhoto: 'צלם תמונה',
     },
+
+    imageSearch: {
+      title: 'חיפוש תמונה',
+      search: 'חיפוש',
+      searchPlaceholder: 'הקלד מילת חיפוש...',
+      noResults: 'לא נמצאו תוצאות',
+    },
   },
 
   en: {
@@ -378,6 +393,13 @@ export const translations: Record<LanguageCode, Translations> = {
     camera: {
       takePhoto: 'Take Photo',
     },
+
+    imageSearch: {
+      title: 'Search Image',
+      search: 'Search',
+      searchPlaceholder: 'Enter search term...',
+      noResults: 'No results found',
+    },
   },
 
   ar: {
@@ -500,6 +522,13 @@ export const translations: Record<LanguageCode, Translations> = {
 
     camera: {
       takePhoto: 'التقط صورة',
+    },
+
+    imageSearch: {
+      title: 'بحث عن صورة',
+      search: 'بحث',
+      searchPlaceholder: 'أدخل كلمة البحث...',
+      noResults: 'لم يتم العثور على نتائج',
     },
   },
 };

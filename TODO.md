@@ -1,12 +1,9 @@
 ##Todo after Racheli:
 - move emoji not working
-- add search image list (internet)
-
-In IssieDocs (sibling project, there is a search component that goes to the internet to search for images, language sensitive). copy it over and add this option here under another option in images
-
-
 - patterns lighter lines
 - export: album/pdf/movie
+
+V- add search image list (internet)
 V- translation (en/he/ar with full RTL support, device detection, emoji keyboard)
 V- themes
 V- change yellow bg
