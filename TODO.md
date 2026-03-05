@@ -1,8 +1,6 @@
 ##Todo after Racheli:
-- move emoji not working
-- patterns lighter lines
 - export: album/pdf/movie
-
+V- patterns lighter lines
 V- add search image list (internet)
 V- translation (en/he/ar with full RTL support, device detection, emoji keyboard)
 V- themes

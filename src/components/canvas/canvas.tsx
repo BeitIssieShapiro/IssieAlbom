@@ -893,7 +893,7 @@ function Canvas({
                                             path={path}
                                             color={backgroundPattern.patternColor || '#000000'}
                                             style="stroke"
-                                            strokeWidth={2}
+                                            strokeWidth={0.2}
                                         />
                                     ));
                                 })()}
