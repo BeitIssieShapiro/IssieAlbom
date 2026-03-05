@@ -2488,28 +2488,30 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       />
 
       {/* Emoji Picker */}
-      <EmojiPicker
-        onEmojiSelected={handleEmojiPick}
-        open={showEmojiKeyboard}
-        onClose={() => setShowEmojiKeyboard(false)}
-        allowMultipleSelections={false}
-        emojiSize={48}
-        defaultHeight="50%"
-        enableSearchBar={true}
-        enableSearchAnimation={true}
-        translation={language === 'en' ? en : he}
-        customKeywords={language === 'ar' ? arKeywords : (language === 'he' ? heKeywords : undefined)}
-        styles={{
-          category: {
-            icon: { width: 50 }, // Larger emoji icons for categories
-            container: {
-              padding: 10,
-              minWidth: "50%",
-              minHeight: 25,
+      <View style={{ direction: 'ltr' }}>
+        <EmojiPicker
+          onEmojiSelected={handleEmojiPick}
+          open={showEmojiKeyboard}
+          onClose={() => setShowEmojiKeyboard(false)}
+          allowMultipleSelections={false}
+          emojiSize={48}
+          defaultHeight="50%"
+          enableSearchBar={true}
+          enableSearchAnimation={true}
+          translation={language === 'en' ? en : he}
+          customKeywords={language === 'ar' ? arKeywords : (language === 'he' ? heKeywords : undefined)}
+          styles={{
+            category: {
+              icon: { width: 50 }, // Larger emoji icons for categories
+              container: {
+                padding: 10,
+                minWidth: "50%",
+                minHeight: 25,
+              },
             },
-          },
-        }}
-      />
+          }}
+        />
+      </View>
     </View>
   );
 }
