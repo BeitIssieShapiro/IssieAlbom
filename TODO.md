@@ -5,8 +5,8 @@
 - patterns lighter lines
 - export: album/pdf/movie
 - translation
-- title disapears while moving
-- change yellow bg
+V- change yellow bg
+V- title disapears while moving
 V- no undo after close
 V- search emoji in he
 

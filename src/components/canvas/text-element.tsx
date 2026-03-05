@@ -6,6 +6,7 @@ import { calcEffectiveHorizontalLines, tableColWidth, tableRowHeight } from "./u
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { MyIcon } from "../../common/icons";
 import { WordTiming } from "../../types/Album";
+import { borderRadius } from "../../theme/colors";
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const AnimatedIcon = Animated.createAnimatedComponent(MyIcon);
@@ -54,11 +55,14 @@ function TextElement({
     //console.log("text ratio", ratio, actualWidth, text.fontSize)
     const [textTillSelection, setTextTillSelection] = useState<string>(text.text);
     const [selection, setSelection] = useState({ start: 0, end: 0 });
-    const textBGColor = useSharedValue<ColorValue>("yellow");
+    //const textBGColor = useSharedValue<ColorValue>("lightblue");
     const moveIconDisplay = useSharedValue<'none' | 'flex' | undefined>("flex");
     const table = text.tableId && tables?.find(table => table.id == text.tableId);
     const bgAnimatedStyle = useAnimatedStyle(() => ({
-        backgroundColor: textBGColor.value,
+        //backgroundColor: textBGColor.value,
+        outlineWidth: 2,
+        outlineColor: "gray",
+        outlineOffset: 1
     }));
     const visibleAnimatedStyle = useAnimatedStyle(() => ({
         display: moveIconDisplay.value
@@ -67,14 +71,14 @@ function TextElement({
     useImperativeHandle(ref, () => ({
         prepareForThumbnail: () => {
             console.log("prep for tn")
-            textBGColor.value = "transparent";
+            //textBGColor.value = "transparent";
             moveIconDisplay.value = "none";
         },
     }));
 
     useEffect(() => {
 
-        textBGColor.value = (text.color == '#fee100' ? "gray" : "yellow");
+        //textBGColor.value = (text.color == '#fee100' ? "gray" : "lightblue");
         moveIconDisplay.value = "flex";
     }, [text.color, editMode])
 

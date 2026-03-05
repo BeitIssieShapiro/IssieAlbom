@@ -43,6 +43,7 @@ const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
 
 
 import Slider from '@react-native-community/slider';
+import { findLast } from '../components/canvas/utils';
 
 // Rotation Slider Component
 interface RotationSliderProps {
@@ -180,6 +181,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const pageAudioDurationRef = useRef<number | undefined>(undefined);
   const pageAudioWordTimingsRef = useRef<WordTiming[]>([]);
   const textsRef = useRef<SketchText[]>([]);
+  const displayTextsRef = useRef<SketchText[]>([]);
   const currentEmojiIdRef = useRef<string | null>(null);
   const emojiRotationRef = useRef<number | undefined>(undefined);
   const sketchColorRef = useRef<string>('#333333');
@@ -266,6 +268,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     return result;
   }, [texts, editingTextChanges, movingElement, currentEmojiId, emojiRotation]);
+
+  // Sync displayTexts to ref (contains canvas layout mutations like width/height)
+  useEffect(() => {
+    displayTextsRef.current = displayTexts;
+  }, [displayTexts]);
 
   // Computed images array that includes move/resize changes
   // Also converts relative imagePath to absolute URI for rendering
@@ -1509,7 +1516,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // For text elements, always accumulate in editingTextChanges and update ref
     if (type === MoveTypes.TextMove) {
-      const newChanges = { id, x: p[0], y: p[1] };
+      // Get the current text element to preserve width/height that canvas may have updated
+      const newChanges = {
+        id,
+        x: p[0],
+        y: p[1],
+      };
       console.log('Moving text', newChanges);
 
       setEditingTextChanges(prev => prev?.id === id ? { ...prev, ...newChanges } : newChanges);
@@ -1553,7 +1565,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleMoveEnd = async (type: MoveTypes, id: string) => {
-    console.log('handleMoveEnd:', { type, id});
+    console.log('handleMoveEnd:', { type, id });
 
     // For text, save the position from editingTextChanges (use ref to avoid stale closure)
     if (type === MoveTypes.TextMove) {
@@ -1561,7 +1573,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       console.log('Text moved, saving from editingTextChanges:', textChanges);
 
       if (textChanges && textChanges.id === id && currentEditedRef.current != id) {
-        const textElem = textsRef.current.find(t => t.id === id);
+        // Use displayTextsRef which has canvas layout mutations (width/height)
+        const textElem = findLast(displayTextsRef.current, (t => t.id === id));
         if (textElem) {
           console.log('Saving text changes after move:', textChanges);
           queue.current.pushText({
@@ -1583,14 +1596,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       // Use movingElementRef if it matches, otherwise fall back to finding in displayImages
       let positionData;
 
-      if (movingElem && movingElem.id === id) {
+      if (movingElement && movingElement.id === id) {
         // Use the tracked changes from movingElement
         positionData = {
-          id: movingElem.id,
-          x: movingElem.x,
-          y: movingElem.y,
-          width: movingElem.width!,
-          height: movingElem.height!,
+          id: movingElement.id,
+          x: movingElement.x,
+          y: movingElement.y,
+          width: movingElement.width!,
+          height: movingElement.height!,
         };
         console.log('Using movingElementRef data:', positionData);
       } else {
@@ -2529,7 +2542,7 @@ const styles = StyleSheet.create({
   },
   optionsSection: {
     marginBottom: 15,
-    marginTop: 15, // Leave room for close button
+    marginTop: 50, // Leave room for close button (button is at top: 12 with height 32 = 44px)
   },
   sectionLabel: {
     fontSize: 16,
