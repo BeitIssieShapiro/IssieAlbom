@@ -20,7 +20,9 @@ import { AlbumService } from '../services/AlbumService';
 import { AlbumCard } from '../components/AlbumCard';
 import { AddAlbumButton } from '../components/AddAlbumButton';
 import { AboutScreen } from './AboutScreen';
-import { colors, spacing, borderRadius } from '../theme/colors';
+import { SettingsScreen } from './SettingsScreen';
+import { spacing, borderRadius } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { GlobalContext } from '../contexts/GlobalContext';
 
 const NUM_COLUMNS = 4;
@@ -32,12 +34,14 @@ interface HomeScreenProps {
 export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const globalContext = useContext(GlobalContext);
+  const { colors } = useTheme();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showNewAlbumModal, setShowNewAlbumModal] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
   const [showAbout, setShowAbout] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Track screen dimensions for rotation support
   const [screenDimensions, setScreenDimensions] = useState(() => {
@@ -192,10 +196,22 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
     return <AboutScreen onClose={() => setShowAbout(false)} />;
   }
 
+  if (showSettings) {
+    return <SettingsScreen visible={showSettings} onClose={() => setShowSettings(false)} />;
+  }
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>האלבומים שלי</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, {
+        backgroundColor: colors.headerBackground,
+      }]}>
+        <TouchableOpacity
+          onPress={() => setShowSettings(true)}
+          style={styles.menuButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Icon name="menu-outline" size={32} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.primary }]}>האלבומים שלי</Text>
         <TouchableOpacity
           onPress={() => setShowAbout(true)}
           style={styles.aboutButton}
@@ -206,7 +222,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>טוען אלבומים...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>טוען אלבומים...</Text>
         </View>
       ) : (
         <FlatList
@@ -221,7 +237,7 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 אין אלבומים עדיין. לחצו על + ליצירת האלבום הראשון!
               </Text>
             </View>
@@ -237,10 +253,17 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
         supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>אלבום חדש</Text>
+          <View style={[styles.modalContent, {
+            backgroundColor: colors.cardBackground,
+            shadowColor: colors.primary,
+          }]}>
+            <Text style={[styles.modalTitle, { color: colors.primary }]}>אלבום חדש</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, {
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                color: colors.textPrimary,
+              }]}
               placeholder="שם האלבום"
               value={newAlbumName}
               onChangeText={setNewAlbumName}
@@ -250,16 +273,20 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[styles.modalButton, styles.cancelButton, {
+                  backgroundColor: colors.textLight,
+                }]}
                 onPress={() => setShowNewAlbumModal(false)}
               >
-                <Text style={styles.cancelButtonText}>ביטול</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>ביטול</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.createButton]}
+                style={[styles.modalButton, styles.createButton, {
+                  backgroundColor: colors.primary,
+                }]}
                 onPress={handleCreateAlbum}
               >
-                <Text style={styles.createButtonText}>יצירה</Text>
+                <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>יצירה</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -272,7 +299,6 @@ export function HomeScreen({ onOpenAlbum }: HomeScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -280,19 +306,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
-    backgroundColor: colors.headerBackground,
     borderBottomWidth: 0,
     position: 'relative',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.primary,
     textAlign: 'center',
   },
   aboutButton: {
     position: 'absolute',
     right: spacing.lg,
+    padding: spacing.sm,
+  },
+  menuButton: {
+    position: 'absolute',
+    left: spacing.lg,
     padding: spacing.sm,
   },
   loadingContainer: {
@@ -302,7 +331,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: colors.textSecondary,
   },
   listContent: {
     padding: spacing.md,
@@ -315,7 +343,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
   modalOverlay: {
@@ -325,12 +352,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.large,
     padding: spacing.xl,
     width: '80%',
     maxWidth: 400,
-    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -339,19 +364,15 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.primary,
     marginBottom: spacing.lg,
     textAlign: 'center',
   },
   input: {
     borderWidth: 2,
-    borderColor: colors.border,
     borderRadius: borderRadius.medium,
     padding: spacing.md,
     fontSize: 18,
     marginBottom: spacing.lg,
-    backgroundColor: colors.background,
-    color: colors.textPrimary,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -364,20 +385,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: colors.textLight,
     marginRight: spacing.sm,
   },
   cancelButtonText: {
-    color: colors.cardBackground,
     fontSize: 18,
     fontWeight: '600',
   },
   createButton: {
-    backgroundColor: colors.primary,
     marginLeft: spacing.sm,
   },
   createButtonText: {
-    color: colors.cardBackground,
     fontSize: 18,
     fontWeight: '600',
   },

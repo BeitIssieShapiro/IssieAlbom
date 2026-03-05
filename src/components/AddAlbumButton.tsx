@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '../theme/colors';
+import { spacing, borderRadius, shadows } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 const NUM_COLUMNS = 4;
 const CARD_MARGIN = spacing.md;
@@ -12,18 +13,23 @@ interface AddAlbumButtonProps {
 }
 
 export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
+  const { colors } = useTheme();
   const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
 
   return (
     <TouchableOpacity
-      style={[styles.container, { width: cardWidth }]}
+      style={[styles.container, {
+        width: cardWidth,
+        backgroundColor: colors.cardBackground,
+        borderColor: colors.primary,
+      }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={styles.iconContainer}>
-        <Text style={styles.icon}>+</Text>
+      <View style={[styles.iconContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.icon, { color: colors.primary }]}>+</Text>
       </View>
-      <Text style={styles.label}>אלבום חדש</Text>
+      <Text style={[styles.label, { color: colors.primary }]}>אלבום חדש</Text>
     </TouchableOpacity>
   );
 }
@@ -31,10 +37,8 @@ export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
 const styles = StyleSheet.create({
   container: {
     margin: CARD_MARGIN,
-    backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.large,
     borderWidth: 3,
-    borderColor: colors.primary,
     borderStyle: 'dashed',
     boxShadow: shadows.card,
     overflow: 'hidden',
@@ -43,18 +47,15 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
   icon: {
     fontSize: 64,
-    color: colors.primary,
     fontWeight: '300',
   },
   label: {
     padding: spacing.md,
     fontSize: 16,
     fontWeight: '700',
-    color: colors.primary,
     textAlign: 'center',
   },
 });

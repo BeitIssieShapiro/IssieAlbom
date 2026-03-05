@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import { Album } from '../types/Album';
-import { colors, spacing, borderRadius, shadows } from '../theme/colors';
+import { spacing, borderRadius, shadows } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 const NUM_COLUMNS = 4;
 const CARD_MARGIN = spacing.md;
@@ -23,6 +24,7 @@ interface AlbumCardProps {
 }
 
 export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: AlbumCardProps) {
+  const { colors } = useTheme();
   const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
   const [menuVisible, setMenuVisible] = useState(false);
   const formattedDate = new Date(album.createdAt).toLocaleDateString('he-IL');
@@ -38,11 +40,14 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
 
   return (
     <TouchableOpacity
-      style={[styles.container, { width: cardWidth }]}
+      style={[styles.container, {
+        width: cardWidth,
+        backgroundColor: colors.cardBackground,
+      }]}
       onPress={() => onPress(album)}
       activeOpacity={0.7}
     >
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, { backgroundColor: colors.background }]}>
         {album.previewImagePath ? (
           <Image
             source={{ uri: `file://${album.previewImagePath}?t=${album.updatedAt}` }}
@@ -50,7 +55,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
             resizeMode="cover"
           />
         ) : (
-          <View style={styles.placeholder}>
+          <View style={[styles.placeholder, { backgroundColor: colors.accent2 }]}>
             <Text style={styles.placeholderIcon}>📖</Text>
           </View>
         )}
@@ -59,14 +64,14 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
           onPress={() => setMenuVisible(true)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.menuDots}>•••</Text>
+          <Text style={[styles.menuDots, { color: colors.primary }]}>•••</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>
+      <View style={[styles.info, { backgroundColor: colors.cardBackground }]}>
+        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
           {album.name}
         </Text>
-        <Text style={styles.date}>{formattedDate}</Text>
+        <Text style={[styles.date, { color: colors.textSecondary }]}>{formattedDate}</Text>
       </View>
 
       <Modal
@@ -81,25 +86,28 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
           activeOpacity={1}
           onPress={() => setMenuVisible(false)}
         >
-          <View style={styles.menuContainer}>
-            <Text style={styles.menuTitle}>{album.name}</Text>
+          <View style={[styles.menuContainer, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.menuTitle, {
+              color: colors.textSecondary,
+              borderBottomColor: colors.border,
+            }]}>{album.name}</Text>
             <TouchableOpacity
-              style={styles.menuItem}
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('rename')}
             >
-              <Text style={styles.menuItemText}>שינוי שם</Text>
+              <Text style={[styles.menuItemText, { color: colors.primary }]}>שינוי שם</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemDestructive]}
+              style={[styles.menuItem, styles.menuItemDestructive, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('delete')}
             >
-              <Text style={styles.menuItemTextDestructive}>מחיקה</Text>
+              <Text style={[styles.menuItemTextDestructive, { color: colors.error }]}>מחיקה</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemCancel]}
+              style={[styles.menuItem, styles.menuItemCancel, { backgroundColor: colors.background }]}
               onPress={() => setMenuVisible(false)}
             >
-              <Text style={styles.menuItemTextCancel}>ביטול</Text>
+              <Text style={[styles.menuItemTextCancel, { color: colors.textPrimary }]}>ביטול</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -111,14 +119,12 @@ export function AlbumCard({ album, onPress, onRename, onDelete, screenWidth }: A
 const styles = StyleSheet.create({
   container: {
     margin: CARD_MARGIN,
-    backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.large,
     boxShadow: shadows.card,
     overflow: 'hidden',
   },
   imageContainer: {
     aspectRatio: 16 / 9,
-    backgroundColor: colors.background,
   },
   previewImage: {
     width: '100%',
@@ -129,7 +135,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.accent2,
   },
   placeholderIcon: {
     fontSize: 56,
@@ -145,23 +150,19 @@ const styles = StyleSheet.create({
   },
   menuDots: {
     fontSize: 14,
-    color: colors.primary,
     fontWeight: 'bold',
     letterSpacing: 0,
   },
   info: {
     padding: spacing.md,
-    backgroundColor: colors.cardBackground,
   },
   name: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.textPrimary,
     marginBottom: 4,
   },
   date: {
     fontSize: 13,
-    color: colors.textSecondary,
   },
   menuOverlay: {
     flex: 1,
@@ -170,7 +171,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuContainer: {
-    backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.large,
     width: 280,
     overflow: 'hidden',
@@ -178,37 +178,30 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     fontSize: 15,
-    color: colors.textSecondary,
     textAlign: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 2,
-    borderBottomColor: colors.border,
   },
   menuItem: {
     paddingVertical: spacing.lg,
     borderBottomWidth: 2,
-    borderBottomColor: colors.border,
   },
   menuItemText: {
     fontSize: 20,
-    color: colors.primary,
     textAlign: 'center',
     fontWeight: '600',
   },
   menuItemDestructive: {},
   menuItemTextDestructive: {
     fontSize: 20,
-    color: colors.error,
     textAlign: 'center',
     fontWeight: '600',
   },
   menuItemCancel: {
     borderBottomWidth: 0,
-    backgroundColor: colors.background,
   },
   menuItemTextCancel: {
     fontSize: 20,
-    color: colors.textPrimary,
     textAlign: 'center',
     fontWeight: '700',
   },

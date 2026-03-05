@@ -36,7 +36,8 @@ import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
 import { MyIcon } from '../common/icons';
-import { colors, spacing, borderRadius } from '../theme/colors';
+import { spacing, borderRadius } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 const TOOLBAR_WIDTH = 90;
 const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
@@ -108,6 +109,7 @@ interface PageEditorScreenProps {
 
 export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage, onDeletePage }: PageEditorScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const canvasRef = useRef<any>(null);
 
   // Track screen dimensions (updated on rotation)
@@ -1742,8 +1744,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         <Text style={styles.title}>עמוד {page.pageNumber}</Text>
 
         {/* Right side: Done button */}
-        <TouchableOpacity style={styles.doneButton} onPress={handleBack} accessibilityLabel="סיום עריכה">
-          <Text style={styles.doneButtonText}>סיום</Text>
+        <TouchableOpacity style={[styles.doneButton, { backgroundColor: colors.primary }]} onPress={handleBack} accessibilityLabel="סיום עריכה">
+          <Text style={[styles.doneButtonText, { color: colors.cardBackground }]}>סיום</Text>
         </TouchableOpacity>
       </View>
 
@@ -2432,7 +2434,6 @@ const styles = StyleSheet.create({
   doneButton: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.primary,
     borderRadius: borderRadius.round,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2440,7 +2441,6 @@ const styles = StyleSheet.create({
   doneButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.cardBackground,
   },
   title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
   headerActions: { flexDirection: 'row', gap: 8 },

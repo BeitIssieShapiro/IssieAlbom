@@ -1,10 +1,14 @@
 ##Todo after Racheli:
 - move emoji not working
 - add search image list (internet)
-- themes
+
+In IssieDocs (sibling project, there is a search component that goes to the internet to search for images, language sensitive). copy it over and add this option here under another option in images
+
+
 - patterns lighter lines
 - export: album/pdf/movie
 - translation
+V- themes
 V- change yellow bg
 V- title disapears while moving
 V- no undo after close

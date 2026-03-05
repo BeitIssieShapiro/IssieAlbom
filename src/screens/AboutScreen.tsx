@@ -7,7 +7,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, typography } from '../theme/colors';
+import { spacing, borderRadius, typography } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 import Icon from '@react-native-vector-icons/ionicons';
 import { HEADER_HEIGHT } from '../types/Album';
 
@@ -55,15 +56,16 @@ interface AboutScreenProps {
 }
 
 export function AboutScreen({ onClose }: AboutScreenProps) {
+  const { colors } = useTheme();
   const [lang, setLang] = useState('he');
   const currentLang = languages.find(l => l.code === lang) || languages[0];
   const content = aboutContent[lang as keyof typeof aboutContent] || aboutContent.he;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{content.title}</Text>
+      <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{content.title}</Text>
         <TouchableOpacity
           onPress={onClose}
           style={styles.closeButton}
@@ -73,19 +75,21 @@ export function AboutScreen({ onClose }: AboutScreenProps) {
       </View>
 
       {/* Language toggle */}
-      <View style={styles.toggleRow}>
+      <View style={[styles.toggleRow, { backgroundColor: colors.cardBackground }]}>
         {languages.map(l => (
           <TouchableOpacity
             key={l.code}
             style={[
               styles.toggleButton,
-              lang === l.code && styles.toggleButtonActive,
+              { borderColor: colors.primary },
+              lang === l.code && [styles.toggleButtonActive, { backgroundColor: colors.primary }],
             ]}
             onPress={() => setLang(l.code)}>
             <Text
               allowFontScaling={false}
               style={[
                 styles.toggleText,
+                { color: colors.primary },
                 lang === l.code && styles.toggleTextActive,
               ]}>
               {l.label}
@@ -103,16 +107,16 @@ export function AboutScreen({ onClose }: AboutScreenProps) {
             key={index}
             style={[
               styles.paragraph,
-              { writingDirection: currentLang.dir },
+              { writingDirection: currentLang.dir, color: colors.textPrimary },
             ]}>
             {paragraph}
           </Text>
         ))}
 
         {/* Logo/Branding */}
-        <View style={styles.branding}>
+        <View style={[styles.branding, { borderTopColor: colors.border }]}>
           <Text style={styles.brandingText}>🎨 IssieAlbum 📚</Text>
-          <Text style={styles.brandingSubtext}>
+          <Text style={[styles.brandingSubtext, { color: colors.textSecondary }]}>
             {lang === 'he'
               ? 'בית איזי שפירא'
               : lang === 'ar'
@@ -128,7 +132,6 @@ export function AboutScreen({ onClose }: AboutScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     height: HEADER_HEIGHT,
@@ -137,12 +140,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.headerBackground,
   },
   headerTitle: {
     fontSize: typography.fontSize.large,
     fontWeight: 'bold',
-    color: colors.textPrimary,
   },
   closeButton: {
     padding: spacing.sm,
@@ -154,21 +155,17 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
-    backgroundColor: colors.cardBackground,
   },
   toggleButton: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.large,
     borderWidth: 2,
-    borderColor: colors.primary,
   },
   toggleButtonActive: {
-    backgroundColor: colors.primary,
   },
   toggleText: {
     fontSize: typography.fontSize.medium,
-    color: colors.primary,
     fontWeight: '600',
   },
   toggleTextActive: {
@@ -186,14 +183,12 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.medium,
     lineHeight: 28,
     marginBottom: spacing.lg,
-    color: colors.textPrimary,
   },
   branding: {
     marginTop: spacing.xxl,
     alignItems: 'center',
     paddingVertical: spacing.xl,
     borderTopWidth: 2,
-    borderTopColor: colors.border,
   },
   brandingText: {
     fontSize: typography.fontSize.large,
@@ -201,7 +196,6 @@ const styles = StyleSheet.create({
   },
   brandingSubtext: {
     fontSize: typography.fontSize.medium,
-    color: colors.textSecondary,
     fontWeight: '600',
   },
 });

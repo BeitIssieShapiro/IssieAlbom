@@ -10,7 +10,7 @@ import { Album } from './types/Album';
 import { AlbumService } from './services/AlbumService';
 import { HomeScreen } from './screens/HomeScreen';
 import { AlbumScreen } from './screens/AlbumScreen';
-import { colors } from './theme/colors';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
 interface OpenedAlbum {
   album: Album;
@@ -18,8 +18,17 @@ interface OpenedAlbum {
 }
 
 function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
+
+function AppContent() {
   const isDarkMode = useColorScheme() === 'dark';
   const [openedAlbum, setOpenedAlbum] = useState<OpenedAlbum | null>(null);
+  const { colors } = useTheme();
 
   const handleOpenAlbum = async (album: Album) => {
     try {

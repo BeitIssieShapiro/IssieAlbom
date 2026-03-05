@@ -16,7 +16,8 @@ import { PageService } from '../services/PageService';
 import { PageCard, PageCardRef } from '../components/PageCard';
 import { PageEditorScreen } from './PageEditorScreen';
 import { MyIcon } from '../common/icons';
-import { colors, spacing, borderRadius } from '../theme/colors';
+import { spacing, borderRadius } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 
 
 interface AlbumScreenProps {
@@ -27,6 +28,7 @@ interface AlbumScreenProps {
 
 export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [pages, setPages] = useState<AlbumPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -310,25 +312,25 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   }
 
   return (
-    <View style={[styles.container]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={onBack}>
           <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
           {album.name}
         </Text>
         <TouchableOpacity
-          style={styles.editButton}
+          style={[styles.editButton, { backgroundColor: colors.primary }]}
           onPress={handleToggleEditMode}
         >
-          <Text style={styles.editButtonText}>{isEditMode ? 'סיום' : 'ערוך'}</Text>
+          <Text style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? 'סיום' : 'ערוך'}</Text>
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>טוען עמודים...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>טוען עמודים...</Text>
         </View>
       ) : pages.length > 0 ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -388,7 +390,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         </View>
       ) : (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>אין עמודים באלבום</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>אין עמודים באלבום</Text>
         </View>
       )}
 
@@ -409,9 +411,12 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       {/* Loading overlay for page deletion */}
       {isDeletingPage && (
         <View style={styles.loadingOverlay}>
-          <View style={styles.overlayContent}>
+          <View style={[styles.overlayContent, {
+            backgroundColor: colors.cardBackground,
+            shadowColor: colors.primary,
+          }]}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.overlayText}>מוחק עמוד...</Text>
+            <Text style={[styles.overlayText, { color: colors.textPrimary }]}>מוחק עמוד...</Text>
           </View>
         </View>
       )}
@@ -422,7 +427,6 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     height:  HEADER_HEIGHT,
@@ -430,7 +434,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.headerBackground,
     borderBottomWidth: 0,
   },
   backButton: {
@@ -438,13 +441,11 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.round,
   },
   editButton: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.primary,
     borderRadius: borderRadius.round,
     justifyContent: 'center',
     alignItems: 'center',
@@ -452,13 +453,11 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.cardBackground,
   },
   title: {
     flex: 1,
     fontSize: 24,
     fontWeight: '700',
-    color: colors.primary,
     textAlign: 'center',
   },
   loadingContainer: {
@@ -468,7 +467,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: colors.textSecondary,
   },
   pageContainer: {
     backgroundColor: "green",
@@ -491,12 +489,10 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   overlayContent: {
-    backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.large,
     padding: spacing.xxl,
     alignItems: 'center',
     minWidth: 200,
-    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -504,7 +500,6 @@ const styles = StyleSheet.create({
   },
   overlayText: {
     fontSize: 18,
-    color: colors.textPrimary,
     marginTop: spacing.md,
     fontWeight: '600',
   },
