@@ -1,6 +1,5 @@
 ## Bugs
-- title when typing it wraps and then comes back to one line
-
+V- title when typing it wraps and then comes back to one line
 V- record button while recording is disabled sometimes
 V- sound waves are not enough sensitive
 V- images actions and queue
@@ -13,6 +12,7 @@ V- in heb the album menu is not rtl
 V- emoji are cut
 
 - sometimes gets into state where no drag and sketch work *
+
 - carosoul add next/prev buttons
 
 

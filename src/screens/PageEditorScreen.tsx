@@ -245,28 +245,32 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const displayTexts = useMemo(() => {
     console.log('displayTexts recomputing, emojiRotation:', emojiRotation, 'currentEmojiId:', currentEmojiId, 'editingTextChanges:', editingTextChanges);
     const result = texts.map(t => {
+      // First, merge with layout data from previous displayTextsRef (width/height mutations from canvas)
+      const previousText = displayTextsRef.current.find(prev => prev.id === t.id);
+      let merged = previousText ? { ...t, width: previousText.width, height: previousText.height } : t;
+
       // Apply editing changes (text, color, size, position)
       if (editingTextChanges?.id === t.id) {
         console.log('Applying editingTextChanges to', t.id, editingTextChanges);
-        const changes = { ...t, ...editingTextChanges };
+        merged = { ...merged, ...editingTextChanges };
         // ALSO apply temporary rotation if this is a selected emoji
         if (t.isEmoji && t.id === currentEmojiId && emojiRotation !== undefined) {
           console.log('ALSO applying rotation to edited emoji:', emojiRotation);
-          changes.rotation = emojiRotation;
+          merged.rotation = emojiRotation;
         }
-        return changes;
+        return merged;
       }
       // Apply move changes (only for non-edited texts)
       if (movingElement?.type === 'text' && movingElement.id === t.id && !editingTextChanges) {
-        return { ...t, x: movingElement.x, y: movingElement.y };
+        return { ...merged, x: movingElement.x, y: movingElement.y };
       }
       // Apply temporary rotation for selected emoji ONLY
       console.log("rotation change?", t.id, t.isEmoji, currentEmojiId, emojiRotation)
       if (t.isEmoji && t.id === currentEmojiId && emojiRotation != undefined) {
         console.log("rotation change!", emojiRotation)
-        return { ...t, rotation: emojiRotation };
+        return { ...merged, rotation: emojiRotation };
       }
-      return t;
+      return merged;
     });
 
     // If editingTextChanges has a text not in the queue yet (brand new), add it
@@ -971,8 +975,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setTextSize(existingTitle.fontSize);
       setTextColor(existingTitle.color);
     } else {
-      // Create new title at top center
-      const centerX = canvasWidth / 2 - 100;
+      // Create new title at 1/3 from start side (right in RTL, left in LTR)
+      const startX = isRTL ? (canvasWidth * 2 / 3) : (canvasWidth / 3);
       const topY = 50;
       const defaultTitleSize = 72;
 
@@ -983,7 +987,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         color: textColor,
         rtl: isRTL,
         alignment: isRTL ? 'Right' : 'Left',
-        x: centerX,
+        x: startX,
         y: topY,
         width: 200,
         height: 80,

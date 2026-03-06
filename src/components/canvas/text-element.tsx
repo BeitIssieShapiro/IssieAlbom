@@ -127,7 +127,7 @@ function TextElement({
 
     const style: any = {
         color: text.color, fontSize: text.fontSize * ratio,
-        textAlign: text.alignment.toLowerCase(),
+        textAlign: text.alignment?.toLowerCase() || 'left',
         fontFamily: text.fontFamily, // could be undefined
         fontWeight: text.bold ? 'bold' : 'normal',
         fontStyle: text.italic ? 'italic' : 'normal',
