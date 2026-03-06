@@ -37,6 +37,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [editingPage, setEditingPage] = useState<AlbumPage | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isDeletingPage, setIsDeletingPage] = useState(false);
+  const [isCreatingPage, setIsCreatingPage] = useState(false);
   const carouselRef = useRef<any>(null);
   const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
 
@@ -208,6 +209,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handleCreatePageFromEditor = async () => {
+    setIsCreatingPage(true);
+    const startTime = Date.now();
     try {
       const newPage = await PageService.createPage(album.id);
       await loadPages();
@@ -220,6 +223,12 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     } catch (error) {
       console.error('Failed to create page:', error);
       Alert.alert(t('home.error'), t('album.errorCreatePage'));
+    } finally {
+      // Ensure at least 1 second has elapsed
+      const elapsed = Date.now() - startTime;
+      const remainingTime = Math.max(0, 1000 - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+      setIsCreatingPage(false);
     }
   };
 
@@ -257,6 +266,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     if (!editingPage) return;
 
     setIsDeletingPage(true);
+    const startTime = Date.now();
     try {
       const currentPageIndex = pages.findIndex(p => p.id === editingPage.id);
       await PageService.deletePage(album.id, editingPage.id);
@@ -278,6 +288,10 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       console.error('Failed to delete page:', error);
       Alert.alert(t('home.error'), t('album.errorDeletePage'));
     } finally {
+      // Ensure at least 1 second has elapsed
+      const elapsed = Date.now() - startTime;
+      const remainingTime = Math.max(0, 1000 - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
       setIsDeletingPage(false);
     }
   };
@@ -310,12 +324,20 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           onCreatePage={handleCreatePageFromEditor}
           onDeletePage={handleDeletePageFromEditor}
         />
-        {/* Loading overlay for page deletion */}
+        {/* Loading overlay for page operations */}
         {isDeletingPage && (
           <View style={styles.loadingOverlay}>
             <View style={styles.overlayContent}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.overlayText}>{t('delete.page')}</Text>
+              <Text style={styles.overlayText}>{t('album.deletingPage')}</Text>
+            </View>
+          </View>
+        )}
+        {isCreatingPage && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.overlayContent}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.overlayText}>{t('album.creatingPage')}</Text>
             </View>
           </View>
         )}
@@ -429,7 +451,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         </View>
       )}
 
-      {/* Loading overlay for page deletion */}
+      {/* Loading overlays for page operations */}
       {isDeletingPage && (
         <View style={styles.loadingOverlay}>
           <View style={[styles.overlayContent, {
@@ -437,7 +459,19 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             shadowColor: colors.primary,
           }]}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.overlayText, { color: colors.textPrimary }]}>מוחק עמוד...</Text>
+            <Text style={[styles.overlayText, { color: colors.textPrimary }]}>{t('album.deletingPage')}</Text>
+          </View>
+        </View>
+      )}
+
+      {isCreatingPage && (
+        <View style={styles.loadingOverlay}>
+          <View style={[styles.overlayContent, {
+            backgroundColor: colors.cardBackground,
+            shadowColor: colors.primary,
+          }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.overlayText, { color: colors.textPrimary }]}>{t('album.creatingPage')}</Text>
           </View>
         </View>
       )}

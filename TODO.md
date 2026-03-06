@@ -6,9 +6,7 @@ V- sound waves are not enough sensitive
 V- images actions and queue
 V- Camera crash *
 V- recording before text, later comes text, cannot map *
-
-- drag to move - find the latest (topest) (emojis)
-When canvas search element to decide which element to move, it should search last to first and also follow the element type order (emj, images/text ?)
+V- drag to move - find the latest (topest) (emojis)
 
 - add page - show busy and diable adding
 When adding a page, just like deletion there should be busy indication and block any interaction until done
@@ -16,7 +14,8 @@ When adding a page, just like deletion there should be busy indication and block
 - when dragging emoji a gray box appear, but it is rotated related tot he selection box  - maybe remove the gray? or not rotate it
 
 - sometimes gets into state where no drag and sketch work *
-
+- carosoul add next/prev buttons
+- in heb the album menu is not rtl
 
 
 

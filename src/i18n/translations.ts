@@ -36,6 +36,8 @@ interface Translations {
     errorDeletePage: string;
     deletePageTitle: string;
     deletePageMessage: string;
+    creatingPage: string;
+    deletingPage: string;
   };
 
   // Page Editor Screen
@@ -217,6 +219,8 @@ export const translations: Record<LanguageCode, Translations> = {
       errorDeletePage: 'מחיקת העמוד נכשלה',
       deletePageTitle: 'מחיקת עמוד',
       deletePageMessage: 'האם למחוק עמוד זה? לא ניתן לבטל פעולה זו.',
+      creatingPage: 'יוצר עמוד...',
+      deletingPage: 'מוחק עמוד...',
     },
 
     editor: {
@@ -386,6 +390,8 @@ export const translations: Record<LanguageCode, Translations> = {
       errorDeletePage: 'Failed to delete page',
       deletePageTitle: 'Delete Page',
       deletePageMessage: 'Delete this page? This cannot be undone.',
+      creatingPage: 'Creating page...',
+      deletingPage: 'Deleting page...',
     },
 
     editor: {
@@ -555,6 +561,8 @@ export const translations: Record<LanguageCode, Translations> = {
       errorDeletePage: 'فشل حذف الصفحة',
       deletePageTitle: 'حذف الصفحة',
       deletePageMessage: 'حذف هذه الصفحة؟ لا يمكن التراجع عن هذا.',
+      creatingPage: 'جاري إنشاء الصفحة...',
+      deletingPage: 'جاري حذف الصفحة...',
     },
 
     editor: {
