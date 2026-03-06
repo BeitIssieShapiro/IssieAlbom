@@ -1,12 +1,11 @@
 ## Bugs
-- Camera crash *
+V- Camera crash *
 - title when typing it wraps and then comes back to one line
-?- recording before text, later comes text, cannot map *
+V- recording before text, later comes text, cannot map *
 ?- record button while recording is disabled sometimes
 ?- sound waves are not enough sensitive
 
-- images actions and queue
-actions on images are not handling the queue correct (add/delete image should go to queue so undo will remove them) - please review all images flow
+V- images actions and queue
 
 - drag to move - find the latest (topest) (emojis)
 When canvas search element to decide which element to move, it should search last to first and also follow the element type order (emj, images/text ?)

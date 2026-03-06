@@ -15,14 +15,30 @@ export default class DoQueue {
   }
 
   async clearUndo() {
+    // Build a set of all attachments still referenced in the done queue
+    const referencedAttachments = new Set<string>();
+    for (const elem of this._doneQueue) {
+      if (elem.elem?.audioPath) {
+        referencedAttachments.add(elem.elem.audioPath);
+      }
+      if (elem.elem?.imagePath) {
+        referencedAttachments.add(elem.elem.imagePath);
+      }
+    }
+
+    // Only delete attachments from undo queue if they're NOT in done queue
     for (const elem of this._undoQueue) {
       // Check for audio attachments
       if (elem.elem?.audioPath && this._onAttachmentRemove) {
-        await this._onAttachmentRemove(elem.elem.audioPath);
+        if (!referencedAttachments.has(elem.elem.audioPath)) {
+          await this._onAttachmentRemove(elem.elem.audioPath);
+        }
       }
       // Check for image attachments
       if (elem.elem?.imagePath && this._onAttachmentRemove) {
-        await this._onAttachmentRemove(elem.elem.imagePath);
+        if (!referencedAttachments.has(elem.elem.imagePath)) {
+          await this._onAttachmentRemove(elem.elem.imagePath);
+        }
       }
     }
     this._undoQueue = [];
@@ -30,6 +46,11 @@ export default class DoQueue {
 
   pushPath(elem: any) {
     this.add({ elem, type: 'path' });
+    this.clearUndo();
+  }
+
+  pushDeletePath(elem: any) {
+    this.add({ elem, type: 'pathDelete' });
     this.clearUndo();
   }
 

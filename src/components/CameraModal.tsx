@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { Camera, CameraType } from 'react-native-camera-kit';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { MyIcon } from '../common/icons';
 
 interface CameraModalProps {
@@ -17,45 +18,101 @@ interface CameraModalProps {
 }
 
 export function CameraModal({ visible, onCapture, onCancel }: CameraModalProps) {
-  const cameraRef = useRef<any>(null);
-  const [cameraType, setCameraType] = useState<CameraType>(CameraType.Back);
+  const cameraRef = useRef<Camera>(null);
+  const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
   const [captureInProgress, setCaptureInProgress] = useState(false);
+  const { hasPermission, requestPermission } = useCameraPermission();
+
+  const device = useCameraDevice(cameraPosition);
+
+  // Request permissions when modal opens
+  useEffect(() => {
+    if (visible && !hasPermission) {
+      requestPermission();
+    }
+  }, [visible, hasPermission]);
 
   const takePicture = async () => {
-    if (captureInProgress || !cameraRef.current) return;
+    if (captureInProgress || !cameraRef.current || !device) {
+      console.log('[CameraModal] Cannot capture:', {
+        captureInProgress,
+        hasRef: !!cameraRef.current,
+        hasDevice: !!device
+      });
+      return;
+    }
 
     try {
       setCaptureInProgress(true);
-      const image = await cameraRef.current.capture();
-      console.log('Picture taken:', image.uri);
-      onCapture(image.uri);
+      console.log('[CameraModal] Starting capture...');
+
+      const photo = await cameraRef.current.takePhoto({
+        flash: 'off',
+      });
+
+      const photoUri = `file://${photo.path}`;
+      console.log('[CameraModal] Picture taken:', photoUri);
+      onCapture(photoUri);
     } catch (error) {
-      console.error('Failed to capture image:', error);
+      console.error('[CameraModal] Failed to capture image:', error);
+      Alert.alert('Error', 'Failed to capture photo');
     } finally {
       setCaptureInProgress(false);
     }
   };
 
   const toggleCamera = () => {
-    setCameraType(prev =>
-      prev === CameraType.Back ? CameraType.Front : CameraType.Back
-    );
+    setCameraPosition(prev => prev === 'back' ? 'front' : 'back');
   };
 
+  // Don't render camera if no permission or no device
+  if (!hasPermission) {
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ color: '#FFFFFF', fontSize: 18 }}>Camera permission required</Text>
+          <TouchableOpacity
+            style={[styles.cancelButton, { marginTop: 20 }]}
+            onPress={onCancel}
+          >
+            <Text style={styles.cancelButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  }
+
+  if (!device) {
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 16, marginTop: 20 }}>Loading camera...</Text>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onCancel} supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onCancel}
+      supportedOrientations={[
+        'portrait',
+        'portrait-upside-down',
+        'landscape',
+        'landscape-left',
+        'landscape-right',
+      ]}
+    >
       <View style={styles.container}>
         <Camera
           ref={cameraRef}
           style={styles.camera}
-          cameraType={cameraType}
-          saveToCameraRoll={false}
-          showFrame={false}
-          scanBarcode={false}
-          zoomMode="on"
-          zoom={1.0}
-          maxZoom={3.0}
-          resizeMode="contain"
+          device={device}
+          isActive={visible}
+          photo={true}
         />
 
         {/* Top controls */}

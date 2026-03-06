@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Icon from '@react-native-vector-icons/ionicons';
 import { Album } from '../types/Album';
 import { spacing, borderRadius, shadows } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { AlbumIcon } from './AlbumIcon';
 
 const NUM_COLUMNS = 4;
 const CARD_MARGIN = spacing.md;
@@ -27,7 +29,7 @@ interface AlbumCardProps {
 
 export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenWidth }: AlbumCardProps) {
   const { colors } = useTheme();
-  const { t, language } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
   const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -114,27 +116,46 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
           onPress={() => setMenuVisible(false)}
         >
           <View style={[styles.menuContainer, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.menuTitle, {
-              color: colors.textSecondary,
+            <View style={[styles.menuHeader, {
               borderBottomColor: colors.border,
-            }]}>{album.name}</Text>
+            }]}>
+              <AlbumIcon size={40} />
+              <Text style={[styles.menuTitle, {
+                color: colors.textPrimary,
+              }]} numberOfLines={1}>{album.name}</Text>
+            </View>
             <TouchableOpacity
               style={[styles.menuItem, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('rename')}
             >
-              <Text style={[styles.menuItemText, { color: colors.primary }]}>{t('albumCard.menuRename')}</Text>
+              <View style={[styles.menuItemContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Icon name="create-outline" size={24} color={colors.primary} />
+                <Text style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('albumCard.menuRename')}
+                </Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('share')}
             >
-              <Text style={[styles.menuItemText, { color: colors.primary }]}>{t('export.share')}</Text>
+              <View style={[styles.menuItemContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Icon name="share-outline" size={24} color={colors.primary} />
+                <Text style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('export.share')}
+                </Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemDestructive, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('delete')}
             >
-              <Text style={[styles.menuItemTextDestructive, { color: colors.error }]}>{t('albumCard.menuDelete')}</Text>
+              <View style={[styles.menuItemContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Icon name="trash-outline" size={24} color={colors.error} />
+                <Text style={[styles.menuItemTextDestructive, { color: colors.error, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {t('albumCard.menuDelete')}
+                </Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemCancel, { backgroundColor: colors.background }]}
@@ -205,30 +226,44 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     borderRadius: borderRadius.large,
-    width: 280,
+    width: 300,
     overflow: 'hidden',
     boxShadow: shadows.card,
   },
-  menuTitle: {
-    fontSize: 15,
-    textAlign: 'center',
-    paddingVertical: spacing.md,
+  menuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
     borderBottomWidth: 2,
+    gap: spacing.md,
+  },
+  menuTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    flex: 1,
   },
   menuItem: {
     paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 2,
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   menuItemText: {
     fontSize: 20,
-    textAlign: 'center',
     fontWeight: '600',
+    flex: 1,
   },
   menuItemDestructive: {},
   menuItemTextDestructive: {
     fontSize: 20,
-    textAlign: 'center',
     fontWeight: '600',
+    flex: 1,
   },
   menuItemCancel: {
     borderBottomWidth: 0,

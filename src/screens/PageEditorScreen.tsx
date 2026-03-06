@@ -319,6 +319,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [textMode, setTextMode] = useState<'title' | 'body'>('body'); // Track if editing title or body
   const [audioMode, setAudioMode] = useState(false); // Track if audio mode is active
   const [isRecording, setIsRecording] = useState(false); // Track if currently recording audio
+  const [recordingMetering, setRecordingMetering] = useState<number>(0); // Audio level 0-1 during recording
+  const [, forceUpdate] = useState(0); // For animating waveform bars
+  const [queueVersion, setQueueVersion] = useState(0); // Triggers re-render when queue changes
 
   // Hardcoded element IDs
   const TITLE_TEXT_ID = 'page_title_text';
@@ -344,6 +347,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     console.log('[Ref sync] sketchStrokeWidth changed to:', sketchStrokeWidth);
     sketchStrokeWidthRef.current = sketchStrokeWidth;
   }, [sketchStrokeWidth]);
+
+  // Animate waveform bars while recording
+  useEffect(() => {
+    if (!isRecording) return;
+
+    const interval = setInterval(() => {
+      forceUpdate(prev => prev + 1); // Trigger re-render for animation
+    }, 100); // Update 10 times per second
+
+    return () => clearInterval(interval);
+  }, [isRecording]);
 
   // Cleanup audio on unmount only
   useEffect(() => {
@@ -411,11 +425,42 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const canvasWidth = pageWidth * ratio;
   const canvasHeight = pageHeight * ratio;
 
+  // Calculate centering offset for canvas
+  // Available width for canvas area (excluding toolbar)
+  const canvasAreaWidth = screenDimensions.width - TOOLBAR_WIDTH;
+  // Remaining horizontal space after placing canvas
+  const horizontalSpace = canvasAreaWidth - canvasWidth;
+  // Center the canvas within available space, with minimum margin
+  const centeringOffset = Math.max(CANVAS_MARGIN, horizontalSpace / 2);
 
+  // Canvas left margin (start margin in RTL-aware terms)
+  const canvasLeftMargin = centeringOffset;
+
+  console.log('[PageEditorScreen] Canvas centering:', {
+    language,
+    screenWidth: screenDimensions.width,
+    toolbarWidth: TOOLBAR_WIDTH,
+    canvasAreaWidth,
+    canvasWidth,
+    horizontalSpace,
+    centeringOffset,
+    canvasLeftMargin,
+  });
 
   // Absolute sideMargin for screen2Canvas calculation:
-  // TOOLBAR_WIDTH + container padding + canvas marginLeft
-  const sideMargin = CANVAS_MARGIN + insets.left;
+  // In LTR (English): toolbar is on left, so canvas left = toolbar + margin
+  // In RTL (Hebrew/Arabic): toolbar is on right, so canvas left = margin only
+  const toolbarOffset = language === 'en' ? TOOLBAR_WIDTH : 0;
+  const sideMargin = toolbarOffset + canvasLeftMargin + insets.left;
+
+  console.log('[PageEditorScreen] sideMargin calculation:', {
+    language,
+    isLTR: language === 'en',
+    toolbarOffset,
+    canvasLeftMargin,
+    insetsLeft: insets.left,
+    finalSideMargin: sideMargin,
+  });
 
   // Canvas top position: header + safe area + container padding
   const canvasTop = HEADER_HEIGHT + CANVAS_MARGIN + insets.top;
@@ -486,6 +531,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setTexts(rebuiltTexts);
     setImages(rebuiltImages);
     setBackgroundPattern(rebuiltBackgroundPattern);
+
+    // Trigger re-render for undo/redo button states
+    setQueueVersion(prev => prev + 1);
 
     // Extract page-level audio (hardcoded ID)
     const pageAudio = rebuiltAudios.find(a => a.id === PAGE_AUDIO_ID);
@@ -671,6 +719,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         setEmojiRotation(emoji?.rotation);
       }
 
+      // Trigger re-render for button states
+      setQueueVersion(prev => prev + 1);
+
       // Auto-save after undo
       autoSave();
     }
@@ -695,6 +746,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         const emoji = textsRef.current.find(t => t.id === currentId);
         setEmojiRotation(emoji?.rotation);
       }
+
+      // Trigger re-render for button states
+      setQueueVersion(prev => prev + 1);
 
       // Auto-save after redo
       autoSave();
@@ -816,6 +870,34 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     setEditingTextChanges(null);
     rebuildStateFromQueue();
+
+    // Auto-generate word timings if:
+    // 1. This is the title text
+    // 2. There's audio recorded with duration
+    // 3. The audio doesn't have word timings yet
+    // 4. The title text is not empty
+    if (id === TITLE_TEXT_ID && textToSave.text && textToSave.text.trim().length > 0) {
+      // Check current audio state
+      const currentAudio = audiosRef.current.find(a => a.id === 'page_audio');
+      if (currentAudio?.audioDuration && !currentAudio.wordTimings && currentAudio.audioPath) {
+        console.log('[handleTextEditEnd] Auto-generating word timings for existing audio');
+        const words = textToSave.text.split(/\s+/).filter(w => w.length > 0);
+        const wordTimings = generateInitialWordTimings(words, currentAudio.audioDuration);
+
+        // Update the audio with word timings
+        const updatedAudio: SketchAudio = {
+          ...currentAudio,
+          audioPath: currentAudio.audioPath,
+          wordTimings
+        };
+
+        queue.current.pushAudio(updatedAudio);
+        rebuildStateFromQueue();
+        autoSave();
+
+        console.log('[handleTextEditEnd] Auto-generated word timings:', wordTimings);
+      }
+    }
   };
 
   const handleCanvasClick = (p: SketchPoint, elem: any) => {
@@ -1045,6 +1127,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleStartRecording = async () => {
+    // Prevent starting if already recording
+    if (isRecording) {
+      console.log('[handleStartRecording] Already recording, ignoring');
+      return;
+    }
+
     const hasPermission = await checkAudioPermissions();
     if (!hasPermission) return;
 
@@ -1055,14 +1143,26 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         AudioChannels: 1,
       };
 
-      await Sound.startRecorder(undefined, audioConfig, true);
+      // Enable metering to get audio levels during recording
+      await Sound.startRecorder(undefined, audioConfig, true); // third param = meteringEnabled
       Sound.addRecordBackListener((e) => {
-        console.log('Recording progress:', e.currentPosition);
+        console.log('Recording progress:', e.currentPosition, 'metering:', e.currentMetering);
+        // currentMetering is in dB (typically -160 to 0)
+        // Convert to 0-1 range for visualization with adjustable sensitivity
+        if (e.currentMetering !== undefined && e.currentMetering !== null) {
+          // Normalize: -60dB (quiet) to 0dB (loud) → 0 to 1
+          // Adjust sensitivity by changing the dB range
+          const MIN_DB = -50; // More sensitive (lower = more sensitive)
+          const MAX_DB = 0;
+          const normalized = Math.max(0, Math.min(1, (e.currentMetering - MIN_DB) / (MAX_DB - MIN_DB)));
+          setRecordingMetering(normalized);
+        }
       });
       setIsRecording(true);
-      console.log('Recording started from toolbar');
+      console.log('Recording started from toolbar with metering enabled');
     } catch (error) {
       console.error('Failed to start recording:', error);
+      setIsRecording(false); // Ensure state is correct on error
       Alert.alert(t('home.error'), t('editor.errorRecording'));
     }
   };
@@ -1074,6 +1174,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const result = await Sound.stopRecorder();
       Sound.removeRecordBackListener();
       setIsRecording(false);
+      setRecordingMetering(0); // Reset metering
       console.log('Recording stopped, file:', result);
 
       // Get audio duration by playing it briefly
@@ -1128,6 +1229,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       await handleUpdatePageAudio(result, duration, wordTimings);
     } catch (error) {
       console.error('Failed to stop recording:', error);
+      setIsRecording(false); // Ensure state is correct on error
       Alert.alert(t('home.error'), t('editor.errorStopRecording'));
     }
   };
@@ -1716,21 +1818,36 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleDeleteElement = (type: ElementTypes, id: string) => {
-    // Remove from state
+    console.log('[handleDeleteElement] Deleting element:', { type, id });
+
+    // Add delete operation to queue
     if (type === ElementTypes.Text) {
-      setTexts(prev => prev.filter(t => t.id !== id));
+      queue.current.pushTextDelete(id);
     } else if (type === ElementTypes.Image) {
-      setImages(prev => prev.filter(img => img.id !== id));
+      // Find the image to get its full data for the delete operation
+      const image = images.find(img => img.id === id);
+      if (image) {
+        queue.current.pushDeleteImage(image);
+      } else {
+        console.error('[handleDeleteElement] Image not found:', id);
+      }
     } else if (type === ElementTypes.Sketch) {
-      setPaths(prev => prev.filter(p => p.id !== id));
+      // For paths, we need to find the path and delete it
+      const path = paths.find(p => p.id === id);
+      if (path) {
+        queue.current.pushDeletePath(path);
+      } else {
+        console.error('[handleDeleteElement] Path not found:', id);
+      }
     }
 
-    // Remove from queue
-    const queueElems = queue.current.getAll();
-    const idx = queueElems.findIndex(qe => qe.elem?.id === id);
-    if (idx >= 0) {
-      queueElems.splice(idx, 1);
-    }
+    // Rebuild state from queue (this will reflect the deletion)
+    rebuildStateFromQueue();
+
+    // Auto-save
+    autoSave();
+
+    console.log('[handleDeleteElement] Element deleted, queue length:', queue.current.getAll().length);
   };
 
   // Render callback for custom elements - not used anymore
@@ -1886,7 +2003,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             //console.log('Canvas positioning:', { sideMargin, canvasWidth, canvasHeight, availableWidth });
             return null;
           })()}
-          <View style={[styles.canvas, { marginEnd: CANVAS_MARGIN }]}>
+          <View style={[styles.canvas, { marginStart: canvasLeftMargin, marginEnd: CANVAS_MARGIN }]}>
             <CanvasComponent
               ref={canvasRef}
               style={{
@@ -2199,6 +2316,31 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
                     <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? t('editor.stopRecording') : t('editor.startRecording')}</Text>
                   </TouchableOpacity>
+
+                  {/* Live recording waveform indicator */}
+                  {isRecording && (
+                    <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>
+                        {/* Generate 20 bars */}
+                        {Array.from({ length: 20 }).map((_, i) => {
+                          // Animate bars with slight offset for wave effect
+                          const barHeight = Math.max(4, recordingMetering * 36 + Math.sin(Date.now() / 100 + i) * 4);
+                          return (
+                            <View
+                              key={i}
+                              style={{
+                                flex: 1,
+                                height: barHeight,
+                                backgroundColor: '#FF0000',
+                                borderRadius: 2,
+                                opacity: 0.7 + recordingMetering * 0.3,
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
 
                   <TouchableOpacity
                     style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
