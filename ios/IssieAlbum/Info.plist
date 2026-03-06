@@ -49,6 +49,8 @@
 	<string>IssieAlbum needs access to your microphone to record audio notes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>IssieAlbum needs access to your photo library to allow you to select and organize photos in your albums.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>IssieAlbum does not access your music library. This permission is required by a third-party library.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
