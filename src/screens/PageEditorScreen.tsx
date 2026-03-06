@@ -13,6 +13,7 @@ import {
   Alert,
   ScrollView,
   Image,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PathCommand } from '@shopify/react-native-skia';
@@ -487,6 +488,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   // Load initial page data into queue and state
   useEffect(() => {
+    // Reset recording state when switching pages
+    if (isRecording) {
+      Sound.stopRecorder().catch(() => {});
+      Sound.removeRecordBackListener();
+      setIsRecording(false);
+      setRecordingMetering(0);
+    }
+
     queue.current.clear();
     const v2Page = page as AlbumPageV2;
 
@@ -1127,6 +1136,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleStartRecording = async () => {
+    console.log('[handleStartRecording] Called, current isRecording state:', isRecording);
+
     // Prevent starting if already recording
     if (isRecording) {
       console.log('[handleStartRecording] Already recording, ignoring');
@@ -1134,7 +1145,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
 
     const hasPermission = await checkAudioPermissions();
-    if (!hasPermission) return;
+    if (!hasPermission) {
+      console.log('[handleStartRecording] No permission, aborting');
+      return;
+    }
 
     try {
       const audioConfig = {
@@ -1143,6 +1157,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         AudioChannels: 1,
       };
 
+      console.log('[handleStartRecording] Starting recorder...');
       // Enable metering to get audio levels during recording
       await Sound.startRecorder(undefined, audioConfig, true); // third param = meteringEnabled
       Sound.addRecordBackListener((e) => {
@@ -1159,9 +1174,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         }
       });
       setIsRecording(true);
-      console.log('Recording started from toolbar with metering enabled');
+      console.log('[handleStartRecording] Recording started successfully, isRecording set to true');
     } catch (error) {
-      console.error('Failed to start recording:', error);
+      console.error('[handleStartRecording] Failed to start recording:', error);
       setIsRecording(false); // Ensure state is correct on error
       Alert.alert(t('home.error'), t('editor.errorRecording'));
     }
@@ -1352,13 +1367,32 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleClearPageAudio = async () => {
-    // Stop any playing audio first
+    console.log('[handleClearPageAudio] Called, isRecording:', isRecording);
+
+    // Stop recording if in progress
+    if (isRecording) {
+      console.log('[handleClearPageAudio] Stopping active recording');
+      try {
+        await Sound.stopRecorder();
+        Sound.removeRecordBackListener();
+        setIsRecording(false);
+        setRecordingMetering(0);
+        console.log('[handleClearPageAudio] Recording stopped, isRecording set to false');
+      } catch (error) {
+        console.error('[handleClearPageAudio] Failed to stop recording:', error);
+        // Force reset state even if stop fails
+        setIsRecording(false);
+        setRecordingMetering(0);
+      }
+    }
+
+    // Stop any playing audio
     try {
       await Sound.stopPlayer();
       Sound.removePlayBackListener();
     } catch (error) {
       // Ignore if not playing
-      console.log('No audio playing to stop');
+      console.log('[handleClearPageAudio] No audio playing to stop');
     }
 
     // Remove from queue
@@ -1369,6 +1403,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // Auto-save to disk
     await autoSave();
+    console.log('[handleClearPageAudio] Completed');
   };
 
   const handleApplyBackground = async (pattern: BackgroundPattern | undefined) => {
@@ -2309,13 +2344,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 <View style={styles.optionsSection}>
                   <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, isRecording && styles.optionButtonActive]}
                     onPress={isRecording ? handleStopRecording : handleStartRecording}
                   >
                     <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
                     <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? t('editor.stopRecording') : t('editor.startRecording')}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
 
                   {/* Live recording waveform indicator */}
                   {isRecording && (
@@ -2342,32 +2377,32 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     </View>
                   )}
 
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handlePlayAudio}
                     disabled={!pageAudioFile}
                   >
                     <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
                     <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.play')}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
 
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handleOpenWordMapping}
                     disabled={!pageAudioFile}
                   >
                     <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
                     <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.wordMapping')}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
 
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
                     onPress={handleClearPageAudio}
                     disabled={!pageAudioFile}
                   >
                     <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
                     <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.deleteRecording')}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               )}
 
