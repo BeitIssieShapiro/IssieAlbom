@@ -430,6 +430,59 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             defaultIndex={toCarouselIndex(currentPageIndex)}
             windowSize={3}
           />
+
+          {/* Navigation buttons */}
+          {pages.length > 1 && (
+            <>
+              {/* Previous button - Start side (Left in LTR, Right in RTL) */}
+              {currentPageIndex > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.navButton,
+                    styles.navButtonPrev,
+                    isRTL ? { right: 20 } : { left: 20 },
+                    { backgroundColor: colors.primary }
+                  ]}
+                  onPress={() => {
+                    const newIndex = currentPageIndex - 1;
+                    carouselRef.current?.scrollTo({ index: toCarouselIndex(newIndex), animated: true });
+                  }}
+                >
+                  <MyIcon info={{
+                    type: "Ionicons",
+                    name: isRTL ? "chevron-forward" : "chevron-back",
+                    size: 36,
+                    color: colors.cardBackground
+                  }} />
+                </TouchableOpacity>
+              )}
+
+              {/* Next button - End side (Right in LTR, Left in RTL) */}
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  styles.navButtonNext,
+                  isRTL ? { left: 20 } : { right: 20 },
+                  { backgroundColor: colors.primary },
+                  currentPageIndex === pages.length - 1 && styles.navButtonDisabled
+                ]}
+                onPress={() => {
+                  if (currentPageIndex < pages.length - 1) {
+                    const newIndex = currentPageIndex + 1;
+                    carouselRef.current?.scrollTo({ index: toCarouselIndex(newIndex), animated: true });
+                  }
+                }}
+                disabled={currentPageIndex === pages.length - 1}
+              >
+                <MyIcon info={{
+                  type: "Ionicons",
+                  name: isRTL ? "chevron-back" : "chevron-forward",
+                  size: 36,
+                  color: colors.cardBackground,
+                }} style={{ opacity: currentPageIndex === pages.length - 1 ? 0.3 : 1 }} />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       ) : (
         <View style={styles.loadingContainer}>
@@ -558,5 +611,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginTop: spacing.md,
     fontWeight: '600',
+  },
+  navButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.3)',
+  },
+  navButtonPrev: {},
+  navButtonNext: {},
+  navButtonDisabled: {
+    opacity: 0.4,
   },
 });

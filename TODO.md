@@ -13,7 +13,7 @@ V- emoji are cut
 
 - sometimes gets into state where no drag and sketch work *
 
-- carosoul add next/prev buttons
+V- carosoul add next/prev buttons
 
 
 
