@@ -118,17 +118,20 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
           <View style={[styles.menuContainer, { backgroundColor: colors.cardBackground }]}>
             <View style={[styles.menuHeader, {
               borderBottomColor: colors.border,
+              
             }]}>
               <AlbumIcon size={40} />
               <Text style={[styles.menuTitle, {
                 color: colors.textPrimary,
+                textAlign: isRTL ? 'right' : 'left',
               }]} numberOfLines={1}>{album.name}</Text>
             </View>
+            {/** Menu Actions */}
             <TouchableOpacity
               style={[styles.menuItem, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('rename')}
             >
-              <View style={[styles.menuItemContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.menuItemContent, { flexDirection: 'row' }]}>
                 <Icon name="create-outline" size={24} color={colors.primary} />
                 <Text style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t('albumCard.menuRename')}
@@ -136,10 +139,10 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
               </View>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              style={[styles.menuItem, { borderBottomColor: colors.border,}]}
               onPress={() => handleMenuOption('share')}
             >
-              <View style={[styles.menuItemContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.menuItemContent, { flexDirection: 'row' }]}>
                 <Icon name="share-outline" size={24} color={colors.primary} />
                 <Text style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t('export.share')}
@@ -150,7 +153,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
               style={[styles.menuItem, styles.menuItemDestructive, { borderBottomColor: colors.border }]}
               onPress={() => handleMenuOption('delete')}
             >
-              <View style={[styles.menuItemContent, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.menuItemContent, { flexDirection: 'row' }]}>
                 <Icon name="trash-outline" size={24} color={colors.error} />
                 <Text style={[styles.menuItemTextDestructive, { color: colors.error, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t('albumCard.menuDelete')}
@@ -161,7 +164,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
               style={[styles.menuItem, styles.menuItemCancel, { backgroundColor: colors.background }]}
               onPress={() => setMenuVisible(false)}
             >
-              <Text style={[styles.menuItemTextCancel, { color: colors.textPrimary }]}>{t('albumCard.menuCancel')}</Text>
+              <Text style={[styles.menuItemTextCancel, { color: colors.textPrimary, textAlign: 'center' }]}>{t('albumCard.menuCancel')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -232,8 +235,8 @@ const styles = StyleSheet.create({
   },
   menuHeader: {
     flexDirection: 'row',
+    justifyContent:"flex-start",
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 2,
@@ -242,7 +245,6 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    flex: 1,
   },
   menuItem: {
     paddingVertical: spacing.lg,
@@ -257,13 +259,11 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 20,
     fontWeight: '600',
-    flex: 1,
   },
   menuItemDestructive: {},
   menuItemTextDestructive: {
     fontSize: 20,
     fontWeight: '600',
-    flex: 1,
   },
   menuItemCancel: {
     borderBottomWidth: 0,
