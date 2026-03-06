@@ -723,9 +723,13 @@ function Canvas({
     }, []);
 
     const searchElement = useCallback((cx: number, cy: number, ignoreType: boolean) => {
+        // When ignoreType is true, search in reverse drawing order (top layer first)
+        // Priority: Text/Emoji (drawn last, on top) > Images > Lines
+
         if (currentElementTypeRef.current === ElementTypes.Text || ignoreType) {
             //console.log("searchElement txt",textsRef.current)
-            const elem = textsRef.current?.find(t => !t.tableId && inBox(t, cx, cy, TEXT_SEARCH_MARGIN));
+            // Search from last to first (topmost element first)
+            const elem = findLast(textsRef.current, t => !t.tableId && inBox(t, cx, cy, TEXT_SEARCH_MARGIN));
             if (!ignoreType || elem) {
                 return elem && { type: ElementTypes.Text, elem };
             }
@@ -741,7 +745,8 @@ function Canvas({
         if (currentElementTypeRef.current === ElementTypes.Line || ignoreType) {
             const THRESHOLD = 10; // how close to the line is acceptable?
 
-            const elem = linesRef.current?.find((line) =>
+            // Search from last to first
+            const elem = findLast(linesRef.current, (line) =>
                 isPointOnLineSegment(line.from, line.to, cx, cy, THRESHOLD)
             );
             return elem && { type: ElementTypes.Line, elem };
