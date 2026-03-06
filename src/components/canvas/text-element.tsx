@@ -248,7 +248,7 @@ function TextElement({
         } : posStyle;
 
         return (
-            <Animated.View
+            <TouchableOpacity
                 key={text.id}
                 style={[
                     adjustedPosStyle,
@@ -258,9 +258,10 @@ function TextElement({
                         borderColor: '#007AFF',
                         borderRadius: 8,
                         padding: 4,
-                        backgroundColor: 'rgba(0, 122, 255, 0.1)',
                     }
                 ]}
+                activeOpacity={1}
+                onPress={() => onEmojiClick?.(text.id)}
             >
                 <Text
                     allowFontScaling={false}
@@ -271,11 +272,10 @@ function TextElement({
                             transform: [{ rotate: `${rotationDegrees}deg` }],
                         }
                     ]}
-                    onPress={() => onEmojiClick?.(text.id)}
                 >
                     {text.text}
                 </Text>
-            </Animated.View>
+            </TouchableOpacity>
         );
     }
 

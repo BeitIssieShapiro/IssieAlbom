@@ -7,15 +7,13 @@ V- images actions and queue
 V- Camera crash *
 V- recording before text, later comes text, cannot map *
 V- drag to move - find the latest (topest) (emojis)
-
-- add page - show busy and diable adding
-When adding a page, just like deletion there should be busy indication and block any interaction until done
-
-- when dragging emoji a gray box appear, but it is rotated related tot he selection box  - maybe remove the gray? or not rotate it
+V- add page - show busy and diable adding
+V- when dragging emoji a gray box appear, but it is rotated related tot he selection box  - maybe remove the gray? or not rotate it
 
 - sometimes gets into state where no drag and sketch work *
 - carosoul add next/prev buttons
 - in heb the album menu is not rtl
+- emoji are cut
 
 
 
