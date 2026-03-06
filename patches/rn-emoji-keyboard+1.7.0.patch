@@ -36,7 +36,7 @@ index f6f5df8..4d4c5a7 100644
        </View>
      </View>
 diff --git a/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx b/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx
-index 6869a04..1fb741b 100644
+index 6869a04..18a9d34 100644
 --- a/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx
 +++ b/node_modules/rn-emoji-keyboard/src/components/EmojiCategory.tsx
 @@ -169,10 +169,16 @@ export const EmojiCategory = React.memo(
@@ -62,7 +62,7 @@ index 6869a04..1fb741b 100644
              keyExtractor={keyExtractor}
              numColumns={numberOfColumns}
 +            key={`flatlist-${numberOfColumns}-${isRTL ? 'rtl' : 'ltr'}`}
-+            columnWrapperStyle={isRTL ? { flexDirection: 'row-reverse' } : undefined}
++            columnWrapperStyle={isRTL ? { flexDirection: 'row-reverse', paddingHorizontal: 4 } : { paddingHorizontal: 4 }}
              renderItem={renderItem}
              onScroll={handleOnScroll}
              ListFooterComponent={<ListFooterComponent categoryPosition={categoryPosition} />}
@@ -130,6 +130,25 @@ index 4a62562..cd67b6c 100644
        />
        {!hideSearchBarClearIcon && !!searchPhrase && (
          <TouchableOpacity onPress={clearPhrase} style={styles.button}>
+diff --git a/node_modules/rn-emoji-keyboard/src/components/SingleEmoji.tsx b/node_modules/rn-emoji-keyboard/src/components/SingleEmoji.tsx
+index c878fc2..58a6c36 100644
+--- a/node_modules/rn-emoji-keyboard/src/components/SingleEmoji.tsx
++++ b/node_modules/rn-emoji-keyboard/src/components/SingleEmoji.tsx
+@@ -48,12 +48,12 @@ export const SingleEmoji = React.memo(
+ const styles = StyleSheet.create({
+   container: {
+     flex: 1,
+-    padding: 4,
++    margin: 4,
+     justifyContent: 'center',
+     alignItems: 'center',
+   },
+   emojiWrapper: {
+-    padding: 4,
++    padding: 0,
+   },
+   emoji: { color: '#000' },
+ })
 diff --git a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts b/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts
 index e6bdb9e..ea87363 100644
 --- a/node_modules/rn-emoji-keyboard/src/contexts/KeyboardContext.ts

@@ -9,12 +9,11 @@ V- recording before text, later comes text, cannot map *
 V- drag to move - find the latest (topest) (emojis)
 V- add page - show busy and diable adding
 V- when dragging emoji a gray box appear, but it is rotated related tot he selection box  - maybe remove the gray? or not rotate it
+V- in heb the album menu is not rtl
+V- emoji are cut
 
 - sometimes gets into state where no drag and sketch work *
 - carosoul add next/prev buttons
-- in heb the album menu is not rtl
-- emoji are cut:
-when open the emoji keyboard, at size 48 (also tried 40 and its the same) the emojis in the list are cut a bit from their right side
 
 
 
