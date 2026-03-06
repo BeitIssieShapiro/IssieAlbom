@@ -75,6 +75,7 @@ import { trace } from "../../log";
 import { WordTiming, BackgroundPattern } from "../../types/Album";
 import { generatePatternPaths } from "../../utils/backgroundPatterns";
 import { BACKGROUND_IMAGE_SOURCES } from "../../utils/backgroundPatterns";
+import { AlbumService } from "../../services/AlbumService";
 
 const TEXT_SEARCH_MARGIN = 0; // 15;
 const TABLE_LINE_THRESHOLD = 7;
@@ -151,6 +152,9 @@ interface CanvasProps {
     // Background pattern
     backgroundPattern?: BackgroundPattern;
 
+    // Album ID (for resolving attachment paths)
+    albumId?: string;
+
     // View mode flag (for PageCard - disables editing/moving UI)
     isViewMode?: boolean;
 
@@ -218,6 +222,9 @@ function Canvas({
 
     // Background pattern
     backgroundPattern,
+
+    // Album ID
+    albumId,
 
     // View mode
     isViewMode = false,
@@ -847,18 +854,35 @@ function Canvas({
                 {backgroundPattern && (
                     <>
                         {/* Background Image (if type is image) */}
-                        {backgroundPattern.type === 'image' && backgroundPattern.imageName && (
-                            <Image
-                                source={BACKGROUND_IMAGE_SOURCES[backgroundPattern.imageName]}
-                                style={{
-                                    position: "absolute",
-                                    width: canvasWidth,
-                                    height: canvasHeight,
-                                    zIndex: -1,
-                                }}
-                                resizeMode="cover"
-                            />
-                        )}
+                        {backgroundPattern.type === 'image' && backgroundPattern.imageName && (() => {
+                            const isPresetImage = BACKGROUND_IMAGE_SOURCES[backgroundPattern.imageName];
+                            let imageSource;
+
+                            if (isPresetImage) {
+                                // Use preset image from BACKGROUND_IMAGE_SOURCES
+                                imageSource = BACKGROUND_IMAGE_SOURCES[backgroundPattern.imageName];
+                            } else if (albumId) {
+                                // Resolve attachment path
+                                const albumPath = AlbumService.getAlbumPath(albumId);
+                                imageSource = { uri: `file://${albumPath}/${backgroundPattern.imageName}` };
+                            } else {
+                                // Fallback: try direct file path
+                                imageSource = { uri: `file://${backgroundPattern.imageName}` };
+                            }
+
+                            return (
+                                <Image
+                                    source={imageSource}
+                                    style={{
+                                        position: "absolute",
+                                        width: canvasWidth,
+                                        height: canvasHeight,
+                                        zIndex: -1,
+                                    }}
+                                    resizeMode="cover"
+                                />
+                            );
+                        })()}
 
                         {/* Pattern Canvas (for solid colors and patterns) */}
                         {(backgroundPattern.type === 'solid' || backgroundPattern.type === 'pattern') && (

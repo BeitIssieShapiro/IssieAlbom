@@ -215,6 +215,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
             imageSource={backgroundImage}
             background={page.backgroundPath ? 0 : undefined}
             backgroundPattern={backgroundPattern}
+            albumId={albumId}
 
             currentElementType={ElementTypes.Sketch}
 

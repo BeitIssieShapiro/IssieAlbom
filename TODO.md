@@ -10,10 +10,12 @@ V- add page - show busy and diable adding
 V- when dragging emoji a gray box appear, but it is rotated related tot he selection box  - maybe remove the gray? or not rotate it
 V- in heb the album menu is not rtl
 V- emoji are cut
+V- carosoul add next/prev buttons
+V- sub toolbar headers: 
 
 - sometimes gets into state where no drag and sketch work *
 
-V- carosoul add next/prev buttons
+
 
 
 
@@ -27,6 +29,7 @@ V- change yellow bg
 V- title disapears while moving
 V- no undo after close
 V- search emoji in he
+V- Bakcground image from cam/lib
 
 
 

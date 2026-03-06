@@ -30,9 +30,9 @@ import DoQueue from '../utils/DoQueue';
 import CanvasComponent from '../components/canvas/canvas';
 import { AudioElement } from '../components/AudioElement';
 import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
-import { BackgroundSettingsModal } from '../components/BackgroundSettingsModal';
 import { CameraModal } from '../components/CameraModal';
 import { SearchImageModal } from '../components/SearchImageModal';
+import { ImageEditModal } from '../components/ImageEditModal';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGROUND_IMAGE_SOURCES, generatePatternPaths } from '../utils/backgroundPatterns';
 import { PageService } from '../services/PageService';
@@ -160,12 +160,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [pageAudioDuration, setPageAudioDuration] = useState<number | undefined>(undefined);
   const [pageAudioWordTimings, setPageAudioWordTimings] = useState<WordTiming[]>([]);
   const [showWordMappingModal, setShowWordMappingModal] = useState(false);
-  const [showBackgroundModal, setShowBackgroundModal] = useState(false);
   const [showEmojiKeyboard, setShowEmojiKeyboard] = useState(false);
   const [currentEmojiId, setCurrentEmojiId] = useState<string | null>(null); // Track selected emoji
   const [loadingImagePicker, setLoadingImagePicker] = useState(false); // Track image picker loading
   const [showCameraModal, setShowCameraModal] = useState(false); // Track camera modal
   const [showSearchImageModal, setShowSearchImageModal] = useState(false); // Track image search modal
+  const [showImageEditModal, setShowImageEditModal] = useState(false); // Track image edit modal
+  const [pendingImageUri, setPendingImageUri] = useState<string>(''); // Image waiting to be edited
+  const [pendingImageSource, setPendingImageSource] = useState<'camera' | 'library' | 'background-camera' | 'background-library'>('camera'); // Track source
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
@@ -1621,45 +1623,87 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     try {
       setShowCameraModal(false);
 
-      // Save image to attachments directory and get relative path
-      const relativePath = await AttachmentService.saveImageAttachment(albumId, uri);
-
-      // Get image dimensions (we'll use a default aspect ratio for camera photos)
-      const aspectRatio = 4 / 3; // Standard camera aspect ratio
-
-      const imageId = getId('image');
-
-      // Set image to 45% of canvas width
-      const imageWidth = canvasWidth * 0.45;
-      const imageHeight = imageWidth / aspectRatio;
-
-      // Add image to center of canvas
-      const newImage: SketchImage = {
-        id: imageId,
-        imagePath: relativePath,
-        x: canvasWidth / 2 - imageWidth / 2,
-        y: canvasHeight / 2 - imageHeight / 2,
-        width: imageWidth,
-        height: imageHeight,
-        aspectRatio: aspectRatio,
-      };
-
-      console.log('Adding camera image to queue:', { id: imageId, imagePath: relativePath });
-
-      // Commit full image to queue
-      queue.current.pushImage(newImage);
-
-      rebuildStateFromQueue();
-
-      // Auto-save to disk without closing editor
-      await autoSave();
-
-      // Set as currently edited to show handles
-      setCurrentEdited({ imageId: imageId });
+      // Show image edit modal instead of immediately adding
+      setPendingImageUri(uri);
+      setShowImageEditModal(true);
     } catch (error) {
-      console.error('Failed to save camera image:', error);
+      console.error('Failed to handle camera capture:', error);
       Alert.alert(t('home.error'), t('editor.errorSaveImage'));
     }
+  };
+
+  const handleImageEditApply = async (editedUri: string, rotation: number) => {
+    try {
+      setShowImageEditModal(false);
+
+      const source = pendingImageSource;
+
+      // Save the edited image to attachments directory (regardless of source)
+      const relativePath = await AttachmentService.saveImageAttachment(albumId, editedUri);
+      console.log('Saved edited image to:', relativePath);
+
+      // For background images
+      if (source === 'background-camera' || source === 'background-library') {
+        // Use queue to add background element with the saved relative path
+        const backgroundElement: BackgroundPattern = {
+          type: 'image',
+          imageName: relativePath, // Use the relative path (e.g., "attachments/image_123.jpg")
+        };
+
+        handleApplyBackground(backgroundElement);
+
+        console.log('Background image applied:', relativePath);
+      } else {
+        // For regular images (camera/library)
+        const relativePath = await AttachmentService.saveImageAttachment(albumId, editedUri);
+
+        // Get image dimensions (we'll use a default aspect ratio)
+        const aspectRatio = 4 / 3;
+
+        const imageId = getId('image');
+
+        // Set image to 45% of canvas width
+        const imageWidth = canvasWidth * 0.45;
+        const imageHeight = imageWidth / aspectRatio;
+
+        // Add image to center of canvas
+        const newImage: SketchImage = {
+          id: imageId,
+          imagePath: relativePath,
+          x: canvasWidth / 2 - imageWidth / 2,
+          y: canvasHeight / 2 - imageHeight / 2,
+          width: imageWidth,
+          height: imageHeight,
+          aspectRatio: aspectRatio,
+        };
+
+        console.log('Adding image to queue:', { id: imageId, imagePath: relativePath });
+
+        // Commit full image to queue
+        queue.current.pushImage(newImage);
+
+        rebuildStateFromQueue();
+
+        // Auto-save to disk without closing editor
+        await autoSave();
+
+        // Set as currently edited to show handles
+        setCurrentEdited({ imageId: imageId });
+      }
+
+      // Reset pending state
+      setPendingImageUri('');
+      setPendingImageSource('camera');
+    } catch (error) {
+      console.error('Failed to save edited image:', error);
+      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+    }
+  };
+
+  const handleImageEditCancel = () => {
+    setShowImageEditModal(false);
+    setPendingImageUri('');
+    setPendingImageSource('camera');
   };
 
   const handleSearchImageSelect = async (filePath: string) => {
@@ -2091,6 +2135,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               imageSource={backgroundImage}
               background={page.backgroundPath ? 0 : undefined}
               backgroundPattern={backgroundPattern}
+              albumId={albumId}
 
               currentElementType={currentElementType}
 
@@ -2188,6 +2233,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
               {!audioMode && currentElementType === ElementTypes.Sketch && (
                 <>
+                  {/* Toolbar Title */}
+                  <View style={styles.toolbarTitleSection}>
+                    <Text style={styles.toolbarTitle}>{t('editor.pen')}</Text>
+                  </View>
+
                   {/* Color Picker with Eraser */}
                   <View style={styles.optionsSection}>
                     <Text style={styles.sectionLabel}>{t('editor.color')}</Text>
@@ -2312,7 +2362,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               )}
 
               {!audioMode && currentElementType === ElementTypes.Image && (
-                <View style={styles.optionsSection}>
+                <>
+                  {/* Toolbar Title */}
+                  <View style={styles.toolbarTitleSection}>
+                    <Text style={styles.toolbarTitle}>{t('editor.addImage')}</Text>
+                  </View>
+
+                  <View style={styles.optionsSection}>
                   <TouchableOpacity
                     style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
                     onPress={handleAddImage}
@@ -2342,10 +2398,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     <Text style={styles.optionLabel}>{t('imageSearch.title')}</Text>
                   </TouchableOpacity>
                 </View>
+                </>
               )}
 
               {audioMode && (
-                <View style={styles.optionsSection}>
+                <>
+                  {/* Toolbar Title */}
+                  <View style={styles.toolbarTitleSection}>
+                    <Text style={styles.toolbarTitle}>{t('editor.audio')}</Text>
+                  </View>
+
+                  <View style={styles.optionsSection}>
                   <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
                   <Pressable
@@ -2408,11 +2471,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.deleteRecording')}</Text>
                   </Pressable>
                 </View>
+                </>
               )}
 
               {/* Emoji Mode Options */}
               {!audioMode && currentElementType === ElementTypes.Emoji && (
                 <>
+                  {/* Toolbar Title */}
+                  <View style={styles.toolbarTitleSection}>
+                    <Text style={styles.toolbarTitle}>{t('editor.emojis')}</Text>
+                  </View>
+
                   {console.log('[RENDER] Showing Emoji toolbar options, currentElementType:', currentElementType)}
                   {/* Pick Emoji Button */}
                   <View style={styles.optionsSection}>
@@ -2503,20 +2572,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {/* Background Mode Options */}
               {!audioMode && currentElementType === ElementTypes.Background && (
                 <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                  {console.log('[RENDER] Showing Background toolbar options, currentElementType:', currentElementType)}
-                  {/* Clear Background Button */}
-                  <View style={styles.optionsSection}>
-                    <TouchableOpacity
-                      style={[styles.optionButton, { position: "absolute", left: 5, top: 0, flexDirection: isRTL ? 'row-reverse' : 'row', justifyContent: isRTL ? 'flex-end' : 'flex-start' }, !backgroundPattern && styles.optionButtonActive]}
-                      onPress={() => handleApplyBackground(undefined)}
-                    >
-                      <MyIcon info={{ name: "delete", size: 24, color: !backgroundPattern ? '#007AFF' : '#555', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, !backgroundPattern && styles.optionLabelActive]}>{t('editor.noBackground')}</Text>
-                    </TouchableOpacity>
+                  {/* Toolbar Title */}
+                  <View style={styles.toolbarTitleSection}>
+                    <Text style={styles.toolbarTitle}>{t('editor.background')}</Text>
                   </View>
 
                   {/* Solid Colors */}
-                  <View style={[styles.optionsSection, { marginTop: 35 }]}>
+                  <View style={styles.optionsSection}>
                     <Text style={styles.sectionLabel}>{t('editor.solidColor')}</Text>
                     <View style={styles.colorGrid}>
                       {SOLID_COLOR_PRESETS.map((preset) => {
@@ -2584,6 +2646,50 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   <View style={styles.optionsSection}>
                     <Text style={styles.sectionLabel}>{t('background.image')}</Text>
                     <View style={styles.colorGrid}>
+                      {/* Camera button */}
+                      <TouchableOpacity
+                        key="camera"
+                        style={styles.backgroundSwatch}
+                        onPress={() => {
+                          setPendingImageSource('background-camera');
+                          setShowCameraModal(true);
+                        }}
+                      >
+                        <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 4 }}>
+                          <MyIcon info={{ type: 'Ionicons', name: 'camera', size: 32, color: '#666' }} />
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Library button */}
+                      <TouchableOpacity
+                        key="library"
+                        style={styles.backgroundSwatch}
+                        onPress={() => {
+                          setPendingImageSource('background-library');
+                          launchImageLibrary(
+                            {
+                              mediaType: 'photo',
+                              selectionLimit: 1,
+                            },
+                            (response) => {
+                              if (response.didCancel) {
+                                console.log('User cancelled image picker');
+                              } else if (response.errorCode) {
+                                console.error('ImagePicker Error:', response.errorMessage);
+                                Alert.alert(t('home.error'), response.errorMessage || 'Failed to pick image');
+                              } else if (response.assets && response.assets[0].uri) {
+                                setPendingImageUri(response.assets[0].uri);
+                                setShowImageEditModal(true);
+                              }
+                            }
+                          );
+                        }}
+                      >
+                        <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 4 }}>
+                          <MyIcon info={{ type: 'Ionicons', name: 'images', size: 32, color: '#666' }} />
+                        </View>
+                      </TouchableOpacity>
+
                       {BACKGROUND_IMAGE_PRESETS.map((preset) => {
                         const isActive = backgroundPattern?.type === 'image' && backgroundPattern.imageName === preset.fileName;
                         return (
@@ -2647,11 +2753,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       })()}
 
       {/* Background Settings Modal */}
-      <BackgroundSettingsModal
-        visible={showBackgroundModal}
-        currentPattern={backgroundPattern}
-        onApply={handleApplyBackground}
-        onClose={() => setShowBackgroundModal(false)}
+      {/* Image Edit Modal */}
+      <ImageEditModal
+        visible={showImageEditModal}
+        imageUri={pendingImageUri}
+        pageAspectRatio={canvasWidth / canvasHeight}
+        onApply={handleImageEditApply}
+        onCancel={handleImageEditCancel}
       />
 
       {/* Camera Modal */}
@@ -2768,6 +2876,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  toolbarTitleSection: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    width: '100%',
+  },
+  toolbarTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    textAlign: 'center',
+  },
   mainToolButton: {
     width: 70,
     height: 70,
@@ -2817,11 +2939,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 12,
+    top: 4,
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1001,

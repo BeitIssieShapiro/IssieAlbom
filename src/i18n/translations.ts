@@ -51,10 +51,13 @@ interface Translations {
     errorSaveRecording: string;
     errorSaveImage: string;
     sketchPen: string;
+    pen: string;
     emoji: string;
+    emojis: string;
     textInput: string;
     addImage: string;
     addAudio: string;
+    audio: string;
     addLine: string;
     addTable: string;
     background: string;
@@ -233,10 +236,13 @@ export const translations: Record<LanguageCode, Translations> = {
       errorSaveRecording: 'שמירת ההקלטה נכשלה',
       errorSaveImage: 'שמירת התמונה נכשלה',
       sketchPen: 'עט',
+      pen: 'עט',
       emoji: 'אימוג\'י',
+      emojis: 'אימוג\'ים',
       textInput: 'טקסט',
-      addImage: 'תמונה',
+      addImage: 'הוסף תמונה',
       addAudio: 'הקלטה',
+      audio: 'שמע',
       addLine: 'קו',
       addTable: 'טבלה',
       background: 'רקע',
@@ -404,10 +410,13 @@ export const translations: Record<LanguageCode, Translations> = {
       errorSaveRecording: 'Failed to save recording',
       errorSaveImage: 'Failed to save image',
       sketchPen: 'Pen',
+      pen: 'Pen',
       emoji: 'Emoji',
+      emojis: 'Emojis',
       textInput: 'Text',
-      addImage: 'Image',
+      addImage: 'Add Image',
       addAudio: 'Audio',
+      audio: 'Audio',
       addLine: 'Line',
       addTable: 'Table',
       background: 'Background',
