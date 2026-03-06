@@ -1,3 +1,26 @@
+## Bugs
+- Camera crash *
+- title when typing it wraps and then comes back to one line
+?- recording before text, later comes text, cannot map *
+?- record button while recording is disabled sometimes
+?- sound waves are not enough sensitive
+
+- images actions and queue
+actions on images are not handling the queue correct (add/delete image should go to queue so undo will remove them) - please review all images flow
+
+- drag to move - find the latest (topest) (emojis)
+When canvas search element to decide which element to move, it should search last to first and also follow the element type order (emj, images/text ?)
+
+- add page - show busy and diable adding
+When adding a page, just like deletion there should be busy indication and block any interaction until done
+
+- when dragging emoji a gray box appear, but it is rotated related tot he selection box  - maybe remove the gray? or not rotate it
+
+- sometimes gets into state where no drag and sketch work *
+
+
+
+
 ##Todo after Racheli:
 - export: album/pdf/movie
 V- patterns lighter lines

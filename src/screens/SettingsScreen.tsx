@@ -358,6 +358,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     gap: 16,
     marginBottom: 20,
+    direction: 'ltr',
   },
   languageCard: {
     marginBottom: 16,

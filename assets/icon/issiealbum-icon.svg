@@ -8,7 +8,7 @@
   <!-- Blue Background (no rounded corners) -->
   <rect x="-500" y="-500" width="1620" height="1620" fill="#00BCF5"/>
 
-  <g id="XMLID_2123_" transform="translate(-50, -280) scale(1.9)">
+  <g id="XMLID_2123_" transform="translate(-100, -280) scale(2.2)">
 	<rect id="XMLID_2124_" x="20" y="260" style="fill:#5A8BB0;" width="30" height="30"/>
 	<rect id="XMLID_2125_" x="20" y="165" style="fill:#5A8BB0;" width="30" height="30"/>
 	<rect id="XMLID_2126_" x="20" y="70" style="fill:#5A8BB0;" width="30" height="30"/>
