@@ -131,6 +131,7 @@ interface CanvasProps {
     onSketchStep: (p: SketchPoint) => void;
     onSketchEnd: (Cmd?: PathCommand[]) => void;
     onTextChanged: (id: string, newText: string) => void;
+    onTextLayout?: (id: string, width: number, height: number) => void;
     onCanvasClick: (p: SketchPoint, elem: ElementBase | TableContext | undefined) => void;
     onMoveElement: (type: MoveTypes, id: string, p: SketchPoint) => void;
     onMoveEnd: (type: MoveTypes, id: string) => void;
@@ -175,6 +176,7 @@ export interface Point {
 function Canvas({
     style,
     onTextChanged,
+    onTextLayout,
     onCanvasClick,
 
     onSketchStart,
@@ -768,7 +770,15 @@ function Canvas({
 
     const handleTextLayout = useCallback((e: LayoutChangeEvent, text: SketchText) => {
         const { width, height } = e.nativeEvent.layout;
-        text.width = width / ratioRef.current;
+        console.log("text layout", width, height)
+        const normalizedWidth = width / ratioRef.current;
+        const normalizedHeight = height / ratioRef.current;
+
+        text.width = normalizedWidth;
+
+        // Notify PageEditorScreen of layout changes
+        onTextLayout?.(text.id, normalizedWidth, normalizedHeight);
+
         let table: SketchTable | undefined = undefined;
         let tableEndY = 0
 
@@ -782,9 +792,9 @@ function Canvas({
 
         //const prevHeight = text.height || 0;
         const normHeight = canvasHeightRef.current / ratioRef.current;
-        text.height = height / ratioRef.current;
-        //trace("handleTextLayout", normHeight, text.height, "bottom", text.y + height / ratioRef.current)
-        if (!text.tableId && text.y + height / ratioRef.current > normHeight) {
+        text.height = normalizedHeight;
+        //trace("handleTextLayout", normHeight, text.height, "bottom", text.y + normalizedHeight)
+        if (!text.tableId && text.y + normalizedHeight > normHeight) {
             trace("non table y-overflow")
             // change in height passed end of page
             onTextYOverflow?.(text.id);
@@ -797,7 +807,7 @@ function Canvas({
                 onTextYOverflow?.(text.id);
             }
         }
-    }, []);
+    }, [onTextLayout]);
 
     imageSource = normalizeFoAndroid(imageSource)
     //console.log("canvas render", ratio, canvasWidth)

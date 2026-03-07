@@ -1,10 +1,29 @@
 ## Bugs
+V- in en title is under subtoolbox
+- recording before text, later comes text, cannot map *
+V- in en texts in recording are too long
+V- in search the x to clear is not in place
+- emoji found in search is not added
+- when kb is up and you take it down and then click on emoji - kb is up
+- undo redo and next-prev are too close/similar
+- last do of sketch is lost at commit
+- in new page collapsesub-toolbox
+- shares' buttons' description is not translated
+- editor.audio not translated in arab (all titles)
+- new album - avoid keyboard
+- editing image screen
+    - is only hebrew
+    - ok on right in heb and on left in en
+
+
+
+
+
 V- title when typing it wraps and then comes back to one line
 V- record button while recording is disabled sometimes
 V- sound waves are not enough sensitive
 V- images actions and queue
 V- Camera crash *
-V- recording before text, later comes text, cannot map *
 V- drag to move - find the latest (topest) (emojis)
 V- add page - show busy and diable adding
 V- when dragging emoji a gray box appear, but it is rotated related tot he selection box  - maybe remove the gray? or not rotate it

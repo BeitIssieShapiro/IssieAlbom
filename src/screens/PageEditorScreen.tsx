@@ -247,14 +247,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const displayTexts = useMemo(() => {
     console.log('displayTexts recomputing, emojiRotation:', emojiRotation, 'currentEmojiId:', currentEmojiId, 'editingTextChanges:', editingTextChanges);
     const result = texts.map(t => {
-      // First, merge with layout data from previous displayTextsRef (width/height mutations from canvas)
-      const previousText = displayTextsRef.current.find(prev => prev.id === t.id);
-      let merged = previousText ? { ...t, width: previousText.width, height: previousText.height } : t;
-
-      // Apply editing changes (text, color, size, position)
+      // Apply editing changes (text, color, size, position, width, height)
       if (editingTextChanges?.id === t.id) {
         console.log('Applying editingTextChanges to', t.id, editingTextChanges);
-        merged = { ...merged, ...editingTextChanges };
+        let merged = { ...t, ...editingTextChanges };
         // ALSO apply temporary rotation if this is a selected emoji
         if (t.isEmoji && t.id === currentEmojiId && emojiRotation !== undefined) {
           console.log('ALSO applying rotation to edited emoji:', emojiRotation);
@@ -264,21 +260,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
       // Apply move changes (only for non-edited texts)
       if (movingElement?.type === 'text' && movingElement.id === t.id && !editingTextChanges) {
-        return { ...merged, x: movingElement.x, y: movingElement.y };
+        return { ...t, x: movingElement.x, y: movingElement.y };
       }
       // Apply temporary rotation for selected emoji ONLY
       console.log("rotation change?", t.id, t.isEmoji, currentEmojiId, emojiRotation)
       if (t.isEmoji && t.id === currentEmojiId && emojiRotation != undefined) {
         console.log("rotation change!", emojiRotation)
-        return { ...merged, rotation: emojiRotation };
+        return { ...t, rotation: emojiRotation };
       }
-      return merged;
+      return t;
     });
+    console.log("display text", result)
 
     // If editingTextChanges has a text not in the queue yet (brand new), add it
     if (editingTextChanges && !texts.find(t => t.id === editingTextChanges.id)) {
       result.push(editingTextChanges as SketchText);
     }
+
 
     return result;
   }, [texts, editingTextChanges, movingElement, currentEmojiId, emojiRotation]);
@@ -496,7 +494,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   useEffect(() => {
     // Reset recording state when switching pages
     if (isRecording) {
-      Sound.stopRecorder().catch(() => {});
+      Sound.stopRecorder().catch(() => { });
       Sound.removeRecordBackListener();
       setIsRecording(false);
       setRecordingMetering(0);
@@ -826,6 +824,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setEditingTextChanges(prev => prev?.id === id ? { ...prev, text: newText } : { id, text: newText });
   };
 
+  const handleTextLayout = (id: string, width: number, height: number) => {
+    // Track text layout changes (width/height from canvas measurement)
+    console.log('handleTextLayout:', { id, width, height });
+    setEditingTextChanges(prev => prev?.id === id ? { ...prev, width, height } : { id, width, height });
+  };
+
   const handleTextEditEnd = (id: string) => {
     // Save all accumulated changes to queue when editing ends
 
@@ -977,9 +981,16 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setTextSize(existingTitle.fontSize);
       setTextColor(existingTitle.color);
     } else {
-      // Create new title at 1/3 from start side (right in RTL, left in LTR)
-      const startX = isRTL ? (canvasWidth * 2 / 3) : (canvasWidth / 3);
-      const topY = 50;
+      // Create new title after subtoolbar with margin
+      // Note: title coords are in canvas space, so convert screen space (subtoolbar) to canvas space
+      const SUBTOOLBAR_WIDTH = 240;
+      const TITLE_MARGIN = 10;
+      const subtoolbarCanvasWidth = SUBTOOLBAR_WIDTH;
+      const marginCanvasWidth = TITLE_MARGIN;
+      const startX = isRTL
+        ? (canvasWidth - subtoolbarCanvasWidth - marginCanvasWidth)
+        : (subtoolbarCanvasWidth + marginCanvasWidth);
+      const topY = 100;
       const defaultTitleSize = 72;
 
       const newTitle: SketchText = {
@@ -989,7 +1000,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         color: textColor,
         rtl: isRTL,
         alignment: isRTL ? 'Right' : 'Left',
-        x: startX,
+        x: startX / ratio,
         y: topY,
         width: 200,
         height: 80,
@@ -1532,8 +1543,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const updatedEmoji = {
       ...emoji,
       fontSize: newSize,
-      width: newSize * 1.2, // Update width for hit detection
-      height: newSize * 1.2, // Update height for hit detection
+      width: newSize/ratio, // Update width for hit detection
+      height: newSize/ratio // Update height for hit detection
     };
 
     queue.current.pushText(updatedEmoji);
@@ -1550,7 +1561,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // Adjust size with min bound (10), no max bound
     const newSize = Math.max(10, emoji.fontSize + delta);
-    const updatedEmoji = { ...emoji, fontSize: newSize };
+    const updatedEmoji = {
+      ...emoji,
+      fontSize: newSize,
+      width: newSize/ratio, // Update width for hit detection
+      height: newSize/ratio, // Update height for hit detection
+    };
 
     queue.current.pushText(updatedEmoji);
     rebuildStateFromQueue();
@@ -1848,7 +1864,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           height: movingElementRef.current.height!,
         };
         console.log('Using movingElementRef data:', positionData);
-      } 
+      }
       // else {
       //   // Fallback: find in displayImages
       //   console.log('movingElementRef not available, falling back to displayImages');
@@ -2117,6 +2133,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
               currentEdited={currentEdited}
               onTextChanged={handleTextChanged}
+              onTextLayout={handleTextLayout}
 
               // Sketch/drawing handlers
               onSketchStart={() => { }}
@@ -2369,35 +2386,35 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </View>
 
                   <View style={styles.optionsSection}>
-                  <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
-                    onPress={handleAddImage}
-                    disabled={loadingImagePicker}
-                  >
-                    {loadingImagePicker ? (
-                      <ActivityIndicator size="small" color="#007AFF" />
-                    ) : (
-                      <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
-                    )}
-                    <Text style={styles.optionLabel}>{t('editor.fromGallery')}</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
+                      onPress={handleAddImage}
+                      disabled={loadingImagePicker}
+                    >
+                      {loadingImagePicker ? (
+                        <ActivityIndicator size="small" color="#007AFF" />
+                      ) : (
+                        <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
+                      )}
+                      <Text style={styles.optionLabel}>{t('editor.fromGallery')}</Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
-                    onPress={() => setShowCameraModal(true)}
-                  >
-                    <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
-                    <Text style={styles.optionLabel}>{t('editor.camera')}</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
+                      onPress={() => setShowCameraModal(true)}
+                    >
+                      <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
+                      <Text style={styles.optionLabel}>{t('editor.camera')}</Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
-                    onPress={() => setShowSearchImageModal(true)}
-                  >
-                    <MyIcon info={{ name: "image-search", size: 24, color: '#007AFF', type: "MDI" }} />
-                    <Text style={styles.optionLabel}>{t('imageSearch.title')}</Text>
-                  </TouchableOpacity>
-                </View>
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
+                      onPress={() => setShowSearchImageModal(true)}
+                    >
+                      <MyIcon info={{ name: "image-search", size: 24, color: '#007AFF', type: "MDI" }} />
+                      <Text style={styles.optionLabel}>{t('imageSearch.title')}</Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               )}
 
@@ -2409,68 +2426,68 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </View>
 
                   <View style={styles.optionsSection}>
-                  <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
+                    <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
-                  <Pressable
-                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, isRecording && styles.optionButtonActive]}
-                    onPress={isRecording ? handleStopRecording : handleStartRecording}
-                  >
-                    <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? t('editor.stopRecording') : t('editor.startRecording')}</Text>
-                  </Pressable>
+                    <Pressable
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, isRecording && styles.optionButtonActive]}
+                      onPress={isRecording ? handleStopRecording : handleStartRecording}
+                    >
+                      <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? t('editor.stopRecording') : t('editor.startRecording')}</Text>
+                    </Pressable>
 
-                  {/* Live recording waveform indicator */}
-                  {isRecording && (
-                    <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>
-                        {/* Generate 20 bars */}
-                        {Array.from({ length: 20 }).map((_, i) => {
-                          // Animate bars with slight offset for wave effect
-                          const barHeight = Math.max(4, recordingMetering * 36 + Math.sin(Date.now() / 100 + i) * 4);
-                          return (
-                            <View
-                              key={i}
-                              style={{
-                                flex: 1,
-                                height: barHeight,
-                                backgroundColor: '#FF0000',
-                                borderRadius: 2,
-                                opacity: 0.7 + recordingMetering * 0.3,
-                              }}
-                            />
-                          );
-                        })}
+                    {/* Live recording waveform indicator */}
+                    {isRecording && (
+                      <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>
+                          {/* Generate 20 bars */}
+                          {Array.from({ length: 20 }).map((_, i) => {
+                            // Animate bars with slight offset for wave effect
+                            const barHeight = Math.max(4, recordingMetering * 36 + Math.sin(Date.now() / 100 + i) * 4);
+                            return (
+                              <View
+                                key={i}
+                                style={{
+                                  flex: 1,
+                                  height: barHeight,
+                                  backgroundColor: '#FF0000',
+                                  borderRadius: 2,
+                                  opacity: 0.7 + recordingMetering * 0.3,
+                                }}
+                              />
+                            );
+                          })}
+                        </View>
                       </View>
-                    </View>
-                  )}
+                    )}
 
-                  <Pressable
-                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
-                    onPress={handlePlayAudio}
-                    disabled={!pageAudioFile}
-                  >
-                    <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.play')}</Text>
-                  </Pressable>
+                    <Pressable
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
+                      onPress={handlePlayAudio}
+                      disabled={!pageAudioFile}
+                    >
+                      <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.play')}</Text>
+                    </Pressable>
 
-                  <Pressable
-                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
-                    onPress={handleOpenWordMapping}
-                    disabled={!pageAudioFile}
-                  >
-                    <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.wordMapping')}</Text>
-                  </Pressable>
+                    <Pressable
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !pageAudioFile && styles.optionButtonDisabled]}
+                      onPress={handleOpenWordMapping}
+                      disabled={!pageAudioFile}
+                    >
+                      <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.wordMapping')}</Text>
+                    </Pressable>
 
-                  <Pressable
-                    style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
-                    onPress={handleClearPageAudio}
-                    disabled={!pageAudioFile}
-                  >
-                    <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
-                    <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.deleteRecording')}</Text>
-                  </Pressable>
-                </View>
+                    <Pressable
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive, !pageAudioFile && styles.optionButtonDisabled]}
+                      onPress={handleClearPageAudio}
+                      disabled={!pageAudioFile}
+                    >
+                      <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.deleteRecording')}</Text>
+                    </Pressable>
+                  </View>
                 </>
               )}
 

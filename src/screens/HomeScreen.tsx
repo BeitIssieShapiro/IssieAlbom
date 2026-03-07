@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SplashScreen from 'react-native-splash-screen';
@@ -279,47 +280,61 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
         onRequestClose={() => setShowNewAlbumModal(false)}
         supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, {
-            backgroundColor: colors.cardBackground,
-            shadowColor: colors.primary,
-          }]}>
-            <Text style={[styles.modalTitle, { color: colors.primary }]}>{t('home.newAlbumPrompt')}</Text>
-            <TextInput
-              style={[styles.input, {
-                borderColor: colors.border,
-                backgroundColor: colors.background,
-                color: colors.textPrimary,
-                textAlign: isRTL ? 'right' : 'left',
-                writingDirection: direction,
-              }]}
-              placeholder={t('home.albumNamePlaceholder')}
-              value={newAlbumName}
-              onChangeText={setNewAlbumName}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleCreateAlbum}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton, {
-                  backgroundColor: colors.textLight,
-                }]}
-                onPress={() => setShowNewAlbumModal(false)}
-              >
-                <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.createButton, {
-                  backgroundColor: colors.primary,
-                }]}
-                onPress={handleCreateAlbum}
-              >
-                <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.create')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowNewAlbumModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoid}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={[styles.modalContent, {
+                backgroundColor: colors.cardBackground,
+                shadowColor: colors.primary,
+              }]}>
+                <Text style={[styles.modalTitle, { color: colors.primary }]}>{t('home.newAlbumPrompt')}</Text>
+                <TextInput
+                  style={[styles.input, {
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                    color: colors.textPrimary,
+                    textAlign: isRTL ? 'right' : 'left',
+                    writingDirection: direction,
+                  }]}
+                  placeholder={t('home.albumNamePlaceholder')}
+                  value={newAlbumName}
+                  onChangeText={setNewAlbumName}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleCreateAlbum}
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton, {
+                      backgroundColor: colors.textLight,
+                    }]}
+                    onPress={() => setShowNewAlbumModal(false)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.createButton, {
+                      backgroundColor: colors.primary,
+                    }]}
+                    onPress={handleCreateAlbum}
+                  >
+                    <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.create')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
       </Modal>
 
       {albumToExport && (
@@ -389,11 +404,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  keyboardAvoid: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContent: {
     borderRadius: borderRadius.large,
     padding: spacing.xl,
-    width: '80%',
-    maxWidth: 400,
+    width: 400,
+    maxWidth: '90%',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

@@ -128,7 +128,7 @@ export function SearchImageModal({
                   <TouchableOpacity
                     style={[
                       styles.cleanSearchX,
-                      isRTL ? { right: 5 } : { left: 5 },
+                      isRTL ? { left: 5 } : { right: 5 },
                     ]}
                     onPress={() => setValue('')}
                   >
@@ -255,11 +255,13 @@ const styles = StyleSheet.create({
   },
   cleanSearchX: {
     position: 'absolute',
-    top: 0,
+    top: '50%',
+    transform: [{ translateY: -21 }],
     padding: spacing.sm,
   },
   cleanXText: {
-    fontSize: 30,
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   searchImageBtn: {
     borderRadius: borderRadius.round,
