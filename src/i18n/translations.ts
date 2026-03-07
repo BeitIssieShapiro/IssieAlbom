@@ -83,6 +83,9 @@ interface Translations {
     wordMapping: string;
     play: string;
     startRecording: string;
+    editImage: string;
+    deleteImage: string;
+    deleteImageConfirm: string;
   };
 
   // Settings Screen
@@ -145,11 +148,25 @@ interface Translations {
     noResults: string;
   };
 
+  // Image Edit Modal
+  imageEdit: {
+    title: string;
+    cancel: string;
+    apply: string;
+    reset: string;
+    instructions: string;
+    error: string;
+    errorCapture: string;
+    errorSave: string;
+  };
+
   // Export/Import
   export: {
     share: string;
     exportAsAlbum: string;
+    exportAsAlbumDesc: string;
     exportAsPDF: string;
+    exportAsPDFDesc: string;
     exportingAlbum: string;
     exportingPDF: string;
     exportComplete: string;
@@ -268,6 +285,9 @@ export const translations: Record<LanguageCode, Translations> = {
       wordMapping: 'מיפוי מילים',
       play: 'השמע',
       startRecording: 'התחל הקלטה',
+      editImage: 'ערוך תמונה',
+      deleteImage: 'מחק תמונה',
+      deleteImageConfirm: 'האם למחוק את התמונה?',
     },
 
     settings: {
@@ -322,10 +342,23 @@ export const translations: Record<LanguageCode, Translations> = {
       noResults: 'לא נמצאו תוצאות',
     },
 
+    imageEdit: {
+      title: 'עריכת תמונה',
+      cancel: 'ביטול',
+      apply: 'אישור',
+      reset: 'איפוס',
+      instructions: 'יש להשתמש בשתי אצבעות כדי לזוז, לסובב ולהגדיל',
+      error: 'שגיאה',
+      errorCapture: 'לא ניתן לצלם את התמונה',
+      errorSave: 'לא ניתן לשמור את התמונה',
+    },
+
     export: {
       share: 'שיתוף',
       exportAsAlbum: 'ייצוא כאלבום (ZIP)',
+      exportAsAlbumDesc: 'גיבוי מלא עם כל התוכן',
       exportAsPDF: 'ייצוא כ-PDF',
+      exportAsPDFDesc: 'להדפסה או לצפייה',
       exportingAlbum: 'מייצא אלבום...',
       exportingPDF: 'מייצר PDF...',
       exportComplete: 'הייצוא הושלם',
@@ -442,6 +475,9 @@ export const translations: Record<LanguageCode, Translations> = {
       wordMapping: 'Map Words',
       play: 'Play',
       startRecording: 'Record',
+      editImage: 'Edit Image',
+      deleteImage: 'Delete Image',
+      deleteImageConfirm: 'Delete this image?',
     },
 
     settings: {
@@ -496,10 +532,23 @@ export const translations: Record<LanguageCode, Translations> = {
       noResults: 'No results found',
     },
 
+    imageEdit: {
+      title: 'Edit Image',
+      cancel: 'Cancel',
+      apply: 'Apply',
+      reset: 'Reset',
+      instructions: 'Use two fingers to move, rotate, and zoom',
+      error: 'Error',
+      errorCapture: 'Cannot capture the image',
+      errorSave: 'Cannot save the image',
+    },
+
     export: {
       share: 'Share',
       exportAsAlbum: 'Export as Album (ZIP)',
+      exportAsAlbumDesc: 'Full backup with all content',
       exportAsPDF: 'Export as PDF',
+      exportAsPDFDesc: 'For printing or viewing',
       exportingAlbum: 'Exporting album...',
       exportingPDF: 'Generating PDF...',
       exportComplete: 'Export complete',
@@ -584,20 +633,23 @@ export const translations: Record<LanguageCode, Translations> = {
       errorSaveRecording: 'فشل حفظ التسجيل',
       errorSaveImage: 'فشل حفظ الصورة',
       sketchPen: 'قلم',
+      pen: 'قلم',
       emoji: 'إيموجي',
+      emojis: 'إيموجيات',
       textInput: 'نص',
       addImage: 'صورة',
       addAudio: 'تسجيل',
+      audio: 'صوت',
       addLine: 'خط',
       addTable: 'جدول',
       background: 'خلفية',
       undo: 'تراجع',
       redo: 'إعادة',
       recording: 'جاري التسجيل...',
-      stopRecording: 'إيقاف التسجيل',
+      stopRecording: 'إيقاف',
       playRecording: 'تشغيل التسجيل',
       saveRecording: 'حفظ التسجيل',
-      deleteRecording: 'حذف التسجيل',
+      deleteRecording: 'حذف',
       camera: 'كاميرا',
       color: 'لون',
       size: 'حجم',
@@ -612,7 +664,10 @@ export const translations: Record<LanguageCode, Translations> = {
       solidColor: 'لون صلب',
       wordMapping: 'تخطيط الكلمات',
       play: 'تشغيل',
-      startRecording: 'بدء التسجيل',
+      startRecording: 'تسجيل',
+      editImage: 'تحرير الصورة',
+      deleteImage: 'حذف الصورة',
+      deleteImageConfirm: 'هل تريد حذف هذه الصورة?',
     },
 
     settings: {
@@ -667,10 +722,23 @@ export const translations: Record<LanguageCode, Translations> = {
       noResults: 'لم يتم العثور على نتائج',
     },
 
+    imageEdit: {
+      title: 'تحرير الصورة',
+      cancel: 'إلغاء',
+      apply: 'تطبيق',
+      reset: 'إعادة تعيين',
+      instructions: 'استخدم إصبعين للتحريك والتدوير والتكبير',
+      error: 'خطأ',
+      errorCapture: 'لا يمكن التقاط الصورة',
+      errorSave: 'لا يمكن حفظ الصورة',
+    },
+
     export: {
       share: 'مشاركة',
       exportAsAlbum: 'تصدير كألبوم (ZIP)',
+      exportAsAlbumDesc: 'نسخة احتياطية كاملة مع كل المحتوى',
       exportAsPDF: 'تصدير كـ PDF',
+      exportAsPDFDesc: 'للطباعة أو العرض',
       exportingAlbum: 'جاري تصدير الألبوم...',
       exportingPDF: 'جاري إنشاء PDF...',
       exportComplete: 'اكتمل التصدير',

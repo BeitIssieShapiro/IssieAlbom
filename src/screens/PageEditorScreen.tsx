@@ -167,7 +167,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [showSearchImageModal, setShowSearchImageModal] = useState(false); // Track image search modal
   const [showImageEditModal, setShowImageEditModal] = useState(false); // Track image edit modal
   const [pendingImageUri, setPendingImageUri] = useState<string>(''); // Image waiting to be edited
-  const [pendingImageSource, setPendingImageSource] = useState<'camera' | 'library' | 'background-camera' | 'background-library'>('camera'); // Track source
+  const [pendingImageSource, setPendingImageSource] = useState<'camera' | 'library' | 'background-camera' | 'background-library' | 'edit-existing'>('camera'); // Track source
+  const [pendingImageId, setPendingImageId] = useState<string>(''); // Track which image is being edited
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
@@ -684,6 +685,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     };
     onSave(savedPage);
 
+    // Collapse subtoolbar
+    setShowToolOptions(false);
+
     onCreatePage();
   };
 
@@ -924,6 +928,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     console.log('handleCanvasClick', { mode: currentElementTypeRef.current, p, elem: elem?.id, currentEditedBefore: currentEditedRef.current });
     console.log('currentEdited (ref):', currentEditedRef.current);
     console.log('editingTextChanges (ref):', editingTextChangesRef.current);
+
+    // Check if clicked element is an image - handle it regardless of current mode
+    if (elem && elem.type === 'image') {
+      console.log('Clicked on image:', elem.id);
+      handleImageClick(elem.id);
+      return;
+    }
 
     // Save currently edited text before any action (regardless of mode)
     // Use refs to avoid closure issues
@@ -1479,12 +1490,25 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     if (currentEmojiIdRef.current === emojiId) {
       setCurrentEmojiId(null);
     } else {
+      setCurrentEdited({});
       setCurrentEmojiId(emojiId);
       // Load current rotation from the base texts array (which comes from queue)
       // Use ref to avoid stale closure after emoji moves
       const emoji = textsRef.current.find(t => t.id === emojiId);
       setEmojiRotation(emoji?.rotation);
     }
+  };
+
+  const handleImageClick = (imageId: string) => {
+    // Switch to image mode when clicking an image
+    setCurrentElementType(ElementTypes.Image);
+    currentElementTypeRef.current = ElementTypes.Image;
+    setShowToolOptions(true);
+    setAudioMode(false);
+
+    // Select the image
+    setCurrentEdited({ imageId: imageId });
+    setCurrentEmojiId(null);
   };
 
   const handleEmojiRotationChange = (rotation: number) => {
@@ -1623,8 +1647,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           // Auto-save to disk without closing editor
           await autoSave();
 
-          // Set as currently edited to show handles
+          // Select the image for editing (shows handles and subtoolbar)
           setCurrentEdited({ imageId: imageId });
+          setCurrentElementType(ElementTypes.Image);
+          setShowToolOptions(true);
         } catch (error) {
           console.error('Failed to save image attachment:', error);
           Alert.alert(t('home.error'), t('editor.errorSaveImage'));
@@ -1669,10 +1695,27 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         handleApplyBackground(backgroundElement);
 
         console.log('Background image applied:', relativePath);
-      } else {
-        // For regular images (camera/library)
-        const relativePath = await AttachmentService.saveImageAttachment(albumId, editedUri);
+      } else if (source === 'edit-existing') {
+        // Editing an existing image - replace it with the edited version
+        const imageId = pendingImageId;
+        const existingImage = images.find(img => img.id === imageId);
 
+        if (existingImage) {
+          // Update the image with new relative path (edited version)
+          const updatedImage: SketchImage = {
+            ...existingImage,
+            imagePath: relativePath, // New edited image path
+          };
+
+          queue.current.pushImage(updatedImage);
+          rebuildStateFromQueue();
+          await autoSave();
+
+          // Keep the image selected
+          setCurrentEdited({ imageId: imageId });
+        }
+      } else {
+        // For regular images (camera/library) - this is now only for camera
         // Get image dimensions (we'll use a default aspect ratio)
         const aspectRatio = 4 / 3;
 
@@ -1710,6 +1753,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       // Reset pending state
       setPendingImageUri('');
       setPendingImageSource('camera');
+      setPendingImageId('');
     } catch (error) {
       console.error('Failed to save edited image:', error);
       Alert.alert(t('home.error'), t('editor.errorSaveImage'));
@@ -1720,6 +1764,42 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setShowImageEditModal(false);
     setPendingImageUri('');
     setPendingImageSource('camera');
+  };
+
+  const handleEditExistingImage = () => {
+    // Get the currently selected image
+    const imageId = currentEdited.imageId;
+    if (!imageId) return;
+
+    const image = images.find(img => img.id === imageId);
+    if (!image) return;
+
+    // Build the full path to the image
+    // Use AttachmentService.getAbsolutePath which correctly handles the relative path
+    const fullPath = AttachmentService.getAbsolutePath(albumId, image.imagePath);
+
+    console.log('[handleEditExistingImage] Opening edit modal with image:', fullPath);
+
+    // Open the edit modal with the existing image
+    setPendingImageUri(`file://${fullPath}`);
+    setPendingImageSource('edit-existing');
+    setPendingImageId(imageId); // Track which image we're editing
+    setShowImageEditModal(true);
+  };
+
+  const handleDeleteImage = () => {
+    const imageId = currentEdited.imageId;
+    if (!imageId) return;
+
+    // Find the image to delete
+    const image = images.find(img => img.id === imageId);
+    if (!image) return;
+
+    // Delete the image element from queue (no confirmation - user can undo)
+    queue.current.pushDeleteImage(image);
+    rebuildStateFromQueue();
+    autoSave();
+    setCurrentEdited({});
   };
 
   const handleSearchImageSelect = async (filePath: string) => {
@@ -1972,33 +2052,38 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           <Text style={[styles.doneButtonText, { color: colors.cardBackground }]}>{t('album.done')}</Text>
         </TouchableOpacity>
 
-        {/* Center: Title */}
-        <Text style={styles.title}>{t('editor.page')} {page.pageNumber}</Text>
-
-        {/* End side: Page Navigation and Undo/Redo (Right in LTR, Left in RTL) */}
-        <View style={styles.headerLeft}>
-          {/* Page Navigation Controls */}
-          {pages && pages.length > 0 && (
-            <View style={styles.pageNavigation}>
-              <TouchableOpacity
-                style={[styles.iconButton, !hasPrevPage && styles.iconButtonDisabled]}
-                onPress={handlePrevPage}
-                disabled={!hasPrevPage}
-                accessibilityLabel="עמוד קודם"
-              >
-                <MyIcon info={{ name: isRTL ? "chevron-right" : "chevron-left", size: 32, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.iconButton, !hasNextPage && styles.iconButtonDisabled]}
-                onPress={handleNextPage}
-                disabled={!hasNextPage}
-                accessibilityLabel="עמוד הבא"
-              >
-                <MyIcon info={{ name: isRTL ? "chevron-left" : "chevron-right", size: 32, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
-              </TouchableOpacity>
-            </View>
+        {/* Center: Page Navigation and Title */}
+        <View style={styles.titleContainer}>
+          {/* Previous Page Button */}
+          {pages && pages.length > 1 && (
+            <TouchableOpacity
+              style={[styles.iconButton, !hasPrevPage && styles.iconButtonDisabled]}
+              onPress={handlePrevPage}
+              disabled={!hasPrevPage}
+              accessibilityLabel="עמוד קודם"
+            >
+              <MyIcon info={{ name: isRTL ? "chevron-right" : "chevron-left", size: 32, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+            </TouchableOpacity>
           )}
 
+          {/* Title */}
+          <Text style={styles.title}>{t('editor.page')} {page.pageNumber}</Text>
+
+          {/* Next Page Button */}
+          {pages && pages.length > 1 && (
+            <TouchableOpacity
+              style={[styles.iconButton, !hasNextPage && styles.iconButtonDisabled]}
+              onPress={handleNextPage}
+              disabled={!hasNextPage}
+              accessibilityLabel="עמוד הבא"
+            >
+              <MyIcon info={{ name: isRTL ? "chevron-left" : "chevron-right", size: 32, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* End side: Undo/Redo (Right in LTR, Left in RTL) */}
+        <View style={styles.headerLeft}>
           {/* Undo/Redo */}
           <View style={styles.headerActions}>
             <TouchableOpacity
@@ -2159,6 +2244,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               // Emoji selection
               currentEmojiId={currentEmojiId}
               onEmojiClick={handleEmojiClick}
+
+              // Image selection
+              onImageClick={handleImageClick}
             />
           </View>
 
@@ -2415,6 +2503,29 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       <Text style={styles.optionLabel}>{t('imageSearch.title')}</Text>
                     </TouchableOpacity>
                   </View>
+
+                  {/* Edit existing image options */}
+                  {currentEdited.imageId && (
+                    <View style={styles.optionsSection}>
+                      <Text style={styles.sectionLabel}>{t('editor.addImage')}</Text>
+
+                      <TouchableOpacity
+                        style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
+                        onPress={handleEditExistingImage}
+                      >
+                        <MyIcon info={{ name: "image-edit", size: 24, color: '#007AFF', type: "MDI" }} />
+                        <Text style={styles.optionLabel}>{t('editor.editImage')}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive]}
+                        onPress={handleDeleteImage}
+                      >
+                        <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
+                        <Text style={styles.optionLabel}>{t('editor.deleteImage')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </>
               )}
 
@@ -2777,6 +2888,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         pageAspectRatio={canvasWidth / canvasHeight}
         onApply={handleImageEditApply}
         onCancel={handleImageEditCancel}
+        allowAspectRatioChange={pendingImageSource !== 'background-camera' && pendingImageSource !== 'background-library'}
       />
 
       {/* Camera Modal */}
@@ -2851,7 +2963,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  title: { flex: 1, fontSize: 18, fontWeight: '600', color: '#333', textAlign: 'center' },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+  },
   headerActions: { flexDirection: 'row', gap: 8 },
   pageNavigation: { flexDirection: 'row', gap: 4 },
   iconButton: {

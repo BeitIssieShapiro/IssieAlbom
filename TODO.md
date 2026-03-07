@@ -3,15 +3,15 @@ V- in en title is under subtoolbox
 - recording before text, later comes text, cannot map *
 V- in en texts in recording are too long
 V- in search the x to clear is not in place
-- emoji found in search is not added
+V- emoji found in search is not added
 - when kb is up and you take it down and then click on emoji - kb is up
-- undo redo and next-prev are too close/similar
-- last do of sketch is lost at commit
-- in new page collapsesub-toolbox
-- shares' buttons' description is not translated
-- editor.audio not translated in arab (all titles)
-- new album - avoid keyboard
-- editing image screen
+V- undo redo and next-prev are too close/similar
+?- last do of sketch is lost at commit
+V- in new page collapsesub-toolbox
+V- shares' buttons' description is not translated
+V- editor.audio not translated in arab (all titles)
+V- new album - avoid keyboard
+V- editing image screen
     - is only hebrew
     - ok on right in heb and on left in en
 
@@ -31,8 +31,7 @@ V- in heb the album menu is not rtl
 V- emoji are cut
 V- carosoul add next/prev buttons
 V- sub toolbar headers: 
-
-- sometimes gets into state where no drag and sketch work *
+V- sometimes gets into state where no drag and sketch work *
 
 
 

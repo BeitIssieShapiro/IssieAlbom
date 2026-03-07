@@ -227,7 +227,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     {t('export.exportAsAlbum')}
                   </Text>
                   <Text style={styles.optionDescription}>
-                    Full backup with all content
+                    {t('export.exportAsAlbumDesc')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -242,7 +242,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     {t('export.exportAsPDF')}
                   </Text>
                   <Text style={styles.optionDescription}>
-                    For printing or viewing
+                    {t('export.exportAsPDFDesc')}
                   </Text>
                 </View>
               </TouchableOpacity>

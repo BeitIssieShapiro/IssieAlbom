@@ -238,27 +238,13 @@ function TextElement({
         const isSelected = currentEmojiId === text.id;
         const rotationDegrees = text.rotation || 0;
 
-        // When selected, compensate for border (2px) + padding (4px) = 6px offset
-        const borderOffset = isSelected ? -6 : 0;
-        const adjustedPosStyle = isSelected ? {
-            ...posStyle,
-            left: posStyle.left !== undefined ? posStyle.left + borderOffset : undefined,
-            right: posStyle.right !== undefined ? posStyle.right + borderOffset : undefined,
-            top: posStyle.top + borderOffset,
-        } : posStyle;
-
         return (
             <TouchableOpacity
                 key={text.id}
                 style={[
-                    adjustedPosStyle,
+                    posStyle,
                     { zIndex: 3000 },
-                    isSelected && {
-                        borderWidth: 2,
-                        borderColor: '#007AFF',
-                        borderRadius: 8,
-                        padding: 4,
-                    }
+                    isSelected && styles.itemSelected
                 ]}
                 activeOpacity={1}
                 onPress={() => onEmojiClick?.(text.id)}
@@ -329,6 +315,11 @@ const styles = StyleSheet.create({
         flexWrap: "wrap",
         zIndex: 13,
     },
+    itemSelected: {
+        outlineWidth: 5,
+        outlineColor: '#007AFF',
+        outlineOffset: 2
+    }
 
 });
 

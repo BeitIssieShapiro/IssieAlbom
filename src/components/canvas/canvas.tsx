@@ -163,6 +163,9 @@ interface CanvasProps {
     currentEmojiId?: string | null;
     onEmojiClick?: (emojiId: string) => void;
 
+    // Image click handler (for selecting images on canvas)
+    onImageClick: (imageId: string) => void;
+
     //viewShotRef: any;
 }
 
@@ -234,6 +237,9 @@ function Canvas({
     // Current emoji
     currentEmojiId,
     onEmojiClick,
+
+    // Image click handler
+    onImageClick,
 
 }: CanvasProps, ref: any) {
     // Refs & State
@@ -587,6 +593,21 @@ function Canvas({
                 }
                 //console.log("x1", gState, Math.abs(gState.dx) < 2 && Math.abs(gState.dy) < 2)
                 if (Math.abs(gState.dx) < 2 && Math.abs(gState.dy) < 2) {
+
+
+                    // Check if touching any image (to allow image selection)
+                    if (imagesRef.current?.length && startSketchRef.current) {
+                        const pt = startSketchRef.current.position
+                        const touchedImage = imagesRef.current.find(img =>
+                            pt[0] >= img.x && pt[0] <= img.x + img.width &&
+                            pt[1] >= img.y && pt[1] <= img.y + img.height
+                        );
+                        if (touchedImage) {
+                            onImageClick(touchedImage.id);
+                            return
+                        }
+                    }
+
                     // Possibly a tap/click
                     if (startSketchRef.current) {
                         onCanvasClick(startSketchRef.current.position, startSketchRef.current?.elem);
@@ -1186,10 +1207,12 @@ function Canvas({
                     const h = (imgH * ratio);
                     if (!imgW || imgW === 0) return null;
 
+                    const isSelected = currentElementType == ElementTypes.Image && currentEdited.imageId == image.id;
+
+
                     // The calculated key is crucial to overcome a bug that the image is blur at first - keep this!
                     return <React.Fragment key={image.id} >
-                        <Image
-                            key={`${image.id}_${imgW}`}
+                        <View
                             style={[
                                 styles.imageStyle,
                                 {
@@ -1198,37 +1221,33 @@ function Canvas({
                                     width: PixelRatio.roundToNearestPixel(w),
                                     height: PixelRatio.roundToNearestPixel(h),
                                 },
+                                isSelected && styles.itemSelected
                             ]}
-                            source={{ uri: image.imageUri }}
-                        />
-                        {currentElementType == ElementTypes.Image &&
-                            currentEdited.imageId == image.id && <TouchableOpacity
+                        >
+                            <Image
+                                key={`${image.id}_${imgW}`}
                                 style={{
-                                    position: "absolute",
-                                    zIndex: 30,
-                                    left: image.x * ratio - 30,
-                                    top: image.y * ratio,
+                                    width: '100%',
+                                    height: '100%',
                                 }}
-                                onPress={() => onDeleteElement?.(ElementTypes.Image, image.id)}
-                            >
-                                <MyIcon info={{ type: "Ionicons", name: "trash-outline", size: 30, color: "blue" }} />
-
-                            </TouchableOpacity>}
-                        {currentElementType == ElementTypes.Image &&
-                            currentEdited.imageId == image.id && <MoveIcon
-                                style={[styles.moveIcon, visibleAnimatedStyle]}
-                                position={[
-                                    (image.x + image.width) * ratio - 20,
-                                    (image.y + image.height) * ratio - 20,
-                                ]}
-                                size={40}
-                                panResponderHandlers={moveResponder.panHandlers}
-                                onSetContext={() => {
-                                    moveContext.current = { type: MoveTypes.ImageResize, id: image.id, offsetX: -30, offsetY: -30 };
-                                }}
-                                icon="resize-bottom-right"
-                                color="black"
-                            />}
+                                source={{ uri: image.imageUri }}
+                                resizeMode="contain"
+                            />
+                        </View>
+                        {isSelected && <MoveIcon
+                            style={[styles.moveIcon, visibleAnimatedStyle]}
+                            position={[
+                                (image.x + image.width) * ratio - 20,
+                                (image.y + image.height) * ratio - 20,
+                            ]}
+                            size={40}
+                            panResponderHandlers={moveResponder.panHandlers}
+                            onSetContext={() => {
+                                moveContext.current = { type: MoveTypes.ImageResize, id: image.id, offsetX: -30, offsetY: -30 };
+                            }}
+                            icon="resize-bottom-right"
+                            color="black"
+                        />}
                     </React.Fragment>
                 }
                 )}
@@ -1306,5 +1325,11 @@ const styles = StyleSheet.create({
     },
     moveIcon: {
         zIndex: 2500,
+    },
+    itemSelected: {
+        outlineWidth: 5,
+        outlineColor: '#007AFF',
+        outlineOffset: 2
     }
+
 });

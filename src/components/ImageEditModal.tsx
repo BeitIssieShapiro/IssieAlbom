@@ -16,9 +16,11 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  runOnJS,
 } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 import { MyIcon } from '../common/icons';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface ImageEditModalProps {
   visible: boolean;
@@ -26,16 +28,23 @@ interface ImageEditModalProps {
   pageAspectRatio: number; // width / height of the page canvas
   onApply: (editedUri: string, rotation: number) => void;
   onCancel: () => void;
+  allowAspectRatioChange?: boolean; // If true, allow resizing crop frame (for adding images)
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, onCancel }: ImageEditModalProps) {
+export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, onCancel, allowAspectRatioChange = false }: ImageEditModalProps) {
+  const { t, isRTL } = useLanguage();
   const [loading, setLoading] = useState(false);
-  const [cropFrameSize, setCropFrameSize] = useState({ width: 0, height: 0 });
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<View>(null);
+
+  // Crop frame resize values (for allowAspectRatioChange mode)
+  const frameWidth = useSharedValue(0);
+  const frameHeight = useSharedValue(0);
+  const savedFrameWidth = useSharedValue(0);
+  const savedFrameHeight = useSharedValue(0);
 
   // Image transform values
   const scale = useSharedValue(1);
@@ -53,19 +62,23 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       const containerWidth = SCREEN_WIDTH - 40;
       const containerHeight = SCREEN_HEIGHT - 300;
 
-      let frameWidth, frameHeight;
+      let initialFrameWidth, initialFrameHeight;
 
       if (pageAspectRatio > containerWidth / containerHeight) {
         // Page is wider relative to container
-        frameWidth = containerWidth;
-        frameHeight = containerWidth / pageAspectRatio;
+        initialFrameWidth = containerWidth;
+        initialFrameHeight = containerWidth / pageAspectRatio;
       } else {
         // Page is taller relative to container
-        frameHeight = containerHeight;
-        frameWidth = containerHeight * pageAspectRatio;
+        initialFrameHeight = containerHeight;
+        initialFrameWidth = containerHeight * pageAspectRatio;
       }
 
-      setCropFrameSize({ width: frameWidth, height: frameHeight });
+      // Initialize shared values for resizable frame
+      frameWidth.value = initialFrameWidth;
+      frameHeight.value = initialFrameHeight;
+      savedFrameWidth.value = initialFrameWidth;
+      savedFrameHeight.value = initialFrameHeight;
 
       // Reset transforms
       scale.value = 1;
@@ -115,6 +128,41 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
     rotationGesture
   );
 
+  // Resize gestures for crop frame (only when allowAspectRatioChange is true)
+  const rightHandlePan = Gesture.Pan()
+    .onUpdate((e) => {
+      const containerWidth = SCREEN_WIDTH - 40;
+      const newWidth = Math.max(100, Math.min(containerWidth, savedFrameWidth.value + e.translationX));
+      frameWidth.value = newWidth;
+    })
+    .onEnd(() => {
+      savedFrameWidth.value = frameWidth.value;
+    });
+
+  const bottomHandlePan = Gesture.Pan()
+    .onUpdate((e) => {
+      const containerHeight = SCREEN_HEIGHT - 300;
+      const newHeight = Math.max(100, Math.min(containerHeight, savedFrameHeight.value + e.translationY));
+      frameHeight.value = newHeight;
+    })
+    .onEnd(() => {
+      savedFrameHeight.value = frameHeight.value;
+    });
+
+  const cornerHandlePan = Gesture.Pan()
+    .onUpdate((e) => {
+      const containerWidth = SCREEN_WIDTH - 40;
+      const containerHeight = SCREEN_HEIGHT - 300;
+      const newWidth = Math.max(100, Math.min(containerWidth, savedFrameWidth.value + e.translationX));
+      const newHeight = Math.max(100, Math.min(containerHeight, savedFrameHeight.value + e.translationY));
+      frameWidth.value = newWidth;
+      frameHeight.value = newHeight;
+    })
+    .onEnd(() => {
+      savedFrameWidth.value = frameWidth.value;
+      savedFrameHeight.value = frameHeight.value;
+    });
+
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
@@ -126,12 +174,42 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
     };
   });
 
+  // Animated styles for the crop frame
+  const frameAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      width: frameWidth.value,
+      height: frameHeight.value,
+    };
+  });
+
+  // Animated styles for handle positions
+  const rightHandleStyle = useAnimatedStyle(() => {
+    return {
+      left: frameWidth.value - 20,
+      height: frameHeight.value,
+    };
+  });
+
+  const bottomHandleStyle = useAnimatedStyle(() => {
+    return {
+      top: frameHeight.value - 20,
+      width: frameWidth.value,
+    };
+  });
+
+  const cornerHandleStyle = useAnimatedStyle(() => {
+    return {
+      left: frameWidth.value - 20,
+      top: frameHeight.value - 20,
+    };
+  });
+
   const handleApply = async () => {
     try {
       setLoading(true);
 
       if (!viewShotRef.current) {
-        Alert.alert('שגיאה', 'לא ניתן לצלם את התמונה');
+        Alert.alert(t('imageEdit.error'), t('imageEdit.errorCapture'));
         return;
       }
 
@@ -147,7 +225,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       onApply(uri, 0);
     } catch (error) {
       console.error('Failed to capture image:', error);
-      Alert.alert('שגיאה', 'לא ניתן לשמור את התמונה');
+      Alert.alert(t('imageEdit.error'), t('imageEdit.errorSave'));
     } finally {
       setLoading(false);
     }
@@ -166,6 +244,27 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
     savedTranslateY.value = 0;
     rotation.value = withSpring(0);
     savedRotation.value = 0;
+
+    // Reset frame size to initial values
+    if (allowAspectRatioChange) {
+      const containerWidth = SCREEN_WIDTH - 40;
+      const containerHeight = SCREEN_HEIGHT - 300;
+
+      let initialFrameWidth, initialFrameHeight;
+
+      if (pageAspectRatio > containerWidth / containerHeight) {
+        initialFrameWidth = containerWidth;
+        initialFrameHeight = containerWidth / pageAspectRatio;
+      } else {
+        initialFrameHeight = containerHeight;
+        initialFrameWidth = containerHeight * pageAspectRatio;
+      }
+
+      frameWidth.value = withSpring(initialFrameWidth);
+      frameHeight.value = withSpring(initialFrameHeight);
+      savedFrameWidth.value = initialFrameWidth;
+      savedFrameHeight.value = initialFrameHeight;
+    }
   };
 
   return (
@@ -184,11 +283,11 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       <GestureHandlerRootView style={styles.container}>
         <View style={styles.container}>
           {/* Header */}
-          <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <View style={[styles.header, { paddingTop: insets.top + 16, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-              <Text style={styles.cancelButtonText}>ביטול</Text>
+              <Text style={styles.cancelButtonText}>{t('imageEdit.cancel')}</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>עריכת תמונה</Text>
+            <Text style={styles.title}>{t('imageEdit.title')}</Text>
             <TouchableOpacity
               style={styles.applyButton}
               onPress={handleApply}
@@ -197,30 +296,31 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
               {loading ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={styles.applyButtonText}>אישור</Text>
+                <Text style={styles.applyButtonText}>{t('imageEdit.apply')}</Text>
               )}
             </TouchableOpacity>
           </View>
 
           {/* Crop frame with image */}
           <View style={[styles.imageContainer, { paddingBottom: insets.bottom + 80 }]}>
-            <View style={{ position: 'relative' }}>
-              <View
+            <Animated.View style={[{ position: 'relative' }, frameAnimatedStyle]}>
+              <Animated.View
                 ref={viewShotRef}
                 collapsable={false}
-                style={{
-                  width: cropFrameSize.width,
-                  height: cropFrameSize.height,
-                  backgroundColor: '#000',
-                  overflow: 'hidden',
-                }}
+                style={[
+                  {
+                    backgroundColor: '#000',
+                    overflow: 'hidden',
+                  },
+                  frameAnimatedStyle,
+                ]}
               >
                 <GestureDetector gesture={composedGesture}>
                   <Animated.View
                     style={[
                       {
-                        width: cropFrameSize.width,
-                        height: cropFrameSize.height,
+                        width: SCREEN_WIDTH,
+                        height: SCREEN_HEIGHT,
                         justifyContent: 'center',
                         alignItems: 'center',
                       },
@@ -230,33 +330,81 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
                     <Image
                       source={{ uri: imageUri }}
                       style={{
-                        width: cropFrameSize.width,
-                        height: cropFrameSize.height,
+                        width: SCREEN_WIDTH,
+                        height: SCREEN_HEIGHT,
                       }}
                       resizeMode="contain"
                     />
                   </Animated.View>
                 </GestureDetector>
-              </View>
+              </Animated.View>
 
               {/* Crop frame border (overlays the viewshot) */}
-              <View
+              <Animated.View
                 style={[
                   styles.cropFrameBorder,
-                  {
-                    width: cropFrameSize.width,
-                    height: cropFrameSize.height,
-                  },
+                  frameAnimatedStyle,
                 ]}
                 pointerEvents="none"
               />
-            </View>
+
+              {/* Resize handles (only when allowAspectRatioChange is true) */}
+              {allowAspectRatioChange && (
+                <>
+                  {/* Right handle */}
+                  <GestureDetector gesture={rightHandlePan}>
+                    <Animated.View
+                      style={[
+                        styles.resizeHandle,
+                        styles.rightHandle,
+                        rightHandleStyle,
+                      ]}
+                    >
+                      <View style={styles.handleBar} />
+                    </Animated.View>
+                  </GestureDetector>
+
+                  {/* Bottom handle */}
+                  <GestureDetector gesture={bottomHandlePan}>
+                    <Animated.View
+                      style={[
+                        styles.resizeHandle,
+                        styles.bottomHandle,
+                        bottomHandleStyle,
+                      ]}
+                    >
+                      <View style={[styles.handleBar, { width: 60, height: 4 }]} />
+                    </Animated.View>
+                  </GestureDetector>
+
+                  {/* Corner handle */}
+                  <GestureDetector gesture={cornerHandlePan}>
+                    <Animated.View
+                      style={[
+                        styles.resizeHandle,
+                        styles.cornerHandle,
+                        cornerHandleStyle,
+                      ]}
+                    >
+                      <MyIcon
+                        info={{
+                          type: 'MDI',
+                          name: 'resize-bottom-right',
+                          size: 24,
+                          color: '#007AFF',
+                        }}
+                      />
+                    </Animated.View>
+                  </GestureDetector>
+                </>
+              )}
+            </Animated.View>
           </View>
 
           {/* Controls */}
           <View style={[styles.controls, { paddingBottom: insets.bottom }]}>
-            <Text style={styles.instructionText}>
-              יש להשתמש בשתי אצבעות כדי לזוז, לסובב ולהגדיל
+            <Text style={[styles.instructionText, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {t('imageEdit.instructions')}
             </Text>
             <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
               <MyIcon
@@ -267,7 +415,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
                   color: '#007AFF',
                 }}
               />
-              <Text style={styles.resetButtonText}>איפוס</Text>
+              <Text style={styles.resetButtonText}>{t('imageEdit.reset')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -357,5 +505,35 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  resizeHandle: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.2)',
+    zIndex: 10,
+  },
+  rightHandle: {
+    top: 0,
+    width: 40,
+    cursor: 'ew-resize',
+  },
+  bottomHandle: {
+    left: 0,
+    height: 40,
+    cursor: 'ns-resize',
+  },
+  cornerHandle: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'rgba(0, 122, 255, 0.5)',
+    borderRadius: 20,
+    cursor: 'nwse-resize',
+  },
+  handleBar: {
+    width: 4,
+    height: 60,
+    backgroundColor: '#007AFF',
+    borderRadius: 2,
   },
 });
