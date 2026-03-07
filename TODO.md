@@ -14,7 +14,7 @@ V- new album - avoid keyboard
 V- editing image screen
     - is only hebrew
     - ok on right in heb and on left in en
-
+- text under keyboard
 
 
 

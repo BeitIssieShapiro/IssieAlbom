@@ -166,6 +166,9 @@ interface CanvasProps {
     // Image click handler (for selecting images on canvas)
     onImageClick: (imageId: string) => void;
 
+    // Allow panning even in sketch mode (e.g., when keyboard is shown)
+    allowPanning?: boolean;
+
     //viewShotRef: any;
 }
 
@@ -240,6 +243,9 @@ function Canvas({
 
     // Image click handler
     onImageClick,
+
+    // Allow panning
+    allowPanning = false,
 
 }: CanvasProps, ref: any) {
     // Refs & State
@@ -501,8 +507,8 @@ function Canvas({
                     }
 
 
-                    if (!startSketchRef.current.elem) {
-                        if (currentElementTypeRef.current === ElementTypes.Sketch) {
+                    if (!startSketchRef.current.elem && currentElementTypeRef.current !== ElementTypes.Text) {
+                        if (currentElementTypeRef.current === ElementTypes.Sketch ) {
                             if (sketchTimerRef.current) {
                                 console.log("sketch continue - cancel save timer")
                                 clearTimeout(sketchTimerRef.current);
@@ -679,7 +685,7 @@ function Canvas({
 
     // Convert screen coordinates to canvas coordinates
     const screen2Canvas = (x: number, y: number): SketchPoint => {
-        trace("screen2Canvas", { canvasTop: canvasTopRef.current, ratio: ratioRef.current })
+        //trace("screen2Canvas", { canvasTop: canvasTopRef.current, ratio: ratioRef.current })
         return [
             (x - sideMarginRef.current) / (zoomRef.current * ratioRef.current) - offsetRef.current.x,
             (y - canvasTopRef.current) / (zoomRef.current * ratioRef.current) - offsetRef.current.y,

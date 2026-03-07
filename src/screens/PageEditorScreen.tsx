@@ -14,6 +14,7 @@ import {
   ScrollView,
   Image,
   Pressable,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PathCommand } from '@shopify/react-native-skia';
@@ -123,6 +124,19 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     return { width: window.width, height: window.height };
   });
 
+  // Keyboard tracking for text editing offset
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [keyboardTop, setKeyboardTop] = useState(0);
+  const keyboardHeightRef = useRef(0);
+  const keyboardTopRef = useRef(0);
+
+  // Canvas offset for scrolling/adjusting when keyboard appears
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+  const canvasOffsetRef = useRef({ x: 0, y: 0 });
+
+  // Ref to hold the verify function so it can be called from keyboard listener
+  const verifyCurrentEditTextIsVisibleRef = useRef<() => void>();
+
   // Listen for dimension changes (device rotation)
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -134,6 +148,40 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       subscription?.remove();
     };
   }, []);
+
+  // Listen for keyboard show/hide
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      const kbHeight = e.endCoordinates.height;
+      const kbTop = e.endCoordinates.screenY - (HEADER_HEIGHT + insets.top);
+
+      console.log('[PageEditorScreen] Keyboard shown:', { kbHeight, kbTop });
+      setKeyboardHeight(kbHeight);
+      setKeyboardTop(kbTop);
+      keyboardHeightRef.current = kbHeight;
+      keyboardTopRef.current = kbTop;
+
+      // Check if edited text needs scrolling after a short delay to ensure layout is updated
+      setTimeout(() => verifyCurrentEditTextIsVisibleRef.current?.(), 100);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      console.log('[PageEditorScreen] Keyboard hidden');
+      setKeyboardHeight(0);
+      setKeyboardTop(0);
+      keyboardHeightRef.current = 0;
+      keyboardTopRef.current = 0;
+
+      // Reset canvas offset when keyboard hides
+      setCanvasOffset({ x: 0, y: 0 });
+      canvasOffsetRef.current = { x: 0, y: 0 };
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, [insets.top]);
 
   // Queue for undo/redo with attachment cleanup
   const queue = useRef(new DoQueue(async (relativePath: string) => {
@@ -487,9 +535,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   //   sideMargin,
   //   canvasTop
   // });
-
-  // Keep offset stable - use ref to prevent re-renders
-  const canvasOffsetRef = useRef({ x: 0, y: 0 });
 
   // Load initial page data into queue and state
   useEffect(() => {
@@ -922,6 +967,67 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
     }
   };
+
+  // Check if edited text is visible (not behind keyboard)
+  const verifyCurrentEditTextIsVisible = useCallback(() => {
+    if (keyboardTopRef.current === 0) return;
+
+    // Check if a text is currently being edited
+    const textId = currentEdited.textId;
+    if (!textId) return;
+
+    const textElem = texts.find(t => t.id === textId);
+    if (!textElem) return;
+
+    // Calculate text bottom position in screen coordinates
+    const elemHeight = textElem.tempTop2CursorHeight || textElem.height || 20;
+    const elemBottom = (textElem.y + elemHeight + canvasOffsetRef.current.y) * ratio;
+
+    console.log('[verifyCurrentEditTextIsVisible]', {
+      elemBottom,
+      keyboardTop: keyboardTopRef.current,
+      textY: textElem.y,
+      elemHeight,
+      canvasOffsetY: canvasOffsetRef.current.y,
+      ratio
+    });
+
+    // If text bottom is below keyboard top, adjust canvas offset
+    if (elemBottom > keyboardTopRef.current) {
+      const dy = (keyboardTopRef.current - elemBottom) / ratio;
+      console.log('[verifyCurrentEditTextIsVisible] Text behind keyboard, adjusting by:', dy);
+
+      const newOffset = {
+        x: canvasOffsetRef.current.x,
+        y: canvasOffsetRef.current.y + dy - 10 // Extra 10px margin
+      };
+
+      setCanvasOffset(newOffset);
+      canvasOffsetRef.current = newOffset;
+    }
+  }, [currentEdited.textId, texts, ratio]);
+
+  // Assign to ref so keyboard listener can call it
+  verifyCurrentEditTextIsVisibleRef.current = verifyCurrentEditTextIsVisible;
+
+  // Handle canvas movement when keyboard is shown (allow manual scrolling)
+  const handleCanvasMove = useCallback((newOffset: { x: number; y: number }) => {
+    // Only allow vertical movement when keyboard is shown
+    if (keyboardHeightRef.current > 0) {
+      console.log('[handleCanvasMove] Updating canvas offset:', newOffset);
+      // Keep x at 0 (no horizontal movement), only allow vertical (y) movement
+      const restrictedOffset = {
+        x: 0,
+        y: newOffset.y
+      };
+      setCanvasOffset(restrictedOffset);
+      canvasOffsetRef.current = restrictedOffset;
+    } else {
+      // When keyboard is hidden, reset to no offset
+      setCanvasOffset({ x: 0, y: 0 });
+      canvasOffsetRef.current = { x: 0, y: 0 };
+    }
+  }, []);
 
   const handleCanvasClick = (p: SketchPoint, elem: any) => {
     console.log('========== handleCanvasClick ==========');
@@ -2194,7 +2300,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 width: canvasWidth,
                 height: canvasHeight,
               }}
-              offset={canvasOffsetRef.current}
+              offset={canvasOffset}
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}
               ratio={ratio}
@@ -2202,7 +2308,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
               zoom={1}
               onZoom={() => { }} // Lock zoom - prevents pinch gesture
-              onMoveCanvas={() => { }} // Lock canvas position - prevents pan
+              onMoveCanvas={handleCanvasMove} // Allow canvas movement when keyboard is shown
+              allowPanning={currentEdited.textId != undefined} // Allow panning when keyboard is shown
               sideMargin={sideMargin}
 
 
