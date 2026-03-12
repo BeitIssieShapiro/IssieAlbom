@@ -1710,30 +1710,187 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const result = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.8,
+        selectionLimit: 10, // Allow multiple selection (up to 10 images)
       });
 
-      if (result.assets && result.assets[0]) {
-        const asset = result.assets[0];
+      if (result.assets && result.assets.length > 0) {
+        // Check if multiple images selected
+        if (result.assets.length > 1) {
+          // Ask user what to do with multiple images
+          Alert.alert(
+            t('editor.multipleImagesSelected').replace('{count}', result.assets.length.toString()),
+            t('editor.multipleImagesPrompt'),
+            [
+              {
+                text: t('editor.addToCurrentPage'),
+                onPress: () => handleAddMultipleImagesToCurrentPage(result.assets!),
+              },
+              {
+                text: t('editor.createNewPages'),
+                onPress: () => handleAddMultipleImagesToNewPages(result.assets!),
+              },
+              {
+                text: t('home.cancel'),
+                style: 'cancel',
+              },
+            ]
+          );
+        } else {
+          // Single image - existing behavior
+          const asset = result.assets[0];
 
-        if (!asset.uri) {
-          console.error('No URI in asset');
-          return;
+          if (!asset.uri) {
+            console.error('No URI in asset');
+            return;
+          }
+
+          try {
+            // Save image to attachments directory and get relative path
+            const relativePath = await AttachmentService.saveImageAttachment(albumId, asset.uri);
+
+            const imageId = getId('image');
+            const aspectRatio = (asset.width && asset.height) ? asset.width / asset.height : 1;
+
+            // Set image to 45% of canvas width
+            const imageWidth = canvasWidth * 0.45;
+            const imageHeight = imageWidth / aspectRatio;
+
+            const newImage: SketchImage = {
+              id: imageId,
+              imagePath: relativePath, // Store relative path
+              x: canvasWidth / 2 - imageWidth / 2,
+              y: canvasHeight / 2 - imageHeight / 2,
+              width: imageWidth,
+              height: imageHeight,
+              aspectRatio: aspectRatio,
+            };
+
+            console.log('Adding new image to queue:', { id: imageId, imagePath: relativePath });
+
+            // Commit full image to queue
+            queue.current.pushImage(newImage);
+
+            console.log('Queue after pushImage:', queue.current.getAll().length, 'elements');
+
+            rebuildStateFromQueue();
+
+            // Auto-save to disk without closing editor
+            await autoSave();
+
+            // Select the image for editing (shows handles and subtoolbar)
+            setCurrentEdited({ imageId: imageId });
+            setCurrentElementType(ElementTypes.Image);
+            setShowToolOptions(true);
+          } catch (error) {
+            console.error('Failed to save image attachment:', error);
+            Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+          }
         }
+      }
+    } finally {
+      setLoadingImagePicker(false);
+    }
+  };
+
+  const handleAddMultipleImagesToCurrentPage = async (assets: any[]) => {
+    try {
+      const imageSize = canvasWidth * 0.35; // Slightly smaller for multiple images
+      const gridCols = Math.ceil(Math.sqrt(assets.length));
+      const spacing = 20;
+
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        if (!asset.uri) continue;
 
         try {
-          // Save image to attachments directory and get relative path
+          // Save image to attachments directory
           const relativePath = await AttachmentService.saveImageAttachment(albumId, asset.uri);
 
           const imageId = getId('image');
           const aspectRatio = (asset.width && asset.height) ? asset.width / asset.height : 1;
 
-          // Set image to 45% of canvas width
+          // Calculate staggered position
+          const col = i % gridCols;
+          const row = Math.floor(i / gridCols);
+
+          const imageWidth = imageSize;
+          const imageHeight = imageSize / aspectRatio;
+
+          // Stagger positions so they're visible but overlapping
+          const offsetX = col * (imageWidth * 0.3 + spacing);
+          const offsetY = row * (imageHeight * 0.3 + spacing);
+
+          const newImage: SketchImage = {
+            id: imageId,
+            imagePath: relativePath,
+            x: (canvasWidth / 2 - (gridCols * imageWidth * 0.3) / 2) + offsetX,
+            y: (canvasHeight / 2 - imageHeight / 2) + offsetY,
+            width: imageWidth,
+            height: imageHeight,
+            aspectRatio: aspectRatio,
+          };
+
+          queue.current.pushImage(newImage);
+        } catch (error) {
+          console.error('Failed to save image:', error);
+        }
+      }
+
+      rebuildStateFromQueue();
+      await autoSave();
+    } catch (error) {
+      console.error('Failed to add multiple images:', error);
+      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+    }
+  };
+
+  const handleAddMultipleImagesToNewPages = async (assets: any[]) => {
+    try {
+      // Add first image to current page
+      if (assets[0] && assets[0].uri) {
+        const relativePath = await AttachmentService.saveImageAttachment(albumId, assets[0].uri);
+        const imageId = getId('image');
+        const aspectRatio = (assets[0].width && assets[0].height) ? assets[0].width / assets[0].height : 1;
+        const imageWidth = canvasWidth * 0.45;
+        const imageHeight = imageWidth / aspectRatio;
+
+        const newImage: SketchImage = {
+          id: imageId,
+          imagePath: relativePath,
+          x: canvasWidth / 2 - imageWidth / 2,
+          y: canvasHeight / 2 - imageHeight / 2,
+          width: imageWidth,
+          height: imageHeight,
+          aspectRatio: aspectRatio,
+        };
+
+        queue.current.pushImage(newImage);
+        rebuildStateFromQueue();
+        await autoSave();
+      }
+
+      // Create new pages for remaining images
+      for (let i = 1; i < assets.length; i++) {
+        const asset = assets[i];
+        if (!asset.uri) continue;
+
+        try {
+          // Save image attachment
+          const relativePath = await AttachmentService.saveImageAttachment(albumId, asset.uri);
+
+          // Create new page with same dimensions
+          const pageId = `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const pages = await PageService.getPages(albumId);
+          const nextPageNumber = pages.length + 1;
+
+          const imageId = getId('image');
+          const aspectRatio = (asset.width && asset.height) ? asset.width / asset.height : 1;
           const imageWidth = canvasWidth * 0.45;
           const imageHeight = imageWidth / aspectRatio;
 
           const newImage: SketchImage = {
             id: imageId,
-            imagePath: relativePath, // Store relative path
+            imagePath: relativePath,
             x: canvasWidth / 2 - imageWidth / 2,
             y: canvasHeight / 2 - imageHeight / 2,
             width: imageWidth,
@@ -1741,29 +1898,48 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             aspectRatio: aspectRatio,
           };
 
-          console.log('Adding new image to queue:', { id: imageId, imagePath: relativePath });
+          // Create page with image
+          const newPage: AlbumPageV2 = {
+            id: pageId,
+            pageNumber: nextPageNumber,
+            backgroundPath: null,
+            version: '2.0',
+            elements: [
+              {
+                elem: newImage,
+                type: 'image',
+              },
+            ],
+            canvasWidth: canvasWidth,
+            canvasHeight: canvasHeight,
+          };
 
-          // Commit full image to queue
-          queue.current.pushImage(newImage);
+          // Save the new page
+          await PageService.updatePage(albumId, newPage);
+          await PageService.updateAlbumPageCount(albumId, nextPageNumber);
 
-          console.log('Queue after pushImage:', queue.current.getAll().length, 'elements');
-
-          rebuildStateFromQueue();
-
-          // Auto-save to disk without closing editor
-          await autoSave();
-
-          // Select the image for editing (shows handles and subtoolbar)
-          setCurrentEdited({ imageId: imageId });
-          setCurrentElementType(ElementTypes.Image);
-          setShowToolOptions(true);
+          // Small delay to ensure unique timestamps
+          await new Promise(resolve => setTimeout(resolve, 10));
         } catch (error) {
-          console.error('Failed to save image attachment:', error);
-          Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+          console.error('Failed to create page for image:', error);
         }
       }
-    } finally {
-      setLoadingImagePicker(false);
+
+      // Notify parent to reload pages by saving current page again
+      // This triggers loadPages() in the parent without creating a new page
+      const savedPage: AlbumPageV2 = {
+        id: page.id,
+        pageNumber: page.pageNumber,
+        backgroundPath: page.backgroundPath,
+        version: '2.0',
+        elements: queue.current.getAll(),
+        canvasWidth: pageWidth,
+        canvasHeight: pageHeight,
+      };
+      onSave(savedPage, false); // Don't exit editor
+    } catch (error) {
+      console.error('Failed to add images to new pages:', error);
+      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
 

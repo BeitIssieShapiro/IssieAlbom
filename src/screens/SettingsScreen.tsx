@@ -195,7 +195,9 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
             {themeNames.map((theme) => {
               const themeColors = themes[theme];
               const isSelected = theme === themeName;
-              const cardWidth = screenWidth > 600 ? 250 : (screenWidth - spacing.xl * 3) / 2;
+              // Calculate card size: 4 cards in a 2x2 grid
+              const availableWidth = screenWidth - spacing.xl * 2; // Account for container padding
+              const cardSize = Math.min((availableWidth - spacing.lg) / 2, 120); // Max 120px per card
 
               return (
                 <TouchableOpacity
@@ -203,79 +205,21 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
                   style={[
                     styles.themeCard,
                     {
-                      width: cardWidth,
+                      width: cardSize,
+                      height: cardSize,
                       borderRadius: borderRadius.medium,
                       borderWidth: isSelected ? 3 : 2,
                       borderColor: isSelected ? colors.primary : colors.border,
-                      backgroundColor: colors.cardBackground,
+                      backgroundColor: themeColors.primary,
                     },
                   ]}
                   onPress={() => handleThemeSelect(theme)}
                   activeOpacity={0.7}
                 >
-                  {/* Color Preview */}
-                  <View style={styles.colorPreview}>
-                    <View style={styles.colorRow}>
-                      <View
-                        style={[
-                          styles.colorBox,
-                          { backgroundColor: themeColors.primary },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.colorBox,
-                          { backgroundColor: themeColors.secondary },
-                        ]}
-                      />
-                    </View>
-                    <View style={styles.colorRow}>
-                      <View
-                        style={[
-                          styles.colorBox,
-                          { backgroundColor: themeColors.accent1 },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.colorBox,
-                          { backgroundColor: themeColors.accent2 },
-                        ]}
-                      />
-                    </View>
-                    <View style={styles.colorRow}>
-                      <View
-                        style={[
-                          styles.colorBox,
-                          { backgroundColor: themeColors.accent3 },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.colorBox,
-                          { backgroundColor: themeColors.accent4 },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Theme Name */}
-                  <Text
-                    style={[
-                      styles.themeName,
-                      {
-                        color: isSelected ? colors.primary : colors.textPrimary,
-                        fontWeight: isSelected ? 'bold' : '600',
-                      },
-                    ]}
-                  >
-                    {t(`themes.${theme}` as any)}
-                  </Text>
-
                   {/* Selected Indicator */}
                   {isSelected && (
-                    <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
-                      <Icon name="checkmark" size={20} color="#FFF" />
+                    <View style={[styles.selectedBadge, { backgroundColor: '#FFF' }]}>
+                      <Icon name="checkmark" size={20} color={themeColors.primary} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -379,27 +323,11 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   themeCard: {
-    padding: 16,
     marginBottom: 16,
     position: 'relative',
     overflow: 'hidden',
-  },
-  colorPreview: {
-    marginBottom: 12,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginBottom: 4,
-  },
-  colorBox: {
-    flex: 1,
-    height: 30,
-    borderRadius: 6,
-  },
-  themeName: {
-    fontSize: 20,
-    textAlign: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   selectedBadge: {
     position: 'absolute',

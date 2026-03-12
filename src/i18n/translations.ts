@@ -86,6 +86,10 @@ interface Translations {
     editImage: string;
     deleteImage: string;
     deleteImageConfirm: string;
+    multipleImagesSelected: string;
+    addToCurrentPage: string;
+    createNewPages: string;
+    multipleImagesPrompt: string;
   };
 
   // Settings Screen
@@ -108,14 +112,6 @@ interface Translations {
     menuRename: string;
     menuDelete: string;
     menuCancel: string;
-  };
-
-  // Theme Names
-  themes: {
-    girly: string;
-    boyish: string;
-    solid: string;
-    sparkly: string;
   };
 
   // Background Settings
@@ -288,6 +284,10 @@ export const translations: Record<LanguageCode, Translations> = {
       editImage: 'ערוך תמונה',
       deleteImage: 'מחק תמונה',
       deleteImageConfirm: 'האם למחוק את התמונה?',
+      multipleImagesSelected: 'נבחרו {count} תמונות',
+      addToCurrentPage: 'הוסף לעמוד נוכחי',
+      createNewPages: 'צור עמודים חדשים',
+      multipleImagesPrompt: 'האם להוסיף את כל התמונות לעמוד הנוכחי או ליצור עמוד חדש לכל תמונה?',
     },
 
     settings: {
@@ -307,13 +307,6 @@ export const translations: Record<LanguageCode, Translations> = {
       menuRename: 'שינוי שם',
       menuDelete: 'מחיקה',
       menuCancel: 'ביטול',
-    },
-
-    themes: {
-      girly: 'ילדותי',
-      boyish: 'בנים',
-      solid: 'מבוגרים',
-      sparkly: 'נוצץ',
     },
 
     background: {
@@ -478,6 +471,10 @@ export const translations: Record<LanguageCode, Translations> = {
       editImage: 'Edit Image',
       deleteImage: 'Delete Image',
       deleteImageConfirm: 'Delete this image?',
+      multipleImagesSelected: '{count} images selected',
+      addToCurrentPage: 'Add to Current Page',
+      createNewPages: 'Create New Pages',
+      multipleImagesPrompt: 'Add all images to current page or create a new page for each image?',
     },
 
     settings: {
@@ -497,13 +494,6 @@ export const translations: Record<LanguageCode, Translations> = {
       menuRename: 'Rename',
       menuDelete: 'Delete',
       menuCancel: 'Cancel',
-    },
-
-    themes: {
-      girly: 'Girly',
-      boyish: 'Boyish',
-      solid: 'Solid',
-      sparkly: 'Sparkly',
     },
 
     background: {
@@ -668,6 +658,10 @@ export const translations: Record<LanguageCode, Translations> = {
       editImage: 'تحرير الصورة',
       deleteImage: 'حذف الصورة',
       deleteImageConfirm: 'هل تريد حذف هذه الصورة?',
+      multipleImagesSelected: 'تم تحديد {count} صور',
+      addToCurrentPage: 'أضف إلى الصفحة الحالية',
+      createNewPages: 'إنشاء صفحات جديدة',
+      multipleImagesPrompt: 'هل تريد إضافة جميع الصور إلى الصفحة الحالية أو إنشاء صفحة جديدة لكل صورة؟',
     },
 
     settings: {
@@ -687,13 +681,6 @@ export const translations: Record<LanguageCode, Translations> = {
       menuRename: 'إعادة تسمية',
       menuDelete: 'حذف',
       menuCancel: 'إلغاء',
-    },
-
-    themes: {
-      girly: 'بناتي',
-      boyish: 'أولادي',
-      solid: 'كلاسيكي',
-      sparkly: 'لامع',
     },
 
     background: {

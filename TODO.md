@@ -1,3 +1,13 @@
+## March 11
+V- themes - only colors
+V- add multiple images, ask if same page ot new pages
+- חיפוש סמל
+- body text location
+- tiles mode
+
+
+
+
 ## Bugs
 V- in en title is under subtoolbox
 - recording before text, later comes text, cannot map *
