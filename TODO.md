@@ -1,8 +1,8 @@
 ## March 11
 V- themes - only colors
 V- add multiple images, ask if same page ot new pages
-- חיפוש סמל
-- body text location
+V- חיפוש סמל
+V- body text location
 - tiles mode
 
 

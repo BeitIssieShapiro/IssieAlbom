@@ -1145,9 +1145,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setTextColor(existingBody.color);
     } else {
       // Create new body text in center
-      const centerX = canvasWidth / 2 - 100;
-      const centerY = canvasHeight / 2 - 50;
       const defaultBodySize = 20;
+      const textWidth = 200;
+      const textHeight = 100;
+      // For RTL, x position is at the right edge, so add half width to center
+      // For LTR, x position is at the left edge, so subtract half width to center
+      const centerX = isRTL
+        ? canvasWidth / 2 + textWidth / 2
+        : (canvasWidth - textWidth) / 2;
+      const centerY = (canvasHeight - textHeight) / 2;
 
       const newBody: SketchText = {
         id: BODY_TEXT_ID,
@@ -1158,8 +1164,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         alignment: isRTL ? 'Right' : 'Left',
         x: centerX,
         y: centerY,
-        width: 200,
-        height: 100,
+        width: textWidth,
+        height: textHeight,
       };
 
       setEditingTextChanges(newBody);

@@ -329,7 +329,7 @@ export const translations: Record<LanguageCode, Translations> = {
     },
 
     imageSearch: {
-      title: 'חיפוש תמונה',
+      title: 'חיפוש סמל',
       search: 'חיפוש',
       searchPlaceholder: 'הקלד מילת חיפוש...',
       noResults: 'לא נמצאו תוצאות',
@@ -516,7 +516,7 @@ export const translations: Record<LanguageCode, Translations> = {
     },
 
     imageSearch: {
-      title: 'Search Image',
+      title: 'Symbol Search',
       search: 'Search',
       searchPlaceholder: 'Enter search term...',
       noResults: 'No results found',
@@ -703,7 +703,7 @@ export const translations: Record<LanguageCode, Translations> = {
     },
 
     imageSearch: {
-      title: 'بحث عن صورة',
+      title: 'بحث عن رمز',
       search: 'بحث',
       searchPlaceholder: 'أدخل كلمة البحث...',
       noResults: 'لم يتم العثور على نتائج',
