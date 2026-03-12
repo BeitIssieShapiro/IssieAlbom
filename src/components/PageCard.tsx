@@ -15,6 +15,7 @@ import { loadPageWithMigration, compileQueueToElements } from '../utils/pageUtil
 import { AttachmentService } from '../services/AttachmentService';
 import Canvas from './canvas/canvas';
 import { AudioElement } from './AudioElement';
+import { TilesElement } from './TilesElement';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
@@ -123,7 +124,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
 
   // Compile queue elements into final arrays using shared utility
   // Also convert relative paths to absolute URIs
-  const { paths, texts, images, audios, backgroundPattern } = useMemo(() => {
+  const { paths, texts, images, audios, tiles, backgroundPattern } = useMemo(() => {
     const result = compileQueueToElements(v2Page.elements);
 
     // Convert image relative paths to absolute URIs
@@ -138,6 +139,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
       images: imagesWithUris.length,
       audios: result.audios.length,
       audiosDetail: result.audios.map(a => ({ id: a.id, audioPath: a.audioPath, x: a.x, y: a.y })),
+      tiles: result.tiles,
       backgroundPattern: result.backgroundPattern
     });
 
@@ -155,8 +157,21 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   // No longer using audio elements on canvas
   const audioElements: SketchElement[] = [];
 
-  // Render callback for custom elements - not used anymore
+  // Render callback for custom elements
   const handleRenderElements = (elem: SketchElement) => {
+    if (elem.type === 'tiles') {
+      const tilesElem = elem as any; // Cast to tiles type
+      return (
+        <TilesElement
+          tiles={tilesElem}
+          canvasWidth={displayWidth}
+          canvasHeight={displayHeight}
+          ratio={scale}
+          editMode={false}
+          highlightedWordIndex={currentWordIndex !== null ? currentWordIndex : undefined}
+        />
+      );
+    }
     return null;
   };
 
@@ -168,7 +183,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   return (
     <View style={styles.container} pointerEvents={isEditMode ? "auto" : "box-none"}>
       <View
-        style={[styles.pageContent]}
+        style={[styles.pageContent, { width: displayWidth, height: displayHeight }]}
         pointerEvents={isEditMode ? "auto" : "box-none"}
       >
         <View
@@ -179,7 +194,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
         >
           <Canvas
             ref={canvasRef}
-            style={{  }}
+            style={{ width: displayWidth, height: displayHeight }}
             offset={{ x: 0, y: 0 }}
             canvasWidth={displayWidth}
             canvasHeight={displayHeight}
@@ -196,7 +211,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
             images={images}
             lines={[]}
             tables={[]}
-            elements={audioElements}
+            elements={tiles ? [{ ...tiles, type: 'tiles', x: 0, y: tiles.y }] : []}
             renderElements={handleRenderElements}
 
             currentEdited={{}} // No editing in card view
@@ -264,7 +279,6 @@ const styles = StyleSheet.create({
     boxShadow: '5px 5px 5px 0px rgba(0, 0, 0, 0.3)',
   },
   pageContent: {
-    flex: 1,
     margin: 0,
     padding: 0,
   },

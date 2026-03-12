@@ -15,7 +15,7 @@ import { PDFService } from '../services/PDFService';
 import { PageService } from '../services/PageService';
 import { ShareUtils } from '../utils/ShareUtils';
 import { PDFPageRenderer } from './PDFPageRenderer';
-import { AlbumPage } from '../types/Album';
+import { AlbumPage, MODAL_ORIENTATIONS } from '../types/Album';
 
 interface ExportModalProps {
   visible: boolean;
@@ -198,6 +198,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      supportedOrientations={MODAL_ORIENTATIONS}
     >
       <View style={styles.overlay}>
         <View style={styles.container}>

@@ -74,6 +74,17 @@ interface Translations {
     thickness: string;
     textTitle: string;
     textBody: string;
+    tilesTitle: string;
+    tilesPrompt: string;
+    tilesPlaceholder: string;
+    tilesBackgroundColor: string;
+    tilesTextColor: string;
+    tilesMerge: string;
+    tilesUnmerge: string;
+    tilesCreate: string;
+    tilesUpdate: string;
+    tilesExistCannotAddTitle: string;
+    titleExistsCannotAddTiles: string;
     fromGallery: string;
     rotation: string;
     emojiSize: string;
@@ -272,6 +283,17 @@ export const translations: Record<LanguageCode, Translations> = {
       thickness: 'עובי',
       textTitle: 'כותרת',
       textBody: 'גוף',
+      tilesTitle: 'כותרת אריחים',
+      tilesPrompt: 'הזן טקסט לכותרת',
+      tilesPlaceholder: 'טקסט הכותרת...',
+      tilesBackgroundColor: 'צבע רקע אריח',
+      tilesTextColor: 'צבע טקסט',
+      tilesMerge: 'מזג אריחים',
+      tilesUnmerge: 'בטל מיזוג',
+      tilesCreate: 'צור אריחים',
+      tilesUpdate: 'עדכן אריחים',
+      tilesExistCannotAddTitle: 'כבר יש אריחים בעמוד. מחק את האריחים קודם כדי להוסיף כותרת.',
+      titleExistsCannotAddTiles: 'כבר יש כותרת בעמוד. מחק את הכותרת קודם כדי להוסיף אריחים.',
       fromGallery: 'מגלריה',
       rotation: 'סיבוב',
       emojiSize: 'גודל אימוג\'י',
@@ -459,6 +481,17 @@ export const translations: Record<LanguageCode, Translations> = {
       thickness: 'Thickness',
       textTitle: 'Title',
       textBody: 'Body',
+      tilesTitle: 'Tiles Title',
+      tilesPrompt: 'Enter title text',
+      tilesPlaceholder: 'Title text...',
+      tilesBackgroundColor: 'Tile Background Color',
+      tilesTextColor: 'Text Color',
+      tilesMerge: 'Merge Tiles',
+      tilesUnmerge: 'Unmerge',
+      tilesCreate: 'Create Tiles',
+      tilesUpdate: 'Update Tiles',
+      tilesExistCannotAddTitle: 'This page already has tiles. Delete the tiles first to add a title.',
+      titleExistsCannotAddTiles: 'This page already has a title. Delete the title first to add tiles.',
       fromGallery: 'From Gallery',
       rotation: 'Rotation',
       emojiSize: 'Emoji Size',
@@ -646,6 +679,17 @@ export const translations: Record<LanguageCode, Translations> = {
       thickness: 'السمك',
       textTitle: 'عنوان',
       textBody: 'نص',
+      tilesTitle: 'عنوان البلاط',
+      tilesPrompt: 'أدخل نص العنوان',
+      tilesPlaceholder: 'نص العنوان...',
+      tilesBackgroundColor: 'لون خلفية البلاط',
+      tilesTextColor: 'لون النص',
+      tilesMerge: 'دمج البلاط',
+      tilesUnmerge: 'إلغاء الدمج',
+      tilesCreate: 'إنشاء البلاط',
+      tilesUpdate: 'تحديث البلاط',
+      tilesExistCannotAddTitle: 'توجد بلاطات بالفعل في هذه الصفحة. احذف البلاطات أولاً لإضافة عنوان.',
+      titleExistsCannotAddTiles: 'يوجد عنوان بالفعل في هذه الصفحة. احذف العنوان أولاً لإضافة بلاطات.',
       fromGallery: 'من المعرض',
       rotation: 'دوران',
       emojiSize: 'حجم الإيموجي',

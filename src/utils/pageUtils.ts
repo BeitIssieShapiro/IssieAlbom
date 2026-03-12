@@ -10,6 +10,7 @@ import {
   SketchImage,
   SketchAudio,
   SketchLine,
+  SketchTiles,
   BackgroundPattern,
 } from '../types/Album';
 import DoQueue from './DoQueue';
@@ -211,6 +212,7 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
   images: SketchImage[];
   audios: SketchAudio[];
   lines: SketchLine[];
+  tiles: SketchTiles | undefined;
   backgroundPattern: BackgroundPattern | undefined;
 } {
   const pathsMap = new Map<string, SketchPath>();
@@ -218,6 +220,7 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
   const imagesMap = new Map<string, SketchImage>();
   const audiosMap = new Map<string, SketchAudio>();
   const linesMap = new Map<string, SketchLine>();
+  let tiles: SketchTiles | undefined = undefined;
   let backgroundPattern: BackgroundPattern | undefined = undefined;
 
   // Process queue from start to end, later versions overwrite earlier ones
@@ -266,6 +269,11 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
       linesMap.set(qe.elem.id, qe.elem);
     } else if (qe.type === 'lineDelete' && qe.elem) {
       linesMap.delete(qe.elem.id);
+    } else if (qe.type === 'tiles' && qe.elem) {
+      // Tiles - latest one wins, undefined clears it
+      tiles = qe.elem;
+    } else if (qe.type === 'tilesDelete') {
+      tiles = undefined;
     } else if (qe.type === 'backgroundPattern' && qe.elem) {
       // Background pattern - latest one wins, undefined clears it
       backgroundPattern = qe.elem.pattern;
@@ -278,6 +286,7 @@ export function compileQueueToElements(queueElements: QueueElement[]): {
     images: Array.from(imagesMap.values()),
     audios: Array.from(audiosMap.values()),
     lines: Array.from(linesMap.values()),
+    tiles,
     backgroundPattern,
   };
 }

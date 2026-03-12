@@ -18,6 +18,7 @@ import Animated, {
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
+import { MODAL_ORIENTATIONS } from '../types/Album';
 import { captureRef } from 'react-native-view-shot';
 import { MyIcon } from '../common/icons';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -272,13 +273,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       visible={visible}
       animationType="slide"
       onRequestClose={handleCancel}
-      supportedOrientations={[
-        'portrait',
-        'portrait-upside-down',
-        'landscape',
-        'landscape-left',
-        'landscape-right',
-      ]}
+      supportedOrientations={MODAL_ORIENTATIONS}
     >
       <GestureHandlerRootView style={styles.container}>
         <View style={styles.container}>

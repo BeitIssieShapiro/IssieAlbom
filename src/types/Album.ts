@@ -44,6 +44,7 @@ export enum ElementTypes {
   Element = 'element',
   Emoji = 'emoji',
   Background = 'background',
+  Tiles = 'tiles',
 }
 
 export interface ElementBase {
@@ -85,6 +86,20 @@ export interface SketchText extends ElementBase {
   tempTop2CursorHeight?: number;
   isEmoji?: boolean; // Flag to mark emojis as directly draggable
   rotation?: number; // Rotation in degrees (0-360)
+}
+
+export interface TileWord {
+  text: string; // The word(s) in this tile (could be merged)
+  originalIndices: number[]; // Original word indices that were merged
+}
+
+export interface SketchTiles extends ElementBase {
+  words: TileWord[]; // Array of tiles
+  fontSize: number;
+  backgroundColor: string;
+  textColor: string;
+  rtl: boolean;
+  y: number; // Y position (bottom of page)
 }
 
 export interface SketchImage extends ElementBase {
@@ -141,6 +156,14 @@ export interface BackgroundPattern {
 }
 
 export const HEADER_HEIGHT = 80;
+
+export const MODAL_ORIENTATIONS: Array<'portrait' | 'portrait-upside-down' | 'landscape' | 'landscape-left' | 'landscape-right'> = [
+  'portrait',
+  'portrait-upside-down',
+  'landscape',
+  'landscape-left',
+  'landscape-right',
+];
 
 export interface SketchElementAttributes {
   showDelete: boolean;

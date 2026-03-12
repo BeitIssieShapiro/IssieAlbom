@@ -16,6 +16,7 @@ import ImageLibrary from '../services/ImageLibrary';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, borderRadius } from '../theme/colors';
+import { MODAL_ORIENTATIONS } from '../types/Album';
 
 interface SearchImageModalProps {
   visible: boolean;
@@ -84,7 +85,7 @@ export function SearchImageModal({
       transparent
       animationType="fade"
       onRequestClose={handleClose}
-      supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
+      supportedOrientations={MODAL_ORIENTATIONS}
     >
       <View style={[styles.overlay, { backgroundColor: 'rgba(93, 78, 109, 0.6)' }]}>
         <View style={[styles.container, { backgroundColor: colors.cardBackground }]}>

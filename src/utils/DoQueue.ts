@@ -127,6 +127,16 @@ export default class DoQueue {
     this.clearUndo();
   }
 
+  pushTiles(elem: any) {
+    this.add({ elem, type: 'tiles' });
+    this.clearUndo();
+  }
+
+  pushDeleteTiles() {
+    this.add({ type: 'tilesDelete' });
+    this.clearUndo();
+  }
+
   pushMany(elemArray: QueueElement[]) {
     elemArray.forEach((elem, i) => {
       if (i > 0) {

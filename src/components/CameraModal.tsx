@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { MyIcon } from '../common/icons';
+import { MODAL_ORIENTATIONS } from '../types/Album';
 
 interface CameraModalProps {
   visible: boolean;
@@ -98,13 +99,7 @@ export function CameraModal({ visible, onCapture, onCancel }: CameraModalProps) 
       visible={visible}
       animationType="slide"
       onRequestClose={onCancel}
-      supportedOrientations={[
-        'portrait',
-        'portrait-upside-down',
-        'landscape',
-        'landscape-left',
-        'landscape-right',
-      ]}
+      supportedOrientations={MODAL_ORIENTATIONS}
     >
       <View style={styles.container}>
         <Camera

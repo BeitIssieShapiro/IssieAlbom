@@ -14,6 +14,7 @@ import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
 import { AttachmentService } from '../services/AttachmentService';
 import { useLanguage } from '../contexts/LanguageContext';
+import { MODAL_ORIENTATIONS } from '../types/Album';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -208,7 +209,15 @@ export function AudioWordMappingModal({
 }: AudioWordMappingModalProps) {
   console.log('[AudioWordMappingModal] Component initialized with propDuration:', propDuration);
 
-  const { t, isRTL } = useLanguage();
+  const { t, isRTL: uiIsRTL } = useLanguage();
+
+  // Detect text direction from actual content (not UI language)
+  const isTextRTL = titleText && titleText.length > 0
+    ? /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(titleText[0])
+    : uiIsRTL;
+
+  // Use text direction for word markers, UI direction for buttons/controls
+  const isRTL = isTextRTL;
 
   // Simple state - single source of truth
   const [audioDuration, setAudioDuration] = useState(propDuration || 10);
@@ -473,7 +482,7 @@ export function AudioWordMappingModal({
       transparent
       animationType="fade"
       onRequestClose={handleClose}
-      supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
+      supportedOrientations={MODAL_ORIENTATIONS}
     >
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>

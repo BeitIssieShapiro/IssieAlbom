@@ -10,7 +10,6 @@ import {
   Animated,
   Platform,
   PermissionsAndroid,
-  Alert,
   ScrollView,
   Image,
   Pressable,
@@ -25,7 +24,7 @@ import EmojiPicker, { en, he } from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import heKeywords from '../assets/emoji-keywords-he.json';
 import arKeywords from '../assets/emoji-keywords-ar.json';
-import { AlbumPage, AlbumPageV2, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, WordTiming, BackgroundPattern, HEADER_HEIGHT, ElementTypes } from '../types/Album';
+import { AlbumPage, AlbumPageV2, CurrentEdited, SketchPoint, SketchPath, SketchText, SketchImage, SketchAudio, SketchTiles, TileWord, WordTiming, BackgroundPattern, HEADER_HEIGHT, ElementTypes } from '../types/Album';
 import { SketchElement, SketchElementAttributes, MoveTypes } from '../components/canvas/types';
 import DoQueue from '../utils/DoQueue';
 import CanvasComponent from '../components/canvas/canvas';
@@ -34,12 +33,15 @@ import { AudioWordMappingModal } from '../components/AudioWordMappingModal';
 import { CameraModal } from '../components/CameraModal';
 import { SearchImageModal } from '../components/SearchImageModal';
 import { ImageEditModal } from '../components/ImageEditModal';
+import { TilesModal } from '../components/TilesModal';
+import { TilesElement } from '../components/TilesElement';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGROUND_IMAGE_SOURCES, generatePatternPaths } from '../utils/backgroundPatterns';
 import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
 import { MyIcon } from '../common/icons';
+import { RTLAlert } from '../components/RTLAlert';
 import { spacing, borderRadius } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -130,6 +132,16 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const keyboardHeightRef = useRef(0);
   const keyboardTopRef = useRef(0);
 
+  // RTL Alert state
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title?: string;
+    message?: string;
+    buttons?: Array<{ text: string; onPress?: () => void }>;
+  }>({
+    visible: false,
+  });
+
   // Canvas offset for scrolling/adjusting when keyboard appears
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const canvasOffsetRef = useRef({ x: 0, y: 0 });
@@ -217,6 +229,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [pendingImageUri, setPendingImageUri] = useState<string>(''); // Image waiting to be edited
   const [pendingImageSource, setPendingImageSource] = useState<'camera' | 'library' | 'background-camera' | 'background-library' | 'edit-existing'>('camera'); // Track source
   const [pendingImageId, setPendingImageId] = useState<string>(''); // Track which image is being edited
+
+  // Tiles state
+  const [showTilesModal, setShowTilesModal] = useState(false);
+  const [tiles, setTiles] = useState<SketchTiles | null>(null);
+  const [selectedTileIndex, setSelectedTileIndex] = useState<number | null>(null);
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
@@ -381,6 +398,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const TITLE_TEXT_ID = 'page_title_text';
   const BODY_TEXT_ID = 'page_body_text';
   const PAGE_AUDIO_ID = 'page_audio';
+  const TILES_ID = 'page_tiles';
 
   // Animation for sliding panel
   const slideAnim = useRef(new Animated.Value(240)).current; // Start off-screen (width + offset)
@@ -536,6 +554,16 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   //   canvasTop
   // });
 
+  // Helper function to show RTL-aware alerts
+  const showAlert = (title: string, message: string, buttons?: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      buttons: buttons || [{ text: t('settings.ok') }],
+    });
+  };
+
   // Load initial page data into queue and state
   useEffect(() => {
     // Reset recording state when switching pages
@@ -580,6 +608,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       texts: rebuiltTexts,
       images: rebuiltImages,
       audios: rebuiltAudios,
+      tiles: rebuiltTiles,
       backgroundPattern: rebuiltBackgroundPattern
     } = compileQueueToElements(queueElements);
 
@@ -589,6 +618,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setPaths(rebuiltPaths);
     setTexts(rebuiltTexts);
     setImages(rebuiltImages);
+    setTiles(rebuiltTiles || null);
     setBackgroundPattern(rebuiltBackgroundPattern);
 
     // Trigger re-render for undo/redo button states
@@ -740,7 +770,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     if (!onDeletePage) return;
 
     // Show confirmation dialog
-    Alert.alert(
+    showAlert(
       t('album.deletePageTitle'),
       t('album.deletePageMessage'),
       [
@@ -947,10 +977,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     if (id === TITLE_TEXT_ID && textToSave.text && textToSave.text.trim().length > 0) {
       // Check current audio state
       const currentAudio = audiosRef.current.find(a => a.id === 'page_audio');
-      if (currentAudio?.audioDuration && !currentAudio.wordTimings && currentAudio.audioPath) {
+      if (currentAudio?.duration && !currentAudio.wordTimings && currentAudio.audioPath) {
         console.log('[handleTextEditEnd] Auto-generating word timings for existing audio');
         const words = textToSave.text.split(/\s+/).filter(w => w.length > 0);
-        const wordTimings = generateInitialWordTimings(words, currentAudio.audioDuration);
+        const audioDurationInSeconds = currentAudio.duration / 1000; // Convert from ms to seconds
+        const wordTimings = generateInitialWordTimings(words, audioDurationInSeconds);
 
         // Update the audio with word timings
         const updatedAudio: SketchAudio = {
@@ -1090,6 +1121,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       handleTextEditEnd(currentEdited.textId);
     }
 
+    // Check if tiles exist - tiles and title are mutually exclusive
+    if (tiles) {
+      setAlertConfig({
+        visible: true,
+        title: t('editor.textTitle'),
+        message: t('editor.tilesExistCannotAddTitle'),
+        buttons: [{ text: t('settings.ok') }],
+      });
+      return;
+    }
+
     setTextMode('title');
     const existingTitle = texts.find(t => t.id === TITLE_TEXT_ID);
 
@@ -1172,6 +1214,196 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited({ textId: BODY_TEXT_ID });
       setTextSize(defaultBodySize);
     }
+  };
+
+  const handleEditTiles = () => {
+    // Save current text before switching
+    if (currentEdited.textId) {
+      handleTextEditEnd(currentEdited.textId);
+    }
+
+    // Check if title exists - tiles and title are mutually exclusive
+    const existingTitle = texts.find(t => t.id === TITLE_TEXT_ID);
+    if (existingTitle && !tiles) {
+      setAlertConfig({
+        visible: true,
+        title: t('editor.tilesTitle'),
+        message: t('editor.titleExistsCannotAddTiles'),
+        buttons: [{ text: t('settings.ok') }],
+      });
+      return;
+    }
+
+    // Open tiles modal (for creating new or editing existing tiles)
+    setShowTilesModal(true);
+  };
+
+  const handleTilesConfirm = (text: string, bgColor: string, textColor: string, size: number) => {
+    // Split text into words
+    const words = text.trim().split(/\s+/);
+
+    // If editing existing tiles, try to preserve merge state
+    let tileWords: TileWord[];
+
+    if (tiles) {
+      // Editing: try to preserve merges if word count matches
+      const existingWordCount = tiles.words.reduce((sum, tile) => sum + tile.originalIndices.length, 0);
+      if (existingWordCount === words.length) {
+        // Same number of words, preserve merge structure
+        let wordIndex = 0;
+        tileWords = tiles.words.map((tile) => {
+          const numWords = tile.originalIndices.length;
+          const tileText = words.slice(wordIndex, wordIndex + numWords).join(' ');
+          const originalIndices = Array.from({ length: numWords }, (_, i) => wordIndex + i);
+          wordIndex += numWords;
+          return {
+            text: tileText,
+            originalIndices,
+          };
+        });
+      } else {
+        // Different word count, create new tiles
+        tileWords = words.map((word, index) => ({
+          text: word,
+          originalIndices: [index],
+        }));
+      }
+    } else {
+      // Creating new: each word as a separate tile
+      tileWords = words.map((word, index) => ({
+        text: word,
+        originalIndices: [index],
+      }));
+    }
+
+    // Calculate approximate tile size for positioning
+    // TileSize formula: canvasWidth / (1.5 * numTiles + 0.5)
+    const numTiles = tileWords.length;
+    const approxTileSize = pageWidth / (1.5 * numTiles + 0.5);
+
+    const newTiles: SketchTiles = {
+      id: TILES_ID,
+      words: tileWords,
+      fontSize: size,
+      backgroundColor: bgColor,
+      textColor: textColor,
+      rtl: isRTL,
+      y: pageHeight - approxTileSize * 1.5, // Position half tile-size from bottom
+    };
+
+    queue.current.pushTiles(newTiles);
+    rebuildStateFromQueue();
+
+    // If there's audio with word timings, regenerate timings for new text
+    if (pageAudioFile && pageAudioWordTimings.length > 0) {
+      // Get audio duration - search for any audio element that has duration set
+      const queueElements = queue.current.getAll();
+
+      // Find any audio element with duration (search backwards for most recent)
+      let durationMs: number | undefined;
+      for (let i = queueElements.length - 1; i >= 0; i--) {
+        const qe = queueElements[i];
+        if ((qe.type === 'audio' || qe.type === 'audioAdd') &&
+            qe.elem?.id === PAGE_AUDIO_ID &&
+            qe.elem?.duration) {
+          durationMs = qe.elem.duration;
+          break;
+        }
+      }
+
+      // Fallback to ref if not found in queue
+      if (!durationMs && pageAudioDurationRef.current) {
+        durationMs = pageAudioDurationRef.current * 1000;
+      }
+
+      // Final fallback
+      if (!durationMs) {
+        durationMs = 10000; // Default 10 seconds
+      }
+
+      const audioDuration = durationMs / 1000;
+
+      console.log('[handleTilesConfirm] Audio duration for regeneration:', audioDuration, 'ms:', durationMs);
+
+      // Use the same smart algorithm that's used for title text
+      const newWordTimings = generateInitialWordTimings(words, audioDuration);
+
+      // Update audio with new word timings, preserving duration
+      const updatedAudio: SketchAudio = {
+        id: PAGE_AUDIO_ID,
+        audioPath: pageAudioFile,
+        x: 0,
+        y: 0,
+        duration: durationMs, // Store in milliseconds
+        wordTimings: newWordTimings,
+      };
+
+      queue.current.pushAudio(updatedAudio);
+      rebuildStateFromQueue();
+
+      console.log('[handleTilesConfirm] Regenerated word timings for tiles:', newWordTimings, 'duration preserved:', durationMs);
+    }
+
+    autoSave();
+  };
+
+  const handleMergeTile = (index: number) => {
+    if (!tiles || index >= tiles.words.length - 1) return;
+
+    const newWords = [...tiles.words];
+    // Merge tile at index with tile at index + 1
+    const merged: TileWord = {
+      text: `${newWords[index].text} ${newWords[index + 1].text}`,
+      originalIndices: [...newWords[index].originalIndices, ...newWords[index + 1].originalIndices],
+    };
+
+    newWords.splice(index, 2, merged);
+
+    const updatedTiles: SketchTiles = {
+      ...tiles,
+      words: newWords,
+    };
+
+    queue.current.pushTiles(updatedTiles);
+    rebuildStateFromQueue();
+    autoSave();
+  };
+
+  const handleUnmergeTile = (index: number) => {
+    if (!tiles || tiles.words[index].originalIndices.length <= 1) return;
+
+    const tileToUnmerge = tiles.words[index];
+    const words = tileToUnmerge.text.split(/\s+/);
+
+    // Recreate individual tiles from the merged tile
+    const newTiles: TileWord[] = words.map((word, i) => ({
+      text: word,
+      originalIndices: [tileToUnmerge.originalIndices[i]],
+    }));
+
+    const newWords = [...tiles.words];
+    newWords.splice(index, 1, ...newTiles);
+
+    const updatedTiles: SketchTiles = {
+      ...tiles,
+      words: newWords,
+    };
+
+    queue.current.pushTiles(updatedTiles);
+    rebuildStateFromQueue();
+    autoSave();
+  };
+
+  const handleDeleteTiles = () => {
+    queue.current.pushDeleteTiles();
+    rebuildStateFromQueue();
+    autoSave();
+  };
+
+  const handleDeleteTitle = () => {
+    queue.current.pushTextDelete(TITLE_TEXT_ID);
+    rebuildStateFromQueue();
+    autoSave();
   };
 
   const handleSetSketchMode = () => {
@@ -1264,7 +1496,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         ) {
           return true;
         } else {
-          Alert.alert(t('editor.permissions'), t('editor.permissionsMessage'));
+          showAlert(t('editor.permissions'), t('editor.permissionsMessage'));
           return false;
         }
       } catch (err) {
@@ -1318,7 +1550,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     } catch (error) {
       console.error('[handleStartRecording] Failed to start recording:', error);
       setIsRecording(false); // Ensure state is correct on error
-      Alert.alert(t('home.error'), t('editor.errorRecording'));
+      showAlert(t('home.error'), t('editor.errorRecording'));
     }
   };
 
@@ -1385,7 +1617,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     } catch (error) {
       console.error('Failed to stop recording:', error);
       setIsRecording(false); // Ensure state is correct on error
-      Alert.alert(t('home.error'), t('editor.errorStopRecording'));
+      showAlert(t('home.error'), t('editor.errorStopRecording'));
     }
   };
 
@@ -1408,7 +1640,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       });
     } catch (error) {
       console.error('Failed to play audio:', error);
-      Alert.alert(t('home.error'), t('editor.errorPlayRecording'));
+      showAlert(t('home.error'), t('editor.errorPlayRecording'));
     }
   };
 
@@ -1448,7 +1680,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       console.log('Page audio saved to queue:', pageAudio);
     } catch (error) {
       console.error('Failed to save audio attachment:', error);
-      Alert.alert(t('home.error'), t('editor.errorSaveRecording'));
+      showAlert(t('home.error'), t('editor.errorSaveRecording'));
     }
   };
 
@@ -1723,7 +1955,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         // Check if multiple images selected
         if (result.assets.length > 1) {
           // Ask user what to do with multiple images
-          Alert.alert(
+          showAlert(
             t('editor.multipleImagesSelected').replace('{count}', result.assets.length.toString()),
             t('editor.multipleImagesPrompt'),
             [
@@ -1789,7 +2021,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             setShowToolOptions(true);
           } catch (error) {
             console.error('Failed to save image attachment:', error);
-            Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+            showAlert(t('home.error'), t('editor.errorSaveImage'));
           }
         }
       }
@@ -1846,7 +2078,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       await autoSave();
     } catch (error) {
       console.error('Failed to add multiple images:', error);
-      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+      showAlert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
 
@@ -1945,7 +2177,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       onSave(savedPage, false); // Don't exit editor
     } catch (error) {
       console.error('Failed to add images to new pages:', error);
-      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+      showAlert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
 
@@ -1958,7 +2190,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setShowImageEditModal(true);
     } catch (error) {
       console.error('Failed to handle camera capture:', error);
-      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+      showAlert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
 
@@ -2044,7 +2276,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setPendingImageId('');
     } catch (error) {
       console.error('Failed to save edited image:', error);
-      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+      showAlert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
 
@@ -2132,7 +2364,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setCurrentEdited({ imageId: imageId });
     } catch (error) {
       console.error('Failed to add search image:', error);
-      Alert.alert(t('home.error'), t('editor.errorSaveImage'));
+      showAlert(t('home.error'), t('editor.errorSaveImage'));
     }
   };
 
@@ -2317,8 +2549,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     console.log('[handleDeleteElement] Element deleted, queue length:', queue.current.getAll().length);
   };
 
-  // Render callback for custom elements - not used anymore
+  // Render callback for custom elements
   const handleRenderElements = (elem: SketchElement) => {
+    if (elem.type === 'tiles') {
+      const tilesElem = elem as unknown as SketchTiles;
+      return (
+        <TilesElement
+          tiles={tilesElem}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          ratio={ratio}
+          editMode={true}
+          onMergeTile={handleMergeTile}
+          onUnmergeTile={handleUnmergeTile}
+          highlightedWordIndex={undefined}
+        />
+      );
+    }
     return null;
   };
 
@@ -2471,10 +2718,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
         {/* Canvas Container - End Side (Right in LTR, Left in RTL due to direction property) */}
         <View style={styles.canvasContainer}>
-          {(() => {
-            //console.log('Canvas positioning:', { sideMargin, canvasWidth, canvasHeight, availableWidth });
-            return null;
-          })()}
           <View style={[styles.canvas, { marginStart: canvasLeftMargin, marginEnd: CANVAS_MARGIN }]}>
             <CanvasComponent
               ref={canvasRef}
@@ -2501,7 +2744,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               images={displayImages}
               lines={[]} // Not using lines
               tables={[]} // Not using tables
-              elements={audios}
+              elements={tiles ? [{ ...tiles, type: 'tiles', x: 0, y: tiles.y }] : []}
               renderElements={handleRenderElements}
               elementsAttr={handleElementsAttr}
 
@@ -2707,6 +2950,36 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       <MyIcon info={{ name: "format-text", size: 24, color: textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
                       <Text style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textBody')}</Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, showTilesModal && styles.optionButtonActive]}
+                      onPress={handleEditTiles}
+                    >
+                      <MyIcon info={{ name: "view-grid", size: 24, color: showTilesModal ? '#007AFF' : '#555', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, showTilesModal && styles.optionLabelActive]}>{t('editor.tilesTitle')}</Text>
+                    </TouchableOpacity>
+
+                    {/* Delete title button */}
+                    {texts.find(t => t.id === TITLE_TEXT_ID) && (
+                      <TouchableOpacity
+                        style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
+                        onPress={handleDeleteTitle}
+                      >
+                        <MyIcon info={{ name: "delete", size: 24, color: '#FF5722', type: "MDI" }} />
+                        <Text style={[styles.optionLabel, { color: '#FF5722' }]}>Delete Title</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Delete tiles button */}
+                    {tiles && (
+                      <TouchableOpacity
+                        style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
+                        onPress={handleDeleteTiles}
+                      >
+                        <MyIcon info={{ name: "delete", size: 24, color: '#FF5722', type: "MDI" }} />
+                        <Text style={[styles.optionLabel, { color: '#FF5722' }]}>Delete Tiles</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {/* Color Picker - Only shown when editing */}
@@ -3093,7 +3366,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                                 console.log('User cancelled image picker');
                               } else if (response.errorCode) {
                                 console.error('ImagePicker Error:', response.errorMessage);
-                                Alert.alert(t('home.error'), response.errorMessage || 'Failed to pick image');
+                                showAlert(t('home.error'), response.errorMessage || 'Failed to pick image');
                               } else if (response.assets && response.assets[0].uri) {
                                 setPendingImageUri(response.assets[0].uri);
                                 setShowImageEditModal(true);
@@ -3140,14 +3413,26 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
       {/* Audio Word Mapping Modal */}
       {showWordMappingModal && pageAudioFile && (() => {
-        // Get title text from queue directly
+        // Get title text from queue directly (either title or tiles)
         const queueElements = queue.current.getAll();
         let titleText = '';
 
+        // First check for tiles
         for (const qe of queueElements) {
-          if ((qe.type === 'textAdd' || qe.type === 'text') && qe.elem?.id === 'page_title_text') {
-            titleText = qe.elem.text || '';
+          if (qe.type === 'tiles' && qe.elem?.id === TILES_ID) {
+            // Extract text from tiles words
+            titleText = qe.elem.words.map((w: TileWord) => w.text).join(' ');
             break;
+          }
+        }
+
+        // If no tiles, check for regular title text
+        if (!titleText) {
+          for (const qe of queueElements) {
+            if ((qe.type === 'textAdd' || qe.type === 'text') && qe.elem?.id === 'page_title_text') {
+              titleText = qe.elem.text || '';
+              break;
+            }
           }
         }
 
@@ -3194,6 +3479,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         onClose={() => setShowSearchImageModal(false)}
       />
 
+      {/* Tiles Modal */}
+      <TilesModal
+        visible={showTilesModal}
+        onClose={() => setShowTilesModal(false)}
+        onConfirm={handleTilesConfirm}
+        initialText={tiles?.words.map(w => w.text).join(' ') || ''}
+        initialBgColor={tiles?.backgroundColor}
+        initialTextColor={tiles?.textColor}
+        initialSize={tiles?.fontSize}
+        isEditing={tiles != null}
+      />
+
       {/* Emoji Picker */}
       <View style={{ direction: 'ltr' }}>
         <EmojiPicker
@@ -3219,6 +3516,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           }}
         />
       </View>
+
+      {/* RTL-aware Alert */}
+      <RTLAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onDismiss={() => setAlertConfig({ visible: false })}
+      />
     </View>
   );
 }
