@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SketchTiles, TileWord } from '../types/Album';
+import { AttachmentService } from '../services/AttachmentService';
 import Icon from '@react-native-vector-icons/ionicons';
 
 interface TilesElementProps {
@@ -12,7 +13,10 @@ interface TilesElementProps {
   onMergeTile?: (index: number) => void; // Merge tile at index with next tile
   onUnmergeTile?: (index: number) => void; // Unmerge tile at index
   highlightedWordIndex?: number; // For audio playback highlighting
-  onEditSymbol?: (index: number) => void; // Edit symbol for tile at index
+  onAddEmoji?: (index: number) => void; // Add/edit emoji for tile at index
+  onAddSymbol?: (index: number) => void; // Add/edit symbol for tile at index
+  onDeleteSymbol?: (index: number) => void; // Delete symbol for tile at index
+  albumId: string; // For constructing image paths
 }
 
 export function TilesElement({
@@ -24,7 +28,10 @@ export function TilesElement({
   onMergeTile,
   onUnmergeTile,
   highlightedWordIndex,
-  onEditSymbol,
+  onAddEmoji,
+  onAddSymbol,
+  onDeleteSymbol,
+  albumId,
 }: TilesElementProps) {
   const yPosition = tiles.y * ratio;
   const numTiles = tiles.words.length;
@@ -83,56 +90,84 @@ export function TilesElement({
                 },
               ]}
             >
-              {/* Symbol above text */}
+              {/* Symbol in top 1/3, size = 2/5 of square */}
               {word.symbol && (
-                <View style={styles.symbolContainer}>
-                  <Text style={[styles.symbolText, { fontSize: tiles.fontSize * ratio * 1.2 }]}>
-                    {word.symbol}
-                  </Text>
-                  {editMode && onEditSymbol && (
+                <View style={styles.symbolArea}>
+                  {word.symbolType === 'image' ? (
+                    <Image
+                      source={{ uri: `file://${AttachmentService.getAbsolutePath(albumId, word.symbol)}` }}
+                      style={[styles.symbolImage, { width: tileSize * 0.4, height: tileSize * 0.4 }]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text style={[styles.symbolText, { fontSize: tileSize * 0.4 }]}>
+                      {word.symbol}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Text - centered if no symbol, bottom 1/3 if symbol exists */}
+              <View style={word.symbol ? styles.textArea : styles.textAreaCentered}>
+                <Text
+                  style={[
+                    styles.tileText,
+                    {
+                      color: tiles.textColor,
+                      fontSize: Math.max(tileSize * tiles.fontSize, 18),
+                      textAlign: 'center',
+                    },
+                  ]}
+                  numberOfLines={word.symbol ? 2 : 3}
+                  adjustsFontSizeToFit
+                >
+                  {word.text}
+                </Text>
+              </View>
+
+              {/* Edit buttons - 3 buttons: emoji, symbol, delete */}
+              {editMode && (
+                <View style={styles.editButtonsContainer}>
+                  {/* Emoji button */}
+                  {onAddEmoji && (
                     <TouchableOpacity
-                      style={styles.editSymbolButton}
-                      onPress={() => onEditSymbol(index)}
+                      style={[styles.editButton, { backgroundColor: '#4CAF50' }]}
+                      onPress={() => onAddEmoji(index)}
                     >
-                      <Icon name="pencil" size={12} color="#666" />
+                      <Icon name="happy-outline" size={28} color="#FFF" />
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Symbol button */}
+                  {onAddSymbol && (
+                    <TouchableOpacity
+                      style={[styles.editButton, { backgroundColor: '#2196F3' }]}
+                      onPress={() => onAddSymbol(index)}
+                    >
+                      <Icon name="image-outline" size={28} color="#FFF" />
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Delete symbol button (only if symbol exists) */}
+                  {word.symbol && onDeleteSymbol && (
+                    <TouchableOpacity
+                      style={[styles.editButton, { backgroundColor: '#F44336' }]}
+                      onPress={() => onDeleteSymbol(index)}
+                    >
+                      <Icon name="trash-outline" size={28} color="#FFF" />
                     </TouchableOpacity>
                   )}
                 </View>
               )}
 
-              {/* No symbol - show edit button if in edit mode */}
-              {!word.symbol && editMode && onEditSymbol && (
-                <TouchableOpacity
-                  style={styles.addSymbolButton}
-                  onPress={() => onEditSymbol(index)}
-                >
-                  <Icon name="add-circle-outline" size={16} color="#999" />
-                </TouchableOpacity>
-              )}
-
-              <Text
-                style={[
-                  styles.tileText,
-                  {
-                    color: tiles.textColor,
-                    fontSize: tiles.fontSize * ratio,
-                    textAlign: 'center',
-                  },
-                ]}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-              >
-                {word.text}
-              </Text>
-
               {/* Unmerge button in edit mode (on tile) */}
               {editMode && canUnmerge && onUnmergeTile && (
-                <View style={styles.buttonContainer}>
+                <View style={styles.unmergeButtonContainer}>
                   <TouchableOpacity
                     style={[styles.mergeButton, { backgroundColor: '#FF5722' }]}
                     onPress={() => onUnmergeTile(index)}
                   >
-                    <Icon name="cut" size={16} color="#FFF" />
+                    <Icon name="cut" size={28} color="#FFF" />
                   </TouchableOpacity>
                 </View>
               )}
@@ -167,7 +202,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tile: {
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     position: 'relative',
     shadowColor: '#000',
@@ -177,42 +212,63 @@ const styles = StyleSheet.create({
     elevation: 5,
     padding: 8,
   },
+  symbolArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  textArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  textAreaCentered: {
+    flex: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
   tileText: {
     fontWeight: 'bold',
-  },
-  symbolContainer: {
-    position: 'absolute',
-    top: 4,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
   },
   symbolText: {
     lineHeight: undefined, // Let emoji render naturally
   },
-  editSymbolButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 8,
-    padding: 2,
+  symbolImage: {
+    // Size is set dynamically based on tileSize
   },
-  addSymbolButton: {
+  editButtonsContainer: {
     position: 'absolute',
-    top: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 12,
-    padding: 2,
-  },
-  buttonContainer: {
-    position: 'absolute',
-    top: -12,
-    right: -12,
+    top: -16,
+    left: -16,
     flexDirection: 'row',
-    gap: 4,
+    gap: 6,
+  },
+  editButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  unmergeButtonContainer: {
+    position: 'absolute',
+    top: -16,
+    right: -16,
+    flexDirection: 'row',
+    gap: 6,
   },
   mergeButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

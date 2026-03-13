@@ -83,13 +83,13 @@ function TextElement({
     }, [text.color, editMode])
 
     useEffect(() => {
-        setTextTillSelection(text.text.substring(0, selection.end))
+        setTextTillSelection((text.text || '').substring(0, selection.end))
     }, [selection]);
 
     useEffect(() => {
         if (editMode) {
             // when entering edit mode, the cursor at the end
-            setTextTillSelection(text.text)
+            setTextTillSelection(text.text || '')
         }
     }, [editMode]);
 

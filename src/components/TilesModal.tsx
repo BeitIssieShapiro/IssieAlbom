@@ -14,7 +14,13 @@ import { MODAL_ORIENTATIONS } from '../types/Album';
 
 const BG_COLORS = ['#FF6B9D', '#C44569', '#4A69BD', '#60A3BC', '#78E08F', '#FFC312', '#EE5A6F', '#B8E994'];
 const TEXT_COLORS = ['#FFFFFF', '#000000', '#333333', '#666666', '#2C3E50', '#E74C3C', '#3498DB', '#2ECC71'];
-const SIZES = [16, 20, 24, 28, 32, 36];
+const SIZES = [
+  { label: 'XS', value: 0.08 },
+  { label: 'S', value: 0.10 },
+  { label: 'M', value: 0.12 },
+  { label: 'L', value: 0.15 },
+  { label: 'XL', value: 0.18 },
+];
 
 interface TilesModalProps {
   visible: boolean;
@@ -34,7 +40,7 @@ export function TilesModal({
   initialText = '',
   initialBgColor = '#4A69BD',
   initialTextColor = '#FFFFFF',
-  initialSize = 24,
+  initialSize = 0.12, // Default to M
   isEditing = false,
 }: TilesModalProps) {
   const { colors, spacing, borderRadius } = useTheme();
@@ -94,7 +100,7 @@ export function TilesModal({
               {
                 backgroundColor: bgColor,
                 color: textColor,
-                fontSize: size,
+                fontSize: Math.max(300 * size, 18), // Preview: use 300 as base width
                 borderColor: colors.border,
                 borderRadius: borderRadius.medium,
                 fontWeight: 'bold',
@@ -154,23 +160,23 @@ export function TilesModal({
             <View style={styles.sizeGrid}>
               {SIZES.map((s) => (
                 <TouchableOpacity
-                  key={s}
+                  key={s.label}
                   style={[
                     styles.sizeButton,
                     {
-                      backgroundColor: size === s ? colors.primary : colors.background,
+                      backgroundColor: size === s.value ? colors.primary : colors.background,
                       borderRadius: borderRadius.small,
                     },
                   ]}
-                  onPress={() => setSize(s)}
+                  onPress={() => setSize(s.value)}
                 >
                   <Text
                     style={[
                       styles.sizeText,
-                      { color: size === s ? '#FFF' : colors.textPrimary },
+                      { color: size === s.value ? '#FFF' : colors.textPrimary },
                     ]}
                   >
-                    {s}
+                    {s.label}
                   </Text>
                 </TouchableOpacity>
               ))}

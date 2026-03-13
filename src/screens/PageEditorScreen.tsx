@@ -20,6 +20,7 @@ import { PathCommand } from '@shopify/react-native-skia';
 import { Canvas, Rect, Path } from '@shopify/react-native-skia';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Sound from 'react-native-nitro-sound';
+import RNFS from 'react-native-fs';
 import EmojiPicker, { en, he } from 'rn-emoji-keyboard';
 import type { EmojiType } from 'rn-emoji-keyboard';
 import heKeywords from '../assets/emoji-keywords-he.json';
@@ -35,12 +36,14 @@ import { SearchImageModal } from '../components/SearchImageModal';
 import { ImageEditModal } from '../components/ImageEditModal';
 import { TilesModal } from '../components/TilesModal';
 import { TilesElement } from '../components/TilesElement';
+import { SearchSymbolModal } from '../components/SearchSymbolModal';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
 import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGROUND_IMAGE_SOURCES, generatePatternPaths } from '../utils/backgroundPatterns';
 import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
 import { SymbolSearchService } from '../services/SymbolSearchService';
+import ImageLibrary from '../services/ImageLibrary';
 import { MyIcon } from '../common/icons';
 import { RTLAlert } from '../components/RTLAlert';
 import { spacing, borderRadius } from '../theme/colors';
@@ -236,6 +239,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [tiles, setTiles] = useState<SketchTiles | null>(null);
   const [selectedTileIndex, setSelectedTileIndex] = useState<number | null>(null);
   const [searchingSymbols, setSearchingSymbols] = useState(false); // Track symbol search loading
+  const [searchingSymbolsMode, setSearchingSymbolsMode] = useState<'auto' | 'manual'>('auto'); // Track if auto-search or manual download
+  const [showSearchSymbolModal, setShowSearchSymbolModal] = useState(false);
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
@@ -1283,6 +1288,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const needsSymbolSearch = tileWords.some(tile => !tile.symbol);
     if (needsSymbolSearch) {
       setSearchingSymbols(true);
+      setSearchingSymbolsMode('auto');
       try {
         // Extract words that need symbols
         const wordsToSearch = tileWords.map(tile => tile.symbol ? null : tile.text);
@@ -1292,7 +1298,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           wordsToSearch.map(async (word, index) => {
             if (word === null) return null; // Already has symbol
             try {
-              return await SymbolSearchService.searchSymbol(word);
+              return await SymbolSearchService.searchSymbol(word, language, albumId);
             } catch (error) {
               console.error('[PageEditor] Symbol search failed for', word, error);
               return null;
@@ -1304,6 +1310,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         tileWords = tileWords.map((tile, index) => ({
           ...tile,
           symbol: tile.symbol || searchResults[index] || undefined,
+          symbolType: tile.symbolType || (searchResults[index] ? 'image' : undefined),
         }));
       } catch (error) {
         console.error('[PageEditor] Symbol search error:', error);
@@ -1430,10 +1437,89 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     autoSave();
   };
 
-  const handleEditSymbol = (index: number) => {
+  const handleAddEmoji = (index: number) => {
     if (!tiles) return;
     setSelectedTileIndex(index);
     setShowEmojiKeyboard(true);
+  };
+
+  const handleAddSymbol = (index: number) => {
+    if (!tiles) return;
+    setSelectedTileIndex(index);
+    setShowSearchSymbolModal(true);
+  };
+
+  const handleDeleteSymbol = (index: number) => {
+    if (!tiles) return;
+
+    const newWords = [...tiles.words];
+    newWords[index] = {
+      ...newWords[index],
+      symbol: undefined,
+      symbolType: undefined,
+    };
+
+    const updatedTiles: SketchTiles = {
+      ...tiles,
+      words: newWords,
+    };
+
+    queue.current.pushTiles(updatedTiles);
+    rebuildStateFromQueue();
+    autoSave();
+  };
+
+  const handleSymbolSelectFromWeb = async (symbolId: string) => {
+    if (!tiles || selectedTileIndex === null) return;
+
+    // Download the symbol
+    setSearchingSymbols(true);
+    setSearchingSymbolsMode('manual');
+    setShowSearchSymbolModal(false);
+
+    try {
+      const timestamp = Date.now();
+      const fileName = `symbol_${symbolId}_${timestamp}.png`;
+      const symbolsDir = `${RNFS.DocumentDirectoryPath}/albums/${albumId}/attachments`;
+
+      // Ensure directory exists
+      await RNFS.mkdir(symbolsDir);
+
+      const localPath = `${symbolsDir}/${fileName}`;
+      const symbolUrl = `${ImageLibrary.BASE_URL}/pictograms/${symbolId}?download=false`;
+
+      // Download the image
+      await RNFS.downloadFile({
+        fromUrl: symbolUrl,
+        toFile: localPath,
+      }).promise;
+
+      // Store relative path
+      const relativePath = `attachments/${fileName}`;
+
+      // Update tile
+      const newWords = [...tiles.words];
+      newWords[selectedTileIndex] = {
+        ...newWords[selectedTileIndex],
+        symbol: relativePath,
+        symbolType: 'image',
+      };
+
+      const updatedTiles: SketchTiles = {
+        ...tiles,
+        words: newWords,
+      };
+
+      queue.current.pushTiles(updatedTiles);
+      rebuildStateFromQueue();
+      autoSave();
+    } catch (error) {
+      console.error('[PageEditor] Failed to download symbol:', error);
+      alert(t.editor.errorSaveImage);
+    } finally {
+      setSearchingSymbols(false);
+      setSelectedTileIndex(null);
+    }
   };
 
   const handleSymbolSelect = (emoji: EmojiType) => {
@@ -1443,6 +1529,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     newWords[selectedTileIndex] = {
       ...newWords[selectedTileIndex],
       symbol: emoji.emoji,
+      symbolType: 'emoji',
     };
 
     const updatedTiles: SketchTiles = {
@@ -2632,8 +2719,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           editMode={true}
           onMergeTile={handleMergeTile}
           onUnmergeTile={handleUnmergeTile}
-          onEditSymbol={handleEditSymbol}
+          onAddEmoji={handleAddEmoji}
+          onAddSymbol={handleAddSymbol}
+          onDeleteSymbol={handleDeleteSymbol}
           highlightedWordIndex={undefined}
+          albumId={albumId}
         />
       );
     }
@@ -2673,7 +2763,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           )}
 
           {/* Title */}
-          <Text style={styles.title}>{t('editor.page')} {page.pageNumber}</Text>
+          <Text style={styles.title}>
+            {t('editor.page')} {page.pageNumber} {pages && pages.length > 1 ? `${t('editor.of')} ${pages.length}` : ''}
+          </Text>
 
           {/* Next Page Button */}
           {pages && pages.length > 1 && (
@@ -3558,8 +3650,19 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         initialText={tiles?.words.map(w => w.text).join(' ') || ''}
         initialBgColor={tiles?.backgroundColor}
         initialTextColor={tiles?.textColor}
-        initialSize={tiles?.fontSize}
+        initialSize={tiles?.fontSize && tiles.fontSize > 1 ? 0.12 : tiles?.fontSize} // Migrate old numeric sizes
         isEditing={tiles != null}
+      />
+
+      {/* Search Symbol Modal */}
+      <SearchSymbolModal
+        visible={showSearchSymbolModal}
+        onSelectSymbol={handleSymbolSelectFromWeb}
+        onClose={() => {
+          setShowSearchSymbolModal(false);
+          setSelectedTileIndex(null);
+        }}
+        initialKeyword={selectedTileIndex !== null && tiles ? tiles.words[selectedTileIndex].text : ''}
       />
 
       {/* Symbol Search Loading Overlay */}
@@ -3567,7 +3670,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>{t.searchingSymbols}</Text>
+            <Text style={styles.loadingText}>
+              {searchingSymbolsMode === 'auto' ? t.findingSymbols : t.searchingSymbols}
+            </Text>
           </View>
         </View>
       )}

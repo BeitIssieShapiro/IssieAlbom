@@ -170,6 +170,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           ratio={scale}
           editMode={false}
           highlightedWordIndex={highlightedWordIndex !== undefined ? highlightedWordIndex : (currentWordIndex !== null ? currentWordIndex : undefined)}
+          albumId={albumId}
         />
       );
     }

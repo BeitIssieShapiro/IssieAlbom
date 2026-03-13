@@ -43,6 +43,7 @@ interface Translations {
   // Page Editor Screen
   editor: {
     page: string;
+    of: string;
     permissions: string;
     permissionsMessage: string;
     errorRecording: string;
@@ -102,6 +103,7 @@ interface Translations {
     createNewPages: string;
     multipleImagesPrompt: string;
     searchingSymbols: string;
+    findingSymbols: string;
   };
 
   // Settings Screen
@@ -141,6 +143,14 @@ interface Translations {
     title: string;
     instructions: string;
     save: string;
+  };
+
+  // Symbol Search
+  symbolSearch: {
+    title: string;
+    placeholder: string;
+    searching: string;
+    noResults: string;
   };
 
   // Camera Modal
@@ -256,6 +266,7 @@ export const translations: Record<LanguageCode, Translations> = {
 
     editor: {
       page: 'עמוד',
+      of: 'מתוך',
       permissions: 'הרשאות',
       permissionsMessage: 'יש לאפשר הרשאות הקלטה ושמירת קבצים',
       errorRecording: 'ההקלטה נכשלה',
@@ -315,6 +326,7 @@ export const translations: Record<LanguageCode, Translations> = {
       createNewPages: 'צור עמודים חדשים',
       multipleImagesPrompt: 'האם להוסיף את כל התמונות לעמוד הנוכחי או ליצור עמוד חדש לכל תמונה?',
       searchingSymbols: 'מחפש סמלים...',
+      findingSymbols: 'מחפש סמלים למילים...',
     },
 
     settings: {
@@ -349,6 +361,13 @@ export const translations: Record<LanguageCode, Translations> = {
       title: 'מיפוי מילים',
       instructions: 'הקש על מילה כדי לסמן את הזמן שלה בהקלטה',
       save: 'שמור',
+    },
+
+    symbolSearch: {
+      title: 'חיפוש סמלים',
+      placeholder: 'חפש סמל...',
+      searching: 'מחפש...',
+      noResults: 'לא נמצאו סמלים',
     },
 
     camera: {
@@ -458,6 +477,7 @@ export const translations: Record<LanguageCode, Translations> = {
 
     editor: {
       page: 'Page',
+      of: 'of',
       permissions: 'Permissions',
       permissionsMessage: 'Please allow recording and file storage permissions',
       errorRecording: 'Recording failed',
@@ -517,6 +537,7 @@ export const translations: Record<LanguageCode, Translations> = {
       createNewPages: 'Create New Pages',
       multipleImagesPrompt: 'Add all images to current page or create a new page for each image?',
       searchingSymbols: 'Searching for symbols...',
+      findingSymbols: 'Finding symbols for words...',
     },
 
     settings: {
@@ -551,6 +572,13 @@ export const translations: Record<LanguageCode, Translations> = {
       title: 'Word Mapping',
       instructions: 'Tap a word to mark its time in the recording',
       save: 'Save',
+    },
+
+    symbolSearch: {
+      title: 'Symbol Search',
+      placeholder: 'Search for a symbol...',
+      searching: 'Searching...',
+      noResults: 'No symbols found',
     },
 
     camera: {
@@ -660,6 +688,7 @@ export const translations: Record<LanguageCode, Translations> = {
 
     editor: {
       page: 'صفحة',
+      of: 'من',
       permissions: 'الأذونات',
       permissionsMessage: 'يرجى السماح بأذونات التسجيل وتخزين الملفات',
       errorRecording: 'فشل التسجيل',
