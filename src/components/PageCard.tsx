@@ -33,10 +33,11 @@ interface PageCardProps {
   onEdit?: (page: AlbumPage) => void;
   onDelete?: (page: AlbumPage) => void;
   autoPlayAudio?: boolean; // Auto-play audio when card is shown
+  highlightedWordIndex?: number; // For video export - externally controlled highlight
 }
 
 export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard(
-  { page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false },
+  { page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false, highlightedWordIndex },
   ref
 ) {
   const [menuVisible, setMenuVisible] = useState(false);
@@ -168,7 +169,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           canvasHeight={displayHeight}
           ratio={scale}
           editMode={false}
-          highlightedWordIndex={currentWordIndex !== null ? currentWordIndex : undefined}
+          highlightedWordIndex={highlightedWordIndex !== undefined ? highlightedWordIndex : (currentWordIndex !== null ? currentWordIndex : undefined)}
         />
       );
     }

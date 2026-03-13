@@ -40,6 +40,7 @@ import { PATTERN_PRESETS, SOLID_COLOR_PRESETS, BACKGROUND_IMAGE_PRESETS, BACKGRO
 import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
+import { SymbolSearchService } from '../services/SymbolSearchService';
 import { MyIcon } from '../common/icons';
 import { RTLAlert } from '../components/RTLAlert';
 import { spacing, borderRadius } from '../theme/colors';
@@ -234,6 +235,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [showTilesModal, setShowTilesModal] = useState(false);
   const [tiles, setTiles] = useState<SketchTiles | null>(null);
   const [selectedTileIndex, setSelectedTileIndex] = useState<number | null>(null);
+  const [searchingSymbols, setSearchingSymbols] = useState(false); // Track symbol search loading
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
@@ -1238,18 +1240,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setShowTilesModal(true);
   };
 
-  const handleTilesConfirm = (text: string, bgColor: string, textColor: string, size: number) => {
+  const handleTilesConfirm = async (text: string, bgColor: string, textColor: string, size: number) => {
     // Split text into words
     const words = text.trim().split(/\s+/);
 
-    // If editing existing tiles, try to preserve merge state
+    // If editing existing tiles, try to preserve merge state and symbols
     let tileWords: TileWord[];
 
     if (tiles) {
-      // Editing: try to preserve merges if word count matches
+      // Editing: try to preserve merges and symbols if word count matches
       const existingWordCount = tiles.words.reduce((sum, tile) => sum + tile.originalIndices.length, 0);
       if (existingWordCount === words.length) {
-        // Same number of words, preserve merge structure
+        // Same number of words, preserve merge structure and symbols
         let wordIndex = 0;
         tileWords = tiles.words.map((tile) => {
           const numWords = tile.originalIndices.length;
@@ -1259,21 +1261,55 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           return {
             text: tileText,
             originalIndices,
+            symbol: tile.symbol, // Preserve existing symbol
           };
         });
       } else {
-        // Different word count, create new tiles
+        // Different word count, create new tiles (will search symbols below)
         tileWords = words.map((word, index) => ({
           text: word,
           originalIndices: [index],
         }));
       }
     } else {
-      // Creating new: each word as a separate tile
+      // Creating new: each word as a separate tile (will search symbols below)
       tileWords = words.map((word, index) => ({
         text: word,
         originalIndices: [index],
       }));
+    }
+
+    // Search for symbols for tiles that don't have one
+    const needsSymbolSearch = tileWords.some(tile => !tile.symbol);
+    if (needsSymbolSearch) {
+      setSearchingSymbols(true);
+      try {
+        // Extract words that need symbols
+        const wordsToSearch = tileWords.map(tile => tile.symbol ? null : tile.text);
+
+        // Search symbols in parallel
+        const searchResults = await Promise.all(
+          wordsToSearch.map(async (word, index) => {
+            if (word === null) return null; // Already has symbol
+            try {
+              return await SymbolSearchService.searchSymbol(word);
+            } catch (error) {
+              console.error('[PageEditor] Symbol search failed for', word, error);
+              return null;
+            }
+          })
+        );
+
+        // Update tileWords with search results
+        tileWords = tileWords.map((tile, index) => ({
+          ...tile,
+          symbol: tile.symbol || searchResults[index] || undefined,
+        }));
+      } catch (error) {
+        console.error('[PageEditor] Symbol search error:', error);
+      } finally {
+        setSearchingSymbols(false);
+      }
     }
 
     // Calculate approximate tile size for positioning
@@ -1392,6 +1428,34 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     queue.current.pushTiles(updatedTiles);
     rebuildStateFromQueue();
     autoSave();
+  };
+
+  const handleEditSymbol = (index: number) => {
+    if (!tiles) return;
+    setSelectedTileIndex(index);
+    setShowEmojiKeyboard(true);
+  };
+
+  const handleSymbolSelect = (emoji: EmojiType) => {
+    if (!tiles || selectedTileIndex === null) return;
+
+    const newWords = [...tiles.words];
+    newWords[selectedTileIndex] = {
+      ...newWords[selectedTileIndex],
+      symbol: emoji.emoji,
+    };
+
+    const updatedTiles: SketchTiles = {
+      ...tiles,
+      words: newWords,
+    };
+
+    queue.current.pushTiles(updatedTiles);
+    rebuildStateFromQueue();
+    autoSave();
+
+    setShowEmojiKeyboard(false);
+    setSelectedTileIndex(null);
   };
 
   const handleDeleteTiles = () => {
@@ -1790,6 +1854,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleEmojiPick = (emojiObject: EmojiType) => {
+    // Check if we're editing a tile symbol
+    if (selectedTileIndex !== null) {
+      handleSymbolSelect(emojiObject);
+      return;
+    }
+
     // Create emoji as a text element with large font size
     const emojiId = getId('text'); // Use 'text' prefix so canvas treats it as text
     const emojiSize = 100; // Default emoji size (M)
@@ -2562,6 +2632,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           editMode={true}
           onMergeTile={handleMergeTile}
           onUnmergeTile={handleUnmergeTile}
+          onEditSymbol={handleEditSymbol}
           highlightedWordIndex={undefined}
         />
       );
@@ -3491,12 +3562,25 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         isEditing={tiles != null}
       />
 
+      {/* Symbol Search Loading Overlay */}
+      {searchingSymbols && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>{t.searchingSymbols}</Text>
+          </View>
+        </View>
+      )}
+
       {/* Emoji Picker */}
       <View style={{ direction: 'ltr' }}>
         <EmojiPicker
           onEmojiSelected={handleEmojiPick}
           open={showEmojiKeyboard}
-          onClose={() => setShowEmojiKeyboard(false)}
+          onClose={() => {
+            setShowEmojiKeyboard(false);
+            setSelectedTileIndex(null); // Clear tile selection when closing
+          }}
           allowMultipleSelections={false}
           emojiSize={48}
           defaultHeight="50%"
@@ -3812,5 +3896,33 @@ const styles = StyleSheet.create({
   backgroundSwatchActive: {
     borderColor: '#007AFF',
     borderWidth: 3,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  loadingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
 });

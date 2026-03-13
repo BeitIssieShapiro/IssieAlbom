@@ -91,6 +91,7 @@ export interface SketchText extends ElementBase {
 export interface TileWord {
   text: string; // The word(s) in this tile (could be merged)
   originalIndices: number[]; // Original word indices that were merged
+  symbol?: string; // Optional emoji/symbol for this tile
 }
 
 export interface SketchTiles extends ElementBase {

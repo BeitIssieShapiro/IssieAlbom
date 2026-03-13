@@ -12,6 +12,7 @@ interface TilesElementProps {
   onMergeTile?: (index: number) => void; // Merge tile at index with next tile
   onUnmergeTile?: (index: number) => void; // Unmerge tile at index
   highlightedWordIndex?: number; // For audio playback highlighting
+  onEditSymbol?: (index: number) => void; // Edit symbol for tile at index
 }
 
 export function TilesElement({
@@ -23,6 +24,7 @@ export function TilesElement({
   onMergeTile,
   onUnmergeTile,
   highlightedWordIndex,
+  onEditSymbol,
 }: TilesElementProps) {
   const yPosition = tiles.y * ratio;
   const numTiles = tiles.words.length;
@@ -81,6 +83,33 @@ export function TilesElement({
                 },
               ]}
             >
+              {/* Symbol above text */}
+              {word.symbol && (
+                <View style={styles.symbolContainer}>
+                  <Text style={[styles.symbolText, { fontSize: tiles.fontSize * ratio * 1.2 }]}>
+                    {word.symbol}
+                  </Text>
+                  {editMode && onEditSymbol && (
+                    <TouchableOpacity
+                      style={styles.editSymbolButton}
+                      onPress={() => onEditSymbol(index)}
+                    >
+                      <Icon name="pencil" size={12} color="#666" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {/* No symbol - show edit button if in edit mode */}
+              {!word.symbol && editMode && onEditSymbol && (
+                <TouchableOpacity
+                  style={styles.addSymbolButton}
+                  onPress={() => onEditSymbol(index)}
+                >
+                  <Icon name="add-circle-outline" size={16} color="#999" />
+                </TouchableOpacity>
+              )}
+
               <Text
                 style={[
                   styles.tileText,
@@ -150,6 +179,28 @@ const styles = StyleSheet.create({
   },
   tileText: {
     fontWeight: 'bold',
+  },
+  symbolContainer: {
+    position: 'absolute',
+    top: 4,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  symbolText: {
+    lineHeight: undefined, // Let emoji render naturally
+  },
+  editSymbolButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 8,
+    padding: 2,
+  },
+  addSymbolButton: {
+    position: 'absolute',
+    top: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 12,
+    padding: 2,
   },
   buttonContainer: {
     position: 'absolute',

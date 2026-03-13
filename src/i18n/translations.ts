@@ -101,6 +101,7 @@ interface Translations {
     addToCurrentPage: string;
     createNewPages: string;
     multipleImagesPrompt: string;
+    searchingSymbols: string;
   };
 
   // Settings Screen
@@ -174,8 +175,11 @@ interface Translations {
     exportAsAlbumDesc: string;
     exportAsPDF: string;
     exportAsPDFDesc: string;
+    exportAsVideo: string;
+    exportAsVideoDesc: string;
     exportingAlbum: string;
     exportingPDF: string;
+    exportingVideo: string;
     exportComplete: string;
     exportFailed: string;
     generatingPDF: string;
@@ -310,6 +314,7 @@ export const translations: Record<LanguageCode, Translations> = {
       addToCurrentPage: 'הוסף לעמוד נוכחי',
       createNewPages: 'צור עמודים חדשים',
       multipleImagesPrompt: 'האם להוסיף את כל התמונות לעמוד הנוכחי או ליצור עמוד חדש לכל תמונה?',
+      searchingSymbols: 'מחפש סמלים...',
     },
 
     settings: {
@@ -374,8 +379,11 @@ export const translations: Record<LanguageCode, Translations> = {
       exportAsAlbumDesc: 'גיבוי מלא עם כל התוכן',
       exportAsPDF: 'ייצוא כ-PDF',
       exportAsPDFDesc: 'להדפסה או לצפייה',
+      exportAsVideo: 'ייצוא כסרטון (MP4)',
+      exportAsVideoDesc: 'סרטון עם אודיו מסונכרן',
       exportingAlbum: 'מייצא אלבום...',
       exportingPDF: 'מייצר PDF...',
+      exportingVideo: 'מייצר סרטון...',
       exportComplete: 'הייצוא הושלם',
       exportFailed: 'הייצוא נכשל',
       generatingPDF: 'יוצר PDF',
@@ -508,6 +516,7 @@ export const translations: Record<LanguageCode, Translations> = {
       addToCurrentPage: 'Add to Current Page',
       createNewPages: 'Create New Pages',
       multipleImagesPrompt: 'Add all images to current page or create a new page for each image?',
+      searchingSymbols: 'Searching for symbols...',
     },
 
     settings: {
@@ -572,8 +581,11 @@ export const translations: Record<LanguageCode, Translations> = {
       exportAsAlbumDesc: 'Full backup with all content',
       exportAsPDF: 'Export as PDF',
       exportAsPDFDesc: 'For printing or viewing',
+      exportAsVideo: 'Export as Video (MP4)',
+      exportAsVideoDesc: 'Video with synchronized audio',
       exportingAlbum: 'Exporting album...',
       exportingPDF: 'Generating PDF...',
+      exportingVideo: 'Generating video...',
       exportComplete: 'Export complete',
       exportFailed: 'Export failed',
       generatingPDF: 'Generating PDF',
@@ -770,8 +782,11 @@ export const translations: Record<LanguageCode, Translations> = {
       exportAsAlbumDesc: 'نسخة احتياطية كاملة مع كل المحتوى',
       exportAsPDF: 'تصدير كـ PDF',
       exportAsPDFDesc: 'للطباعة أو العرض',
+      exportAsVideo: 'تصدير كفيديو (MP4)',
+      exportAsVideoDesc: 'فيديو مع صوت متزامن',
       exportingAlbum: 'جاري تصدير الألبوم...',
       exportingPDF: 'جاري إنشاء PDF...',
+      exportingVideo: 'جاري إنشاء الفيديو...',
       exportComplete: 'اكتمل التصدير',
       exportFailed: 'فشل التصدير',
       generatingPDF: 'إنشاء PDF',
