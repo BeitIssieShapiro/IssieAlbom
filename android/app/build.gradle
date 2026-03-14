@@ -72,6 +72,13 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// Load version properties from shared version.properties file
+def versionPropsFile = file('../../android/version.properties')
+def versionProps = new Properties()
+if (versionPropsFile.exists()) {
+    versionProps.load(new FileInputStream(versionPropsFile))
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -82,8 +89,8 @@ android {
         applicationId "com.issiealbum"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode versionProps['issiealbum.versionCode']?.toInteger() ?: 1
+        versionName versionProps['issiealbum.versionName'] ?: "1.0"
     }
     signingConfigs {
         debug {
@@ -91,6 +98,9 @@ android {
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
+        }
+        release {
+            // Release signing will be configured by apply-signing.gradle
         }
     }
     buildTypes {
@@ -100,7 +110,7 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
@@ -125,3 +135,7 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Apply shared signing configuration from issie-shared
+// This must be AFTER the android { } block and dependencies { } block
+apply from: "../../../issie-shared/android/keys/apply-signing.gradle"

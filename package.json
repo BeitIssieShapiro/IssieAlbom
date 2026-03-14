@@ -11,7 +11,8 @@
     "postinstall": "patch-package",
     "e2e:build": "detox build -c ios.sim.debug",
     "e2e:test": "detox test -c ios.sim.debug",
-    "e2e:clean": "rm -rf ios/build"
+    "e2e:clean": "rm -rf ios/build",
+    "deploy:android": "PROJECT_ROOT=$(pwd) ../issie-shared/android/deploy.sh issiealbum com.issiealbum"
   },
   "dependencies": {
     "@react-native-community/slider": "^5.1.2",

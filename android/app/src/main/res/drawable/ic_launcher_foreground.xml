@@ -1,0 +1,125 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1620"
+    android:viewportHeight="1620">
+
+  <!-- Scale everything down to fit in safe zone (66% of canvas) -->
+  <group
+      android:translateX="810"
+      android:translateY="810"
+      android:scaleX="0.52"
+      android:scaleY="0.52">
+
+    <group
+        android:translateX="-810"
+        android:translateY="-810">
+
+      <!-- Issie Album Icon - Book/Album symbol -->
+      <group
+          android:translateX="410"
+          android:translateY="230"
+          android:scaleX="2.2"
+          android:scaleY="2.2">
+
+        <!-- Left side dots -->
+        <path
+            android:fillColor="#5A8BB0"
+            android:pathData="M20,260h30v30h-30z"/>
+        <path
+            android:fillColor="#5A8BB0"
+            android:pathData="M20,165h30v30h-30z"/>
+        <path
+            android:fillColor="#5A8BB0"
+            android:pathData="M20,70h30v30h-30z"/>
+
+        <!-- Left page -->
+        <path
+            android:fillColor="#78B9EB"
+            android:pathData="M90,290V70h110V0h-70v40l-20,-10l-20,10V0H50v70v30v65v30v65v30v80h150v-80H90z"/>
+
+        <!-- Right page dark -->
+        <path
+            android:fillColor="#5A8BB0"
+            android:pathData="M200,0v70h110v220H200v80h150V0H200z"/>
+
+        <!-- Left page content (white) -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M90,290h110v-42.309h-84.615v-38.076v-33.846v-38.078V103.846H200V70H90V290z"/>
+
+        <!-- Right page content (light gray) -->
+        <path
+            android:fillColor="#EEEEEF"
+            android:pathData="M284.615,103.846v33.845v38.078v33.846v38.076H200V290h110V70H200v33.846H284.615z"/>
+
+        <!-- Horizontal divider (blue) -->
+        <path
+            android:fillColor="#78B9EB"
+            android:pathData="M284.615,209.615v-33.846h-42.306h-84.617h-42.307v33.846H284.615z"/>
+
+        <!-- Horizontal divider (dark blue) -->
+        <path
+            android:fillColor="#5A8BB0"
+            android:pathData="M284.615,247.691v-38.076H115.385v38.076H200H284.615z"/>
+
+        <!-- Heart top (red) -->
+        <path
+            android:fillColor="#FF5023"
+            android:pathData="M200,133.461c6.618,0,12.88,1.521,18.458,4.23h66.157v-33.846H200h-84.615v33.846h66.157C187.121,134.982,193.382,133.461,200,133.461z"/>
+
+        <!-- Heart left (orange) -->
+        <path
+            android:fillColor="#FF9811"
+            android:pathData="M181.542,137.691h-66.157v38.077h42.308C157.692,159.019,167.425,144.547,181.542,137.691z"/>
+
+        <!-- Heart right (orange) -->
+        <path
+            android:fillColor="#FF9811"
+            android:pathData="M218.458,137.691c14.118,6.855,23.851,21.327,23.851,38.077h42.307v-38.077H218.458z"/>
+
+        <!-- Heart center (yellow) -->
+        <path
+            android:fillColor="#FFDA44"
+            android:pathData="M218.458,137.691c-5.578,-2.709,-11.84,-4.23,-18.458,-4.23s-12.879,1.521,-18.458,4.23c-14.117,6.855,-23.85,21.327,-23.85,38.077h84.616C242.309,159.019,232.576,144.547,218.458,137.691z"/>
+
+        <!-- Top bookmark (red) -->
+        <path
+            android:fillColor="#FF5023"
+            android:pathData="M110,30l20,10V0H90v40L110,30z"/>
+      </group>
+
+      <!-- Bird and Person (scaled and positioned) -->
+      <group
+          android:translateX="100"
+          android:translateY="810"
+          android:scaleX="1.6"
+          android:scaleY="1.6">
+
+    <!-- Bird's wing -->
+    <path
+        android:fillColor="#faa919"
+        android:pathData="M379.145,523.782s-29.726,53.061,31.337,138.64c61.054,85.584,106.595,45.763,106.595,45.763l-12.551,-62.017l-20.193,-94.18L379.145,523.782z"/>
+
+    <!-- Main bird body -->
+    <path
+        android:fillColor="#ffffff"
+        android:pathData="M558.566,654.847c-121.118,41.399,-286.191,-34.589,-347.237,-98.509C106.533,446.555,31.693,522.862,3.577,536.724c-4.51,2.246,-4.753,3.947,-0.74,4.685c21.892,4.145,94.638,23.749,116.276,104.548C210.324,986.63,496.377,1015.758,646.871,981.065c74.078,-17.082,91.968,-48.594,41.8,-33.311c-42.574,12.959,-75.283,1.382,-75.708,-19.901c-0.696,-34.099,48.869,-40.276,173.502,-104.73C985.612,720.16,905.195,480.439,905.195,480.439S789.278,575.953,558.566,654.847z"/>
+
+    <!-- Person -->
+    <group
+        android:translateX="346.509"
+        android:translateY="386.609">
+      <path
+          android:fillColor="#faa919"
+          android:pathData="M273.425,89.198s-51.361,1.913,-105.228,-17.728c-22.004,-8.046,-49.517,-43.662,-72.634,-55.798C21.635,-23.208,5.32,25.541,5.32,25.541l3.548,10.71c-5.613,9.641,-8.678,21.144,-8.223,33.398c0.992,27.277,19.056,49.473,42.629,55.206c13.145,4.786,48.264,15.005,98.953,10.419C207.35,129.368,273.425,89.198,273.425,89.198"/>
+    </group>
+
+        <!-- Person's arm/wing -->
+        <path
+            android:fillColor="#faa919"
+            android:pathData="M242.897,426.954s42.087,47.623,136.564,79.514c94.486,31.882,149.242,26.748,214.749,75.325c52.125,38.633,84.164,95.3,84.164,95.3s-55.638,-72.204,-171.324,-81.396C391.353,586.49,240.742,482.462,242.897,426.954"/>
+      </group>
+    </group>
+  </group>
+</vector>
