@@ -52,6 +52,9 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [albumToExport, setAlbumToExport] = useState<Album | null>(null);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [albumToRename, setAlbumToRename] = useState<Album | null>(null);
+  const [renameAlbumName, setRenameAlbumName] = useState('');
 
   // Track screen dimensions for rotation support
   const [screenDimensions, setScreenDimensions] = useState(() => {
@@ -194,44 +197,51 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   };
 
   const handleRenameAlbum = (album: Album) => {
-    Alert.prompt(
-      t('home.renameAlbumTitle'),
-      t('home.renameAlbumPrompt'),
-      async (newName) => {
-        if (newName && newName.trim()) {
-          try {
-            await AlbumService.updateAlbumName(album.id, newName.trim());
-            await loadAlbums();
-          } catch (error) {
-            // Translate validation error codes
-            let errorMessage = t('home.errorRenameAlbum');
-            if (error instanceof Error && error.message.startsWith('VALIDATION_ERROR:')) {
-              const errorCode = error.message.replace('VALIDATION_ERROR:', '');
-              switch (errorCode) {
-                case 'EMPTY':
-                  errorMessage = t('home.errorNameEmpty');
-                  break;
-                case 'TOO_LONG':
-                  errorMessage = t('home.errorNameTooLong');
-                  break;
-                case 'INVALID_CHARS':
-                  errorMessage = t('home.errorNameInvalidChars');
-                  break;
-                case 'RESERVED_NAME':
-                  errorMessage = t('home.errorNameReserved');
-                  break;
-                case 'DUPLICATE_NAME':
-                  errorMessage = t('home.errorNameDuplicate');
-                  break;
-              }
-            }
-            Alert.alert(t('home.error'), errorMessage);
-          }
+    setAlbumToRename(album);
+    setRenameAlbumName(album.name);
+    setShowRenameModal(true);
+  };
+
+  const handleConfirmRename = async () => {
+    if (!albumToRename) return;
+
+    const trimmedName = renameAlbumName.trim();
+    if (!trimmedName) {
+      Alert.alert(t('home.error'), t('home.errorEnterName'));
+      return;
+    }
+
+    try {
+      await AlbumService.updateAlbumName(albumToRename.id, trimmedName);
+      setShowRenameModal(false);
+      setAlbumToRename(null);
+      await loadAlbums();
+    } catch (error) {
+      // Translate validation error codes
+      let errorMessage = t('home.errorRenameAlbum');
+      if (error instanceof Error && error.message.startsWith('VALIDATION_ERROR:')) {
+        const errorCode = error.message.replace('VALIDATION_ERROR:', '');
+        switch (errorCode) {
+          case 'EMPTY':
+            errorMessage = t('home.errorNameEmpty');
+            break;
+          case 'TOO_LONG':
+            errorMessage = t('home.errorNameTooLong');
+            break;
+          case 'INVALID_CHARS':
+            errorMessage = t('home.errorNameInvalidChars');
+            break;
+          case 'RESERVED_NAME':
+            errorMessage = t('home.errorNameReserved');
+            break;
+          case 'DUPLICATE_NAME':
+            errorMessage = t('home.errorNameDuplicate');
+            break;
         }
-      },
-      'plain-text',
-      album.name
-    );
+      }
+      Alert.alert(t('home.error'), errorMessage);
+      // Keep modal open so user can fix the name
+    }
   };
 
   const handleShareAlbum = (album: Album) => {
@@ -387,6 +397,79 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
         </TouchableOpacity>
       </Modal>
 
+      <Modal
+        visible={showRenameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowRenameModal(false);
+          setAlbumToRename(null);
+        }}
+        supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => {
+            setShowRenameModal(false);
+            setAlbumToRename(null);
+          }}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.keyboardAvoid}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={[styles.modalContent, {
+                backgroundColor: colors.cardBackground,
+                shadowColor: colors.primary,
+              }]}>
+                <Text style={[styles.modalTitle, { color: colors.primary }]}>{t('home.renameAlbumPrompt')}</Text>
+                <TextInput
+                  style={[styles.input, {
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                    color: colors.textPrimary,
+                    textAlign: isRTL ? 'right' : 'left',
+                    writingDirection: direction,
+                  }]}
+                  placeholder={t('home.albumNamePlaceholder')}
+                  value={renameAlbumName}
+                  onChangeText={setRenameAlbumName}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleConfirmRename}
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton, {
+                      backgroundColor: colors.textLight,
+                    }]}
+                    onPress={() => {
+                      setShowRenameModal(false);
+                      setAlbumToRename(null);
+                    }}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.createButton, {
+                      backgroundColor: colors.primary,
+                    }]}
+                    onPress={handleConfirmRename}
+                  >
+                    <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.rename')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
+
       {albumToExport && (
         <ExportModal
           visible={exportModalVisible}
@@ -485,6 +568,7 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 10,
   },
   modalButton: {
     flex: 1,
@@ -493,14 +577,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    marginRight: spacing.sm,
   },
   cancelButtonText: {
     fontSize: 18,
     fontWeight: '600',
   },
   createButton: {
-    marginLeft: spacing.sm,
   },
   createButtonText: {
     fontSize: 18,

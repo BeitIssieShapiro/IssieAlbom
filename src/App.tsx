@@ -19,7 +19,7 @@ if (typeof global !== 'undefined') {
 }
 
 import React, { useState, useEffect } from 'react';
-import { StatusBar, useColorScheme, View, Linking, Alert } from 'react-native';
+import { StatusBar, useColorScheme, View, Linking, Alert, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Album } from './types/Album';
 import { AlbumService } from './services/AlbumService';
@@ -29,6 +29,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { AlbumScreen } from './screens/AlbumScreen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import FileCopyModule from './modules/FileCopyModule';
 
 interface OpenedAlbum {
   album: Album;
@@ -55,15 +56,37 @@ function AppContent() {
   // Handle incoming shared files or URLs
   useEffect(() => {
     const handleURL = async (event: { url: string }) => {
-      console.log('[App] Received URL:', event.url);
+      console.log('[App] Received URL event:', event.url);
 
-      // Check if it's a ZIP file
-      if (event.url.endsWith('.zip')) {
+      // Convert content:// URI to file path if on Android
+      let url = event.url;
+      if (Platform.OS === 'android' && url.startsWith('content://')) {
+        console.log('[App] Converting content:// URI to file path');
         try {
-          // Decode URL encoding (e.g., %20 -> space) and remove file:// prefix
-          let zipPath = event.url.replace('file://', '');
-          zipPath = decodeURIComponent(zipPath);
-          console.log('[App] Importing ZIP file:', zipPath);
+          url = await FileCopyModule.copyContentUriToTemp(url);
+          console.log('[App] Copied to temp file:', url);
+        } catch (error) {
+          console.error('[App] Failed to copy content URI:', error);
+          Alert.alert('Import Failed', 'Could not access shared file');
+          return;
+        }
+      }
+
+      // Check if it's a content URI or file URI pointing to a ZIP
+      const isZipFile = url.endsWith('.zip') ||
+                        url.includes('application/zip') ||
+                        url.includes('application/x-zip-compressed');
+
+      if (isZipFile) {
+        try {
+          // Handle file:// URIs - decode and remove prefix
+          let zipPath = url;
+          if (zipPath.startsWith('file://')) {
+            zipPath = zipPath.replace('file://', '');
+            zipPath = decodeURIComponent(zipPath);
+          }
+
+          console.log('[App] Processing file URI:', zipPath);
 
           // Extract ZIP info to determine type
           const zipInfo = await ImportService.extractZipInfo(zipPath);
@@ -142,12 +165,16 @@ function AppContent() {
 
     // Listen for URL events (when app is already open)
     const subscription = Linking.addEventListener('url', handleURL);
+    console.log('[App] URL listener registered');
 
     // Handle initial URL (when app is launched via share)
     Linking.getInitialURL().then((url) => {
+      console.log('[App] Initial URL check:', url);
       if (url) {
         handleURL({ url });
       }
+    }).catch(err => {
+      console.error('[App] Failed to get initial URL:', err);
     });
 
     return () => subscription.remove();

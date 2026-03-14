@@ -1780,17 +1780,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const checkAudioPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
+        // On Android 13+ (API 33+), WRITE_EXTERNAL_STORAGE is not needed for app-specific directories
+        // We only need RECORD_AUDIO permission
         const grants = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
         ]);
 
-        if (
-          grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.WRITE_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.READ_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED
-        ) {
+        if (grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED) {
           return true;
         } else {
           showAlert(t('editor.permissions'), t('editor.permissionsMessage'));
@@ -1820,15 +1816,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
 
     try {
+      console.log('[handleStartRecording] Starting recorder with voice recognition config...');
+      // Use VOICE_RECOGNITION audio source for better voice capture on Android
       const audioConfig = {
-        AudioSamplingRate: 44100,
-        AudioEncodingBitRate: 128000,
-        AudioChannels: 1,
+        AudioSourceAndroid: 6, // VOICE_RECOGNITION - optimized for voice with noise cancellation
+        OutputFormatAndroid: 2, // MPEG_4
+        AudioEncoderAndroid: 3, // AAC
       };
-
-      console.log('[handleStartRecording] Starting recorder...');
-      // Enable metering to get audio levels during recording
-      await Sound.startRecorder(undefined, audioConfig, true); // third param = meteringEnabled
+      const result = await Sound.startRecorder(undefined, audioConfig, true); // Enable metering
+      console.log('[handleStartRecording] startRecorder result:', result);
       Sound.addRecordBackListener((e) => {
         console.log('Recording progress:', e.currentPosition, 'metering:', e.currentMetering);
         // currentMetering is in dB (typically -160 to 0)
@@ -1839,6 +1835,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           const MIN_DB = -50; // More sensitive (lower = more sensitive)
           const MAX_DB = 0;
           const normalized = Math.max(0, Math.min(1, (e.currentMetering - MIN_DB) / (MAX_DB - MIN_DB)));
+          console.log('[handleStartRecording] normalized metering:', normalized);
           setRecordingMetering(normalized);
         }
       });
@@ -1921,22 +1918,31 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handlePlayAudio = async () => {
     // Use refs to avoid stale closure
     const currentFile = pageAudioFileRef.current;
-    if (!currentFile) return;
+    if (!currentFile) {
+      console.log('[handlePlayAudio] No audio file to play');
+      return;
+    }
 
     try {
       // Convert relative path to absolute
       const absolutePath = AttachmentService.getAbsolutePath(albumId, currentFile);
       const filePath = `file://${absolutePath}`;
-      console.log('Playing audio from toolbar:', filePath);
-      await Sound.startPlayer(filePath);
+      console.log('[handlePlayAudio] Playing audio from toolbar:', filePath);
+      console.log('[handlePlayAudio] Absolute path:', absolutePath);
+
+      const result = await Sound.startPlayer(filePath);
+      console.log('[handlePlayAudio] startPlayer result:', result);
+
       Sound.addPlayBackListener((e) => {
+        console.log('[handlePlayAudio] Playback progress:', e.currentPosition, '/', e.duration);
         if (e.currentPosition >= e.duration && e.duration > 0) {
+          console.log('[handlePlayAudio] Playback complete, stopping');
           Sound.stopPlayer().catch(console.error);
           Sound.removePlayBackListener();
         }
       });
     } catch (error) {
-      console.error('Failed to play audio:', error);
+      console.error('[handlePlayAudio] Failed to play audio:', error);
       showAlert(t('home.error'), t('editor.errorPlayRecording'));
     }
   };

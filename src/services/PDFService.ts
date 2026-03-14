@@ -79,8 +79,20 @@ export class PDFService {
             console.log('[PDFService] PDF generation complete, writing to file...');
             const pdfData = Buffer.concat(chunks);
             console.log('[PDFService] Total PDF size:', pdfData.length, 'bytes');
+
+            // Write to app's exports directory
             await RNFS.writeFile(pdfPath, pdfData.toString('base64'), 'base64');
-            console.log('[PDFService] PDF written successfully');
+            console.log('[PDFService] PDF written to app directory:', pdfPath);
+
+            // Also write to Downloads folder for easy access
+            try {
+              const downloadsPath = `${RNFS.DownloadDirectoryPath}/${pdfFilename}`;
+              await RNFS.writeFile(downloadsPath, pdfData.toString('base64'), 'base64');
+              console.log('[PDFService] PDF also written to Downloads:', downloadsPath);
+            } catch (downloadErr) {
+              console.warn('[PDFService] Could not write to Downloads (non-critical):', downloadErr);
+            }
+
             resolve(pdfPath);
           } catch (fileErr) {
             console.error('[PDFService] Failed to write PDF:', fileErr);

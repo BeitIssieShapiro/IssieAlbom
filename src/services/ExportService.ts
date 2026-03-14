@@ -123,6 +123,15 @@ export class ExportService {
       console.log('[ExportService] Creating ZIP:', zipPath);
       await ZipUtils.zip(exportTempDir, zipPath);
 
+      // Also copy to Downloads folder for easy access
+      try {
+        const downloadsPath = `${RNFS.DownloadDirectoryPath}/${zipFilename}`;
+        await RNFS.copyFile(zipPath, downloadsPath);
+        console.log('[ExportService] ZIP also copied to Downloads:', downloadsPath);
+      } catch (downloadErr) {
+        console.warn('[ExportService] Could not copy to Downloads (non-critical):', downloadErr);
+      }
+
       // Clean up temp directory
       await RNFS.unlink(exportTempDir);
 

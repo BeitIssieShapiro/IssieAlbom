@@ -361,10 +361,15 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           </TouchableOpacity>
         </View>
 
-        {/* End side (Right in LTR, Left in RTL): Album title */}
-        <Text style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
-          {album.name}
-        </Text>
+        {/* Center: Album title */}
+        <View style={styles.headerCenter}>
+          <Text style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
+            {album.name}
+          </Text>
+        </View>
+
+        {/* End side (Right in LTR, Left in RTL): Spacer to balance the layout */}
+        <View style={styles.headerRight} />
       </View>
 
       {isLoading ? (
@@ -550,7 +555,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    flexShrink: 0, // Prevent shrinking
+    flex: 1,
+  },
+  headerCenter: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRight: {
+    flex: 1,
   },
   backButton: {
     width: 44,
@@ -573,8 +586,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    textAlign: 'right',
-    flexShrink: 1, // Allow title to shrink if needed
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

@@ -69,17 +69,13 @@ export function AudioElement({
   const checkPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
+        // On Android 13+ (API 33+), WRITE_EXTERNAL_STORAGE is not needed for app-specific directories
+        // We only need RECORD_AUDIO permission
         const grants = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
         ]);
 
-        if (
-          grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.WRITE_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.READ_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED
-        ) {
+        if (grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED) {
           return true;
         } else {
           Alert.alert(t('editor.permissions'), t('editor.permissionsMessage'));
@@ -98,12 +94,12 @@ export function AudioElement({
     if (!hasPermission) return;
 
     try {
+      // Use VOICE_RECOGNITION audio source for better voice capture on Android
       const audioConfig = {
-        AudioSamplingRate: 44100,
-        AudioEncodingBitRate: 128000,
-        AudioChannels: 1,
+        AudioSourceAndroid: 6, // VOICE_RECOGNITION - optimized for voice with noise cancellation
+        OutputFormatAndroid: 2, // MPEG_4
+        AudioEncoderAndroid: 3, // AAC
       };
-
       await Sound.startRecorder(undefined, audioConfig, true);
       Sound.addRecordBackListener((e) => {
         setRecordSecs(e.currentPosition);
