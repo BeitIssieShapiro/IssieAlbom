@@ -17,6 +17,11 @@ interface Translations {
     errorCreateAlbum: string;
     errorDeleteAlbum: string;
     errorRenameAlbum: string;
+    errorNameEmpty: string;
+    errorNameTooLong: string;
+    errorNameInvalidChars: string;
+    errorNameReserved: string;
+    errorNameDuplicate: string;
     deleteAlbumTitle: string;
     deleteAlbumMessage: string;
     delete: string;
@@ -243,6 +248,11 @@ export const translations: Record<LanguageCode, Translations> = {
       errorCreateAlbum: 'יצירת האלבום נכשלה',
       errorDeleteAlbum: 'מחיקת האלבום נכשלה',
       errorRenameAlbum: 'שינוי שם האלבום נכשל',
+      errorNameEmpty: 'נא להזין שם לאלבום',
+      errorNameTooLong: 'השם ארוך מדי (מקסימום 255 תווים)',
+      errorNameInvalidChars: 'השם מכיל תווים לא חוקיים: / \\ : * ? " < > |',
+      errorNameReserved: 'השם הזה שמור ואינו ניתן לשימוש',
+      errorNameDuplicate: 'אלבום עם שם זה כבר קיים',
       deleteAlbumTitle: 'מחיקת אלבום',
       deleteAlbumMessage: 'האם למחוק את "{name}"? לא ניתן לבטל פעולה זו.',
       delete: 'מחיקה',
@@ -455,6 +465,11 @@ export const translations: Record<LanguageCode, Translations> = {
       errorCreateAlbum: 'Failed to create album',
       errorDeleteAlbum: 'Failed to delete album',
       errorRenameAlbum: 'Failed to rename album',
+      errorNameEmpty: 'Please enter an album name',
+      errorNameTooLong: 'Name is too long (maximum 255 characters)',
+      errorNameInvalidChars: 'Name contains invalid characters: / \\ : * ? " < > |',
+      errorNameReserved: 'This name is reserved and cannot be used',
+      errorNameDuplicate: 'An album with this name already exists',
       deleteAlbumTitle: 'Delete Album',
       deleteAlbumMessage: 'Delete "{name}"? This cannot be undone.',
       delete: 'Delete',
@@ -667,6 +682,11 @@ export const translations: Record<LanguageCode, Translations> = {
       errorCreateAlbum: 'فشل إنشاء الألبوم',
       errorDeleteAlbum: 'فشل حذف الألبوم',
       errorRenameAlbum: 'فشل إعادة تسمية الألبوم',
+      errorNameEmpty: 'الرجاء إدخال اسم الألبوم',
+      errorNameTooLong: 'الاسم طويل جدًا (الحد الأقصى 255 حرفًا)',
+      errorNameInvalidChars: 'الاسم يحتوي على أحرف غير صالحة: / \\ : * ? " < > |',
+      errorNameReserved: 'هذا الاسم محجوز ولا يمكن استخدامه',
+      errorNameDuplicate: 'يوجد ألبوم بهذا الاسم بالفعل',
       deleteAlbumTitle: 'حذف الألبوم',
       deleteAlbumMessage: 'حذف "{name}"؟ لا يمكن التراجع عن هذا.',
       delete: 'حذف',

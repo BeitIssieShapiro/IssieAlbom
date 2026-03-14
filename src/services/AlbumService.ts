@@ -89,7 +89,8 @@ export const AlbumService = {
     // Validate name
     const validation = validateAlbumName(name);
     if (!validation.isValid) {
-      throw new Error(validation.error);
+      // Return error code that will be translated in the UI
+      throw new Error(`VALIDATION_ERROR:${validation.errorCode}`);
     }
 
     // Get folder name (trimmed)
@@ -97,7 +98,7 @@ export const AlbumService = {
 
     // Check for duplicates
     if (await this.albumExists(folderName)) {
-      throw new Error('אלבום עם שם זה כבר קיים');
+      throw new Error('VALIDATION_ERROR:DUPLICATE_NAME');
     }
 
     // Use folder name as ID
@@ -164,7 +165,8 @@ export const AlbumService = {
     // Validate new name
     const validation = validateAlbumName(newName);
     if (!validation.isValid) {
-      throw new Error(validation.error);
+      // Return error code that will be translated in the UI
+      throw new Error(`VALIDATION_ERROR:${validation.errorCode}`);
     }
 
     const newFolderName = getFolderName(newName);
@@ -178,7 +180,7 @@ export const AlbumService = {
 
     // Check for duplicates
     if (await RNFS.exists(newPath)) {
-      throw new Error('אלבום עם שם זה כבר קיים');
+      throw new Error('VALIDATION_ERROR:DUPLICATE_NAME');
     }
 
     // Rename folder

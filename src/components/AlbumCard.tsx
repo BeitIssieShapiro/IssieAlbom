@@ -14,7 +14,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { AlbumIcon } from './AlbumIcon';
 
-const NUM_COLUMNS = 4;
+const MIN_CARD_WIDTH = 100; // Smaller for mobile landscape to fit more columns
+const MAX_COLUMNS = 4; // Maximum columns on larger screens
 const CARD_MARGIN = spacing.md;
 const LIST_PADDING = spacing.md;
 
@@ -30,7 +31,13 @@ interface AlbumCardProps {
 export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenWidth }: AlbumCardProps) {
   const { colors } = useTheme();
   const { t, language, isRTL } = useLanguage();
-  const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
+
+  // Calculate responsive number of columns based on screen width
+  const availableWidth = screenWidth - LIST_PADDING * 2;
+  const calculatedColumns = Math.floor(availableWidth / (MIN_CARD_WIDTH + CARD_MARGIN * 2));
+  const numColumns = Math.max(1, Math.min(calculatedColumns, MAX_COLUMNS));
+  const cardWidth = (availableWidth - CARD_MARGIN * 2 * numColumns) / numColumns;
+
   const [menuVisible, setMenuVisible] = useState(false);
 
   const locale = { en: 'en-US', he: 'he-IL', ar: 'ar-SA' }[language];
@@ -181,7 +188,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   imageContainer: {
-    aspectRatio: 16 / 9,
+    aspectRatio: 2 / 1, // Even more compact for mobile landscape (was 3/2)
   },
   previewImage: {
     width: '100%',
@@ -211,15 +218,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   info: {
-    padding: spacing.md,
+    padding: spacing.sm, // Reduced from spacing.md for more compact cards
   },
   name: {
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16 for more compact cards
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2, // Reduced from 4
   },
   date: {
-    fontSize: 13,
+    fontSize: 11, // Reduced from 13 for more compact cards
   },
   menuOverlay: {
     flex: 1,

@@ -28,7 +28,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { GlobalContext } from '../contexts/GlobalContext';
 
-const NUM_COLUMNS = 4;
+const MIN_CARD_WIDTH = 100; // Smaller for mobile landscape to fit more columns
+const MAX_COLUMNS = 4; // Maximum columns on larger screens
+const CARD_MARGIN = spacing.md;
+const LIST_PADDING = spacing.md;
 
 interface HomeScreenProps {
   onOpenAlbum: (album: Album) => void;
@@ -136,9 +139,30 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
       setShowNewAlbumModal(false);
       onOpenAlbum(newAlbum);
     } catch (error) {
-      console.error('Failed to create album:', error);
-      const errorMessage = error instanceof Error ? error.message : t('home.errorCreateAlbum');
+      // Translate validation error codes
+      let errorMessage = t('home.errorCreateAlbum');
+      if (error instanceof Error && error.message.startsWith('VALIDATION_ERROR:')) {
+        const errorCode = error.message.replace('VALIDATION_ERROR:', '');
+        switch (errorCode) {
+          case 'EMPTY':
+            errorMessage = t('home.errorNameEmpty');
+            break;
+          case 'TOO_LONG':
+            errorMessage = t('home.errorNameTooLong');
+            break;
+          case 'INVALID_CHARS':
+            errorMessage = t('home.errorNameInvalidChars');
+            break;
+          case 'RESERVED_NAME':
+            errorMessage = t('home.errorNameReserved');
+            break;
+          case 'DUPLICATE_NAME':
+            errorMessage = t('home.errorNameDuplicate');
+            break;
+        }
+      }
       Alert.alert(t('home.error'), errorMessage);
+      // Keep modal open so user can fix the name
     }
   };
 
@@ -179,8 +203,28 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
             await AlbumService.updateAlbumName(album.id, newName.trim());
             await loadAlbums();
           } catch (error) {
-            console.error('Failed to rename album:', error);
-            const errorMessage = error instanceof Error ? error.message : t('home.errorRenameAlbum');
+            // Translate validation error codes
+            let errorMessage = t('home.errorRenameAlbum');
+            if (error instanceof Error && error.message.startsWith('VALIDATION_ERROR:')) {
+              const errorCode = error.message.replace('VALIDATION_ERROR:', '');
+              switch (errorCode) {
+                case 'EMPTY':
+                  errorMessage = t('home.errorNameEmpty');
+                  break;
+                case 'TOO_LONG':
+                  errorMessage = t('home.errorNameTooLong');
+                  break;
+                case 'INVALID_CHARS':
+                  errorMessage = t('home.errorNameInvalidChars');
+                  break;
+                case 'RESERVED_NAME':
+                  errorMessage = t('home.errorNameReserved');
+                  break;
+                case 'DUPLICATE_NAME':
+                  errorMessage = t('home.errorNameDuplicate');
+                  break;
+              }
+            }
             Alert.alert(t('home.error'), errorMessage);
           }
         }
@@ -220,6 +264,11 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
 
   const data: (Album | 'add')[] = [...albums, 'add'];
 
+  // Calculate responsive number of columns based on screen width
+  const availableWidth = screenDimensions.width - LIST_PADDING * 2;
+  const calculatedColumns = Math.floor(availableWidth / (MIN_CARD_WIDTH + CARD_MARGIN * 2));
+  const numColumns = Math.max(1, Math.min(calculatedColumns, MAX_COLUMNS));
+
   if (showAbout) {
     return <AboutScreen onClose={() => setShowAbout(false)} />;
   }
@@ -257,9 +306,10 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
           data={data}
           renderItem={renderItem}
           keyExtractor={(item) => (item === 'add' ? 'add-button' : item.id)}
-          numColumns={NUM_COLUMNS}
+          key={`grid-${numColumns}`}
+          numColumns={numColumns}
           contentContainerStyle={styles.listContent}
-          columnWrapperStyle={{ flexDirection: 'row' }}
+          columnWrapperStyle={numColumns > 1 ? { flexDirection: 'row' } : undefined}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
           }

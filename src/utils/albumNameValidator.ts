@@ -7,7 +7,7 @@
 
 export interface ValidationResult {
   isValid: boolean;
-  error?: string; // Hebrew user-friendly error message
+  errorCode?: 'EMPTY' | 'TOO_LONG' | 'INVALID_CHARS' | 'RESERVED_NAME'; // Error code for translation
 }
 
 // Invalid characters for filesystem: / \ : * ? " < > |
@@ -22,29 +22,29 @@ const RESERVED_NAMES = /^(\.\.?|CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
  * Validates an album name for use as a folder name
  *
  * @param name - The album name to validate
- * @returns ValidationResult with isValid flag and optional error message
+ * @returns ValidationResult with isValid flag and optional error code
  */
 export function validateAlbumName(name: string): ValidationResult {
   const trimmed = name.trim();
 
   // Check empty
   if (trimmed.length === 0) {
-    return { isValid: false, error: 'נא להזין שם לאלבום' };
+    return { isValid: false, errorCode: 'EMPTY' };
   }
 
   // Check length (filesystem limit)
   if (trimmed.length > 255) {
-    return { isValid: false, error: 'השם ארוך מדי (מקסימום 255 תווים)' };
+    return { isValid: false, errorCode: 'TOO_LONG' };
   }
 
   // Check invalid characters
   if (INVALID_CHARS_REGEX.test(trimmed)) {
-    return { isValid: false, error: 'השם מכיל תווים לא חוקיים: / \\ : * ? " < > |' };
+    return { isValid: false, errorCode: 'INVALID_CHARS' };
   }
 
   // Check reserved names
   if (RESERVED_NAMES.test(trimmed)) {
-    return { isValid: false, error: 'השם הזה שמור ואינו ניתן לשימוש' };
+    return { isValid: false, errorCode: 'RESERVED_NAME' };
   }
 
   return { isValid: true };

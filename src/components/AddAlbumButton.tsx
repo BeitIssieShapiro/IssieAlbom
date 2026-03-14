@@ -4,9 +4,10 @@ import { spacing, borderRadius, shadows } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const NUM_COLUMNS = 4;
 const CARD_MARGIN = spacing.md;
 const LIST_PADDING = spacing.md;
+const MIN_CARD_WIDTH = 100; // Smaller for mobile landscape to fit more columns
+const MAX_COLUMNS = 4; // Maximum columns on larger screens
 
 interface AddAlbumButtonProps {
   onPress: () => void;
@@ -16,7 +17,12 @@ interface AddAlbumButtonProps {
 export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
   const { colors } = useTheme();
   const { t } = useLanguage();
-  const cardWidth = (screenWidth - LIST_PADDING * 2 - CARD_MARGIN * 2 * NUM_COLUMNS) / NUM_COLUMNS;
+
+  // Calculate responsive number of columns based on screen width
+  const availableWidth = screenWidth - LIST_PADDING * 2;
+  const calculatedColumns = Math.floor(availableWidth / (MIN_CARD_WIDTH + CARD_MARGIN * 2));
+  const numColumns = Math.max(1, Math.min(calculatedColumns, MAX_COLUMNS));
+  const cardWidth = (availableWidth - CARD_MARGIN * 2 * numColumns) / numColumns;
 
   return (
     <TouchableOpacity
@@ -46,17 +52,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   iconContainer: {
-    aspectRatio: 16 / 9,
+    aspectRatio: 2 / 1, // Even more compact for mobile landscape (was 3/2)
     justifyContent: 'center',
     alignItems: 'center',
   },
   icon: {
-    fontSize: 64,
+    fontSize: 48, // Reduced from 64 for more compact cards
     fontWeight: '300',
   },
   label: {
-    padding: spacing.md,
-    fontSize: 16,
+    padding: spacing.sm, // Reduced from spacing.md for more compact cards
+    fontSize: 14, // Reduced from 16 for more compact cards
     fontWeight: '700',
     textAlign: 'center',
   },

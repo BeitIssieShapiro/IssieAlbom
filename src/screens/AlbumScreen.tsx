@@ -348,23 +348,23 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
-        {/* Edit/Done button - Start side (Left in LTR, Right in RTL) */}
-        <TouchableOpacity
-          style={[styles.editButton, { backgroundColor: colors.primary }]}
-          onPress={handleToggleEditMode}
-        >
-          <Text style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? t('album.done') : t('album.edit')}</Text>
-        </TouchableOpacity>
+        {/* Start side (Left in LTR, Right in RTL): Home + Edit buttons */}
+        <View style={styles.headerLeft}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={onBack}>
+            <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.editButton, { backgroundColor: colors.primary }]}
+            onPress={handleToggleEditMode}
+          >
+            <Text style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? t('album.done') : t('album.edit')}</Text>
+          </TouchableOpacity>
+        </View>
 
-        {/* Album title - Center */}
+        {/* End side (Right in LTR, Left in RTL): Album title */}
         <Text style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
           {album.name}
         </Text>
-
-        {/* Home button - End side (Right in LTR, Left in RTL) */}
-        <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={onBack}>
-          <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
-        </TouchableOpacity>
       </View>
 
       {isLoading ? (
@@ -541,9 +541,16 @@ const styles = StyleSheet.create({
     height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 0,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexShrink: 0, // Prevent shrinking
   },
   backButton: {
     width: 44,
@@ -564,10 +571,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   title: {
-    flex: 1,
     fontSize: 24,
     fontWeight: '700',
-    textAlign: 'center',
+    textAlign: 'right',
+    flexShrink: 1, // Allow title to shrink if needed
   },
   loadingContainer: {
     flex: 1,

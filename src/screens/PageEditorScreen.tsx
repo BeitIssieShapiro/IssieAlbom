@@ -50,8 +50,8 @@ import { spacing, borderRadius } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const TOOLBAR_WIDTH = 90;
-const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
+const TOOLBAR_WIDTH = 90; // Default toolbar width (will be overridden responsively)
+const CANVAS_MARGIN = 6; // Margin around canvas in edit mode (reduced for mobile)
 const MAX_TILE_SIZE_RATIO = 0.35; // Max tile size as percentage of page height
 
 // Debug: Allow unlimited undo in development (set to false for production)
@@ -510,9 +510,19 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     { label: 'XL', value: 0.18 },
   ];
 
+  // Detect mobile device (both portrait and landscape, but screen < 768 for mobile, not iPad)
+  const isMobile = screenDimensions.width < 768 || screenDimensions.height < 768;
+  const isMobileLandscape = isMobile && screenDimensions.width > screenDimensions.height;
+
+  // Responsive toolbar sizing - only smaller on mobile landscape
+  const toolbarWidth = isMobileLandscape ? 70 : 90;
+  const toolbarButtonSize = isMobileLandscape ? 54 : 70;
+  const toolbarGap = isMobileLandscape ? 8 : 12;
+  const toolbarPaddingVertical = isMobileLandscape ? 4 : 8;
+
   // Calculate available space for canvas (subtracting toolbar width from the right and margins)
-  const availableWidth = screenDimensions.width - TOOLBAR_WIDTH - CANVAS_MARGIN * 2;
-  const availableHeight = screenDimensions.height - HEADER_HEIGHT - CANVAS_MARGIN * 2;
+  const availableWidth = screenDimensions.width - toolbarWidth - CANVAS_MARGIN * 2 - insets.left - insets.right;
+  const availableHeight = screenDimensions.height - HEADER_HEIGHT - CANVAS_MARGIN * 2 - insets.top - insets.bottom;
 
   // Get original page dimensions (screen dimensions when page was created)
   const v2Page = page as AlbumPageV2;
@@ -542,11 +552,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   // Calculate centering offset for canvas
   // Available width for canvas area (excluding toolbar)
-  const canvasAreaWidth = screenDimensions.width - TOOLBAR_WIDTH;
+  const canvasAreaWidth = screenDimensions.width - toolbarWidth - insets.left - insets.right;
   // Remaining horizontal space after placing canvas
   const horizontalSpace = canvasAreaWidth - canvasWidth;
   // Center the canvas within available space, with minimum margin
-  const centeringOffset = Math.max(CANVAS_MARGIN, horizontalSpace / 2);
+  const centeringOffset = Math.max(0, horizontalSpace / 2);
 
   // Canvas left margin (start margin in RTL-aware terms)
   const canvasLeftMargin = centeringOffset;
@@ -565,7 +575,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   // Absolute sideMargin for screen2Canvas calculation:
   // In LTR (English): toolbar is on left, so canvas left = toolbar + margin
   // In RTL (Hebrew/Arabic): toolbar is on right, so canvas left = margin only
-  const toolbarOffset = language === 'en' ? TOOLBAR_WIDTH : 0;
+  const toolbarOffset = language === 'en' ? toolbarWidth : 0;
   const sideMargin = toolbarOffset + canvasLeftMargin + insets.left;
 
   console.log('[PageEditorScreen] sideMargin calculation:', {
@@ -2941,56 +2951,90 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       </View>
 
       {/* Editor Container: Toolbar on start side, Canvas on end side */}
-      <View style={styles.editorContainer}>
+      <View style={[styles.editorContainer, { direction: isRTL ? 'rtl' : 'ltr' }]}>
         {/* Toolbar Level 1 - Start Side (Left in LTR, Right in RTL due to direction property) */}
-        <View style={[styles.toolbar, { borderEndWidth: 1, borderEndColor: '#e0e0e0' }]}>
+        <ScrollView
+          style={[styles.toolbar, {
+            width: toolbarWidth,
+            flexGrow: 0,
+            flexShrink: 0,
+            borderEndWidth: 1,
+            borderEndColor: '#e0e0e0'
+          }]}
+          contentContainerStyle={[styles.toolbarContent, {
+            paddingVertical: toolbarPaddingVertical,
+            gap: toolbarGap,
+          }]}
+          showsVerticalScrollIndicator={false}
+        >
           <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Text && styles.mainToolButtonActive]}
+            style={[styles.mainToolButton, {
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
+              borderRadius: toolbarButtonSize / 2,
+            }, currentElementType === ElementTypes.Text && styles.mainToolButtonActive]}
             onPress={handleSetTextMode}
           >
-            <MyIcon info={{ name: "format-text", size: 38, color: currentElementType === ElementTypes.Text ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "format-text", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Text ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Image && styles.mainToolButtonActive]}
+            style={[styles.mainToolButton, {
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
+              borderRadius: toolbarButtonSize / 2,
+            }, currentElementType === ElementTypes.Image && styles.mainToolButtonActive]}
             onPress={handleSetImageMode}
           >
-            <MyIcon info={{ name: "image", size: 38, color: currentElementType === ElementTypes.Image ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "image", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Image ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainToolButton, audioMode && styles.mainToolButtonActive]}
+            style={[styles.mainToolButton, {
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
+              borderRadius: toolbarButtonSize / 2,
+            }, audioMode && styles.mainToolButtonActive]}
             onPress={handleSetAudioMode}
           >
-            <MyIcon info={{ name: "microphone", size: 38, color: audioMode ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "microphone", size: isMobileLandscape ? 32 : 38, color: audioMode ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Sketch && styles.mainToolButtonActive]}
+            style={[styles.mainToolButton, {
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
+              borderRadius: toolbarButtonSize / 2,
+            }, currentElementType === ElementTypes.Sketch && styles.mainToolButtonActive]}
             onPress={() => {
               handleSetSketchMode();
               setIsEraser(false);
             }}
           >
-            <MyIcon info={{ name: "pencil", size: 38, color: currentElementType === ElementTypes.Sketch ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "pencil", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Sketch ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Background && styles.mainToolButtonActive]}
+            style={[styles.mainToolButton, {
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
+              borderRadius: toolbarButtonSize / 2,
+            }, currentElementType === ElementTypes.Background && styles.mainToolButtonActive]}
             onPress={handleSetBackgroundMode}
           >
-            <MyIcon info={{ name: "format-color-fill", size: 38, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "format-color-fill", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.mainToolButton, currentElementType === ElementTypes.Emoji && styles.mainToolButtonActive]}
+            style={[styles.mainToolButton, {
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
+              borderRadius: toolbarButtonSize / 2,
+            }, currentElementType === ElementTypes.Emoji && styles.mainToolButtonActive]}
             onPress={handleSetEmojiMode}
           >
-            <MyIcon info={{ name: "emoticon-happy-outline", size: 38, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "emoticon-happy-outline", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
-
-          {/* Spacer to push new page button to bottom */}
-          <View style={{ flex: 1 }} />
 
           {/* New Page Button */}
           {onCreatePage && (
@@ -3013,7 +3057,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               <MyIcon info={{ name: "delete", size: 32, color: '#FF3B30', type: "MDI" }} />
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
 
         {/* Canvas Container - End Side (Right in LTR, Left in RTL due to direction property) */}
         <View style={styles.canvasContainer}>
@@ -3118,7 +3162,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             style={[
               styles.toolOptionsPanel,
               isRTL ? {
-                right: 90, // In RTL: toolbar is on right, sub-toolbar next to it on left
+                right: toolbarWidth, // In RTL: toolbar is on right, sub-toolbar next to it on left
                 left: undefined,
                 borderLeftWidth: 1,
                 borderLeftColor: '#e0e0e0',
@@ -3131,7 +3175,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   })
                 }],
               } : {
-                left: 90, // In LTR: toolbar is on left, sub-toolbar next to it on right
+                left: toolbarWidth, // In LTR: toolbar is on left, sub-toolbar next to it on right
                 right: undefined,
                 borderRightWidth: 1,
                 borderRightColor: '#e0e0e0',
@@ -3147,7 +3191,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             ]}
             pointerEvents="box-none"
           >
-            <View style={{ flex: 1, backgroundColor: '#fff' }} pointerEvents="auto">
+            <ScrollView
+              style={{ flex: 1, backgroundColor: '#fff' }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              showsVerticalScrollIndicator={true}
+              pointerEvents="auto"
+            >
               {/* Close Button */}
               <TouchableOpacity
                 style={[
@@ -3798,7 +3847,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </View>
                 </ScrollView>
               )}
-            </View>
+            </ScrollView>
           </Animated.View>
         )}
       </View>
@@ -3914,7 +3963,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           }}
           allowMultipleSelections={false}
           emojiSize={48}
-          defaultHeight="50%"
+          defaultHeight={isMobileLandscape ? "70%" : "50%"}
           enableSearchBar={true}
           enableSearchAnimation={true}
           translation={language === 'en' ? en : he}
@@ -4021,11 +4070,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   toolbar: {
-    width: 90,
     backgroundColor: '#fff',
-    paddingVertical: 8,
+    flexShrink: 0, // Prevent toolbar from shrinking
+  },
+  toolbarContent: {
     alignItems: 'center',
-    gap: 12,
   },
   toolbarTitleSection: {
     paddingHorizontal: 8,
@@ -4046,9 +4095,6 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   mainToolButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
