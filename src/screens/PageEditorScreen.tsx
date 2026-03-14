@@ -52,6 +52,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 const TOOLBAR_WIDTH = 90;
 const CANVAS_MARGIN = 12; // Margin around canvas in edit mode
+const MAX_TILE_SIZE_RATIO = 0.35; // Max tile size as percentage of page height
+
+// Debug: Allow unlimited undo in development (set to false for production)
+const ENABLE_UNLIMITED_UNDO = __DEV__ && true; // Change last 'true' to 'false' to disable
 
 
 import Slider from '@react-native-community/slider';
@@ -236,11 +240,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   // Tiles state
   const [showTilesModal, setShowTilesModal] = useState(false);
+  const [tilesSelected, setTilesSelected] = useState(false); // Track if tiles are selected for editing styling
   const [tiles, setTiles] = useState<SketchTiles | null>(null);
   const [selectedTileIndex, setSelectedTileIndex] = useState<number | null>(null);
   const [searchingSymbols, setSearchingSymbols] = useState(false); // Track symbol search loading
   const [searchingSymbolsMode, setSearchingSymbolsMode] = useState<'auto' | 'manual'>('auto'); // Track if auto-search or manual download
   const [showSearchSymbolModal, setShowSearchSymbolModal] = useState(false);
+
+  // Tiles styling state (for subtoolbar controls)
+  const [tilesBgColor, setTilesBgColor] = useState('#4A69BD');
+  const [tilesTextColor, setTilesTextColor] = useState('#FFFFFF');
+  const [tilesSize, setTilesSize] = useState(0.12); // Default to M
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
@@ -278,6 +288,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   useEffect(() => {
     editingTextChangesRef.current = editingTextChanges;
+    console.log('[editingTextChanges updated]', editingTextChanges);
   }, [editingTextChanges]);
 
   useEffect(() => {
@@ -469,10 +480,35 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const COLORS = ['#000000', '#333333', '#FF0000', '#0000FF', '#00FF00', '#FFFF00', '#FF00FF', '#00FFFF'];
   const ERASER_COLOR = '#ERASER'; // Special marker for eraser
   const PEN_SIZES = [2, 3, 5, 8];
-  const TITLE_TEXT_SIZES = [28, 36, 48, 64];
-  const BODY_TEXT_SIZES = [16, 20, 24, 28];
+
+  // Text size presets (XS/S/M/L/XL)
+  const TITLE_TEXT_SIZES = [
+    { label: 'XS', value: 40 },
+    { label: 'S', value: 52 },
+    { label: 'M', value: 64 },
+    { label: 'L', value: 80 },
+    { label: 'XL', value: 100 },
+  ];
+  const BODY_TEXT_SIZES = [
+    { label: 'XS', value: 20 },
+    { label: 'S', value: 26 },
+    { label: 'M', value: 32 },
+    { label: 'L', value: 40 },
+    { label: 'XL', value: 50 },
+  ];
   const EMOJI_PRESET_SIZES = [70, 100, 130]; // Preset emoji sizes (S/M/L)
   const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
+
+  // Tiles styling constants
+  const TILES_BG_COLORS = ['#FF6B9D', '#C44569', '#4A69BD', '#60A3BC', '#78E08F', '#FFC312', '#EE5A6F', '#B8E994'];
+  const TILES_TEXT_COLORS = ['#FFFFFF', '#000000', '#333333', '#666666', '#2C3E50', '#E74C3C', '#3498DB', '#2ECC71'];
+  const TILES_SIZES = [
+    { label: 'XS', value: 0.08 },
+    { label: 'S', value: 0.10 },
+    { label: 'M', value: 0.12 },
+    { label: 'L', value: 0.15 },
+    { label: 'XL', value: 0.18 },
+  ];
 
   // Calculate available space for canvas (subtracting toolbar width from the right and margins)
   const availableWidth = screenDimensions.width - TOOLBAR_WIDTH - CANVAS_MARGIN * 2;
@@ -808,7 +844,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       }
     }
 
-    if (queue.current.undo(baselineQueueLength.current)) {
+    if (queue.current.undo(ENABLE_UNLIMITED_UNDO ? undefined : baselineQueueLength.current)) {
       rebuildStateFromQueue();
 
       // If an emoji is selected, reload its rotation from the undone state
@@ -912,8 +948,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleTextLayout = (id: string, width: number, height: number) => {
     // Track text layout changes (width/height from canvas measurement)
-    console.log('handleTextLayout:', { id, width, height });
-    setEditingTextChanges(prev => prev?.id === id ? { ...prev, width, height } : { id, width, height });
+    // Only update if this text is currently being edited
+    console.log('handleTextLayout:', { id, width, height, currentEdited: currentEditedRef.current.textId });
+    if (currentEditedRef.current.textId === id) {
+      setEditingTextChanges(prev => prev?.id === id ? { ...prev, width, height } : { id, width, height });
+    }
   };
 
   const handleTextEditEnd = (id: string) => {
@@ -952,6 +991,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       // Merge changes with base text from queue
       console.log('Merging changes with base text from queue');
       textToSave = { ...baseText, ...editingTextChangesRef.current };
+
+      // Check if anything actually changed
+      const hasChanges = Object.keys(editingTextChangesRef.current).some(key => {
+        if (key === 'id') return false; // Skip id field
+        return editingTextChangesRef.current![key as keyof SketchText] !== baseText[key as keyof SketchText];
+      });
+
+      if (!hasChanges) {
+        console.log('No actual changes detected, skipping push');
+        setEditingTextChanges(null);
+        return;
+      }
     }
 
     console.log('handleTextEditEnd: saving text', {
@@ -1128,6 +1179,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       handleTextEditEnd(currentEdited.textId);
     }
 
+    // Clear editing text changes
+    setEditingTextChanges(null);
+    editingTextChangesRef.current = null;
+
+    // Deselect tiles
+    setTilesSelected(false);
+
     // Check if tiles exist - tiles and title are mutually exclusive
     if (tiles) {
       setAlertConfig({
@@ -1144,6 +1202,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     if (existingTitle) {
       setCurrentEdited({ textId: TITLE_TEXT_ID });
+      currentEditedRef.current = { textId: TITLE_TEXT_ID }; // Update ref immediately
       setTextSize(existingTitle.fontSize);
       setTextColor(existingTitle.color);
     } else {
@@ -1157,7 +1216,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         ? (canvasWidth - subtoolbarCanvasWidth - marginCanvasWidth)
         : (subtoolbarCanvasWidth + marginCanvasWidth);
       const topY = 100;
-      const defaultTitleSize = 72;
+      const defaultTitleSize = TITLE_TEXT_SIZES[2].value; // M size (48)
 
       const newTitle: SketchText = {
         id: TITLE_TEXT_ID,
@@ -1174,27 +1233,41 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
       setEditingTextChanges(newTitle);
       setCurrentEdited({ textId: TITLE_TEXT_ID });
+      currentEditedRef.current = { textId: TITLE_TEXT_ID }; // Update ref immediately
       setTextSize(defaultTitleSize);
     }
   };
 
   const handleEditBody = () => {
+    console.log('[handleEditBody] START - currentEdited:', currentEdited);
+
     // Save current text before switching
     if (currentEdited.textId) {
+      console.log('[handleEditBody] Saving previous text:', currentEdited.textId);
       handleTextEditEnd(currentEdited.textId);
     }
+
+    // Clear editing text changes
+    setEditingTextChanges(null);
+    editingTextChangesRef.current = null;
+
+    // Deselect tiles
+    setTilesSelected(false);
 
     setTextMode('body');
     const existingBody = texts.find(t => t.id === BODY_TEXT_ID);
 
     if (existingBody) {
       // Edit existing body
+      console.log('[handleEditBody] Editing existing body, size:', existingBody.fontSize);
       setCurrentEdited({ textId: BODY_TEXT_ID });
+      currentEditedRef.current = { textId: BODY_TEXT_ID }; // Update ref immediately
       setTextSize(existingBody.fontSize);
       setTextColor(existingBody.color);
+      console.log('[handleEditBody] Set currentEdited to BODY_TEXT_ID');
     } else {
       // Create new body text in center
-      const defaultBodySize = 20;
+      const defaultBodySize = BODY_TEXT_SIZES[2].value; // M size (22)
       const textWidth = 200;
       const textHeight = 100;
       // For RTL, x position is at the right edge, so add half width to center
@@ -1219,6 +1292,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
       setEditingTextChanges(newBody);
       setCurrentEdited({ textId: BODY_TEXT_ID });
+      currentEditedRef.current = { textId: BODY_TEXT_ID }; // Update ref immediately
       setTextSize(defaultBodySize);
     }
   };
@@ -1229,9 +1303,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       handleTextEditEnd(currentEdited.textId);
     }
 
+    // If tiles already exist, just select them (don't open modal)
+    if (tiles) {
+      // Initialize styling state from existing tiles
+      setTilesBgColor(tiles.backgroundColor);
+      setTilesTextColor(tiles.textColor);
+      setTilesSize(tiles.fontSize && tiles.fontSize > 1 ? 0.12 : tiles.fontSize);
+      // Mark tiles as selected
+      setTilesSelected(true);
+      return;
+    }
+
     // Check if title exists - tiles and title are mutually exclusive
     const existingTitle = texts.find(t => t.id === TITLE_TEXT_ID);
-    if (existingTitle && !tiles) {
+    if (existingTitle) {
       setAlertConfig({
         visible: true,
         title: t('editor.tilesTitle'),
@@ -1241,11 +1326,22 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       return;
     }
 
-    // Open tiles modal (for creating new or editing existing tiles)
+    // No tiles yet - open modal to create new tiles
+    setTilesSelected(true);
     setShowTilesModal(true);
   };
 
-  const handleTilesConfirm = async (text: string, bgColor: string, textColor: string, size: number) => {
+  const handleEditTilesText = () => {
+    // Open modal to edit tiles text only
+    if (tiles) {
+      setTilesBgColor(tiles.backgroundColor);
+      setTilesTextColor(tiles.textColor);
+      setTilesSize(tiles.fontSize && tiles.fontSize > 1 ? 0.12 : tiles.fontSize);
+    }
+    setShowTilesModal(true);
+  };
+
+  const handleTilesConfirm = async (text: string) => {
     // Split text into words
     const words = text.trim().split(/\s+/);
 
@@ -1267,6 +1363,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             text: tileText,
             originalIndices,
             symbol: tile.symbol, // Preserve existing symbol
+            symbolType: tile.symbolType, // Preserve symbolType (emoji vs image)
           };
         });
       } else {
@@ -1321,15 +1418,28 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // Calculate approximate tile size for positioning
     // TileSize formula: canvasWidth / (1.5 * numTiles + 0.5)
+    // But cap at MAX_TILE_SIZE_RATIO of page height
     const numTiles = tileWords.length;
-    const approxTileSize = pageWidth / (1.5 * numTiles + 0.5);
+    const calculatedTileSize = pageWidth / (1.5 * numTiles + 0.5);
+    const maxTileSize = pageHeight * MAX_TILE_SIZE_RATIO;
+    const approxTileSize = Math.min(calculatedTileSize, maxTileSize);
+
+    console.log('[handleTilesConfirm] Tile size calculation:', {
+      numTiles,
+      pageWidth,
+      pageHeight,
+      calculatedTileSize,
+      maxTileSize,
+      finalTileSize: approxTileSize,
+      percentageOfHeight: ((approxTileSize / pageHeight) * 100).toFixed(1) + '%',
+    });
 
     const newTiles: SketchTiles = {
       id: TILES_ID,
       words: tileWords,
-      fontSize: size,
-      backgroundColor: bgColor,
-      textColor: textColor,
+      fontSize: tilesSize,
+      backgroundColor: tilesBgColor,
+      textColor: tilesTextColor,
       rtl: isRTL,
       y: pageHeight - approxTileSize * 1.5, // Position half tile-size from bottom
     };
@@ -1347,8 +1457,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       for (let i = queueElements.length - 1; i >= 0; i--) {
         const qe = queueElements[i];
         if ((qe.type === 'audio' || qe.type === 'audioAdd') &&
-            qe.elem?.id === PAGE_AUDIO_ID &&
-            qe.elem?.duration) {
+          qe.elem?.id === PAGE_AUDIO_ID &&
+          qe.elem?.duration) {
           durationMs = qe.elem.duration;
           break;
         }
@@ -1402,9 +1512,27 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     newWords.splice(index, 2, merged);
 
+    // Recalculate tile size and position based on new tile count
+    // Cap at MAX_TILE_SIZE_RATIO of page height
+    const numTiles = newWords.length;
+    const calculatedTileSize = pageWidth / (1.5 * numTiles + 0.5);
+    const maxTileSize = pageHeight * MAX_TILE_SIZE_RATIO;
+    const approxTileSize = Math.min(calculatedTileSize, maxTileSize);
+
+    console.log('[handleMergeTile] Tile size after merge:', {
+      numTiles,
+      pageWidth,
+      pageHeight,
+      calculatedTileSize,
+      maxTileSize,
+      finalTileSize: approxTileSize,
+      percentageOfHeight: ((approxTileSize / pageHeight) * 100).toFixed(1) + '%',
+    });
+
     const updatedTiles: SketchTiles = {
       ...tiles,
       words: newWords,
+      y: pageHeight - approxTileSize * 1.5, // Update Y position based on new tile size
     };
 
     queue.current.pushTiles(updatedTiles);
@@ -1427,9 +1555,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const newWords = [...tiles.words];
     newWords.splice(index, 1, ...newTiles);
 
+    // Recalculate tile size and position based on new tile count
+    // Cap at MAX_TILE_SIZE_RATIO of page height
+    const numTiles = newWords.length;
+    const calculatedTileSize = pageWidth / (1.5 * numTiles + 0.5);
+    const maxTileSize = pageHeight * MAX_TILE_SIZE_RATIO;
+    const approxTileSize = Math.min(calculatedTileSize, maxTileSize);
+
     const updatedTiles: SketchTiles = {
       ...tiles,
       words: newWords,
+      y: pageHeight - approxTileSize * 1.5, // Update Y position based on new tile size
     };
 
     queue.current.pushTiles(updatedTiles);
@@ -2068,8 +2204,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const updatedEmoji = {
       ...emoji,
       fontSize: newSize,
-      width: newSize/ratio, // Update width for hit detection
-      height: newSize/ratio // Update height for hit detection
+      width: newSize / ratio, // Update width for hit detection
+      height: newSize / ratio // Update height for hit detection
     };
 
     queue.current.pushText(updatedEmoji);
@@ -2089,8 +2225,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const updatedEmoji = {
       ...emoji,
       fontSize: newSize,
-      width: newSize/ratio, // Update width for hit detection
-      height: newSize/ratio, // Update height for hit detection
+      width: newSize / ratio, // Update width for hit detection
+      height: newSize / ratio, // Update height for hit detection
     };
 
     queue.current.pushText(updatedEmoji);
@@ -2785,12 +2921,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           {/* Undo/Redo */}
           <View style={styles.headerActions}>
             <TouchableOpacity
-              style={[styles.iconButton, !queue.current.canUndo(baselineQueueLength.current) && styles.iconButtonDisabled]}
+              style={[styles.iconButton, !queue.current.canUndo(ENABLE_UNLIMITED_UNDO ? undefined : baselineQueueLength.current) && styles.iconButtonDisabled]}
               onPress={handleUndo}
-              disabled={!queue.current.canUndo(baselineQueueLength.current)}
+              disabled={!queue.current.canUndo(ENABLE_UNLIMITED_UNDO ? undefined : baselineQueueLength.current)}
               accessibilityLabel="ביטול פעולה אחרונה"
             >
-              <MyIcon info={{ name: "undo", size: 24, color: queue.current.canUndo(baselineQueueLength.current) ? '#007AFF' : '#ccc', type: "MI" }} />
+              <MyIcon info={{ name: "undo", size: 24, color: queue.current.canUndo(ENABLE_UNLIMITED_UNDO ? undefined : baselineQueueLength.current) ? '#007AFF' : '#ccc', type: "MI" }} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconButton, !queue.current.canRedo() && styles.iconButtonDisabled]}
@@ -3115,12 +3251,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, showTilesModal && styles.optionButtonActive]}
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, tilesSelected && styles.optionButtonActive]}
                       onPress={handleEditTiles}
                     >
-                      <MyIcon info={{ name: "view-grid", size: 24, color: showTilesModal ? '#007AFF' : '#555', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, showTilesModal && styles.optionLabelActive]}>{t('editor.tilesTitle')}</Text>
+                      <MyIcon info={{ name: "view-grid", size: 24, color: tilesSelected ? '#007AFF' : '#555', type: "MDI" }} />
+                      <Text style={[styles.optionLabel, tilesSelected && styles.optionLabelActive]}>{t('editor.tilesTitle')}</Text>
                     </TouchableOpacity>
+
+                    {/* Edit tiles text button */}
+                    {tiles && tilesSelected && (
+                      <TouchableOpacity
+                        style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
+                        onPress={handleEditTilesText}
+                      >
+                        <MyIcon info={{ name: "pencil", size: 24, color: '#007AFF', type: "MDI" }} />
+                        <Text style={[styles.optionLabel, { color: '#007AFF' }]}>Edit Text</Text>
+                      </TouchableOpacity>
+                    )}
 
                     {/* Delete title button */}
                     {texts.find(t => t.id === TITLE_TEXT_ID) && (
@@ -3145,48 +3292,130 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     )}
                   </View>
 
-                  {/* Color Picker - Only shown when editing */}
-                  {currentEdited.textId && (
-                    <>
-                      <View style={styles.optionsSection}>
-                        <Text style={styles.sectionLabel}>{t('editor.color')}</Text>
+                  {/* Unified Color/Size Controls - shown based on selection */}
+                  {/* For Tiles: Background Color (only when tiles are selected) */}
+                  {tilesSelected && (
+                    <View style={[styles.optionsSection, { marginTop: 50 }]}>
+                      <Text style={styles.sectionLabel}>{t('editor.tilesBackgroundColor')}</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View style={styles.colorGrid}>
-                          {COLORS.map(color => (
+                          {TILES_BG_COLORS.map(color => (
                             <TouchableOpacity
                               key={color}
-                              style={[styles.colorSwatch, { backgroundColor: color }, textColor === color && styles.colorSwatchActive]}
+                              style={[styles.colorSwatch, { backgroundColor: color }, tilesBgColor === color && styles.colorSwatchActive]}
                               onPress={() => {
-                                setTextColor(color);
-                                if (currentEdited.textId) {
-                                  setEditingTextChanges(prev => prev ? { ...prev, color } : { id: currentEdited.textId!, color });
+                                setTilesBgColor(color);
+                                if (tiles) {
+                                  // Update existing tiles immediately
+                                  const updatedTiles: SketchTiles = { ...tiles, backgroundColor: color };
+                                  queue.current.pushTiles(updatedTiles);
+                                  rebuildStateFromQueue();
+                                  autoSave();
                                 }
                               }}
                             />
                           ))}
                         </View>
-                      </View>
+                      </ScrollView>
+                    </View>
+                  )}
 
-                      {/* Size Picker */}
-                      <View style={styles.optionsSection}>
-                        <Text style={styles.sectionLabel}>{t('editor.size')}</Text>
-                        <View style={styles.sizeGrid}>
-                          {(textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map(size => (
+                  {/* Text Color Picker - shown when editing text or tiles are selected */}
+                  {(currentEdited.textId || tilesSelected) && (
+                    <View style={[styles.optionsSection, { marginTop: 8 }]}>
+                      <Text style={styles.sectionLabel}>
+                        {tilesSelected ? t('editor.tilesTextColor') : t('editor.color')}
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.colorGrid}>
+                          {/* Show tiles colors for tiles, regular colors for text */}
+                          {(tilesSelected ? TILES_TEXT_COLORS : COLORS).map(color => (
                             <TouchableOpacity
-                              key={size}
-                              style={[styles.sizeButton, textSize === size && styles.sizeButtonActive]}
+                              key={color}
+                              style={[
+                                styles.colorSwatch,
+                                { backgroundColor: color },
+                                (tilesSelected ? tilesTextColor : textColor) === color && styles.colorSwatchActive
+                              ]}
                               onPress={() => {
-                                setTextSize(size);
-                                if (currentEdited.textId) {
-                                  setEditingTextChanges(prev => prev ? { ...prev, fontSize: size } : { id: currentEdited.textId!, fontSize: size });
+                                if (tilesSelected) {
+                                  // Tiles mode
+                                  setTilesTextColor(color);
+                                  if (tiles) {
+                                    const updatedTiles: SketchTiles = { ...tiles, textColor: color };
+                                    queue.current.pushTiles(updatedTiles);
+                                    rebuildStateFromQueue();
+                                    autoSave();
+                                  }
+                                } else {
+                                  // Text editing mode - determine ID from textMode
+                                  const textId = textMode === 'title' ? TITLE_TEXT_ID : BODY_TEXT_ID;
+                                  setTextColor(color);
+                                  if (textId) {
+                                    setEditingTextChanges(prev => prev ? { ...prev, color } : { id: textId, color });
+                                  }
                                 }
                               }}
-                            >
-                              <Text style={[styles.sizeText, textSize === size && styles.sizeTextActive]}>{size}</Text>
-                            </TouchableOpacity>
+                            />
                           ))}
                         </View>
-                      </View>
-                    </>
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* Size Picker - shown when editing text or tiles are selected */}
+                  {(currentEdited.textId || tilesSelected) && (
+                    <View style={[styles.optionsSection, { marginTop: 8 }]}>
+                      <Text style={styles.sectionLabel}>{t('editor.size')}</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.sizeGrid}>
+                          {/* Show tiles sizes for tiles, text sizes for text */}
+                          {tilesSelected ? (
+                            TILES_SIZES.map(s => (
+                              <TouchableOpacity
+                                key={s.label}
+                                style={[styles.sizeButton, tilesSize === s.value && styles.sizeButtonActive]}
+                                onPress={() => {
+                                  setTilesSize(s.value);
+                                  if (tiles) {
+                                    const updatedTiles: SketchTiles = { ...tiles, fontSize: s.value };
+                                    queue.current.pushTiles(updatedTiles);
+                                    rebuildStateFromQueue();
+                                    autoSave();
+                                  }
+                                }}
+                              >
+                                <Text style={[styles.sizeText, tilesSize === s.value && styles.sizeTextActive]}>{s.label}</Text>
+                              </TouchableOpacity>
+                            ))
+                          ) : (
+                            (textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map(s => (
+                              <TouchableOpacity
+                                key={s.label}
+                                style={[styles.sizeButton, textSize === s.value && styles.sizeButtonActive]}
+                                onPress={() => {
+                                  // Determine the correct text ID based on textMode
+                                  const textId = textMode === 'title' ? TITLE_TEXT_ID : BODY_TEXT_ID;
+                                  console.log('[Size Button] Clicked:', {
+                                    size: s.value,
+                                    textMode,
+                                    determinedTextId: textId,
+                                    currentEditedRef: currentEditedRef.current,
+                                  });
+                                  setTextSize(s.value);
+                                  if (textId) {
+                                    console.log('[Size Button] Setting editingTextChanges with ID:', textId);
+                                    setEditingTextChanges(prev => prev ? { ...prev, fontSize: s.value } : { id: textId, fontSize: s.value });
+                                  }
+                                }}
+                              >
+                                <Text style={[styles.sizeText, textSize === s.value && styles.sizeTextActive]}>{s.label}</Text>
+                              </TouchableOpacity>
+                            ))
+                          )}
+                        </View>
+                      </ScrollView>
+                    </View>
                   )}
                 </>
               )}
@@ -3343,7 +3572,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleOpenEmojiKeyboard}
                     >
                       <MyIcon info={{ name: "emoticon-happy-outline", size: 24, color: '#007AFF', type: "MDI" }} />
-                      <Text style={styles.optionLabel}>{t('editor.emoji')}</Text>
+                      <Text style={styles.optionLabel}>{t('editor.selectEmoji')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -3648,9 +3877,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         onClose={() => setShowTilesModal(false)}
         onConfirm={handleTilesConfirm}
         initialText={tiles?.words.map(w => w.text).join(' ') || ''}
-        initialBgColor={tiles?.backgroundColor}
-        initialTextColor={tiles?.textColor}
-        initialSize={tiles?.fontSize && tiles.fontSize > 1 ? 0.12 : tiles?.fontSize} // Migrate old numeric sizes
         isEditing={tiles != null}
       />
 
@@ -3808,12 +4034,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     width: '100%',
+    height: 40,
+    justifyContent: "flex-start",
   },
   toolbarTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'left',
+    height: "100%",
   },
   mainToolButton: {
     width: 70,

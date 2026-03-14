@@ -55,6 +55,7 @@ interface Translations {
     pen: string;
     emoji: string;
     emojis: string;
+    selectEmoji: string;
     textInput: string;
     addImage: string;
     addAudio: string;
@@ -278,6 +279,7 @@ export const translations: Record<LanguageCode, Translations> = {
       pen: 'עט',
       emoji: 'אימוג\'י',
       emojis: 'אימוג\'ים',
+      selectEmoji: 'בחר אימוג\'י',
       textInput: 'טקסט',
       addImage: 'הוסף תמונה',
       addAudio: 'הקלטה',
@@ -489,6 +491,7 @@ export const translations: Record<LanguageCode, Translations> = {
       pen: 'Pen',
       emoji: 'Emoji',
       emojis: 'Emojis',
+      selectEmoji: 'Select Emoji',
       textInput: 'Text',
       addImage: 'Add Image',
       addAudio: 'Audio',
@@ -700,6 +703,7 @@ export const translations: Record<LanguageCode, Translations> = {
       pen: 'قلم',
       emoji: 'إيموجي',
       emojis: 'إيموجيات',
+      selectEmoji: 'اختر إيموجي',
       textInput: 'نص',
       addImage: 'صورة',
       addAudio: 'تسجيل',

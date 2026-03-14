@@ -4,6 +4,8 @@ import { SketchTiles, TileWord } from '../types/Album';
 import { AttachmentService } from '../services/AttachmentService';
 import Icon from '@react-native-vector-icons/ionicons';
 
+const MAX_TILE_SIZE_RATIO = 0.35; // Max tile size as percentage of page height (must match PageEditorScreen)
+
 interface TilesElementProps {
   tiles: SketchTiles;
   canvasWidth: number;
@@ -42,8 +44,26 @@ export function TilesElement({
   // Width = size * (0.5 + numTiles + 0.5*numTiles - 0.5 + 0.5)
   // Width = size * (numTiles + 0.5*numTiles + 0.5)
   // Width = size * (1.5*numTiles + 0.5)
-  const tileSize = canvasWidth / (1.5 * numTiles + 0.5);
+  // But cap at MAX_TILE_SIZE_RATIO of canvas height
+  // Note: canvasHeight is already scaled by ratio, so maxTileSize will also be in scaled coordinates
+  const calculatedTileSize = canvasWidth / (1.5 * numTiles + 0.5);
+  const maxTileSize = canvasHeight * MAX_TILE_SIZE_RATIO;
+  const tileSize = Math.min(calculatedTileSize, maxTileSize);
   const halfTileSpacing = tileSize * 0.5;
+
+  // Debug logging
+  if (__DEV__) {
+    console.log('[TilesElement] Tile size calculation:', {
+      numTiles,
+      canvasWidth,
+      canvasHeight,
+      ratio,
+      calculatedTileSize,
+      maxTileSize,
+      finalTileSize: tileSize,
+      percentageOfHeight: ((tileSize / canvasHeight) * 100).toFixed(1) + '%',
+    });
+  }
 
   // Detect text direction from the actual text (check first word's first character)
   const isTextRTL = tiles.words.length > 0 && tiles.words[0].text.length > 0
@@ -59,9 +79,9 @@ export function TilesElement({
         styles.container,
         {
           flexDirection: 'row',
-          justifyContent: 'flex-start',
+          justifyContent: numTiles === 1 ? 'center' : 'flex-start', // Center single tile, left-align multiple
           alignItems: 'center',
-          paddingHorizontal: halfTileSpacing,
+          paddingHorizontal: numTiles === 1 ? 0 : halfTileSpacing, // No padding for single centered tile
           width: canvasWidth,
         },
       ]}
