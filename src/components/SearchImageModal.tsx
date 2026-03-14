@@ -17,6 +17,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, borderRadius } from '../theme/colors';
 import { MODAL_ORIENTATIONS } from '../types/Album';
+import { detectLanguageFromText } from '../utils/languageDetection';
 
 interface SearchImageModalProps {
   visible: boolean;
@@ -47,7 +48,11 @@ export function SearchImageModal({
 
     setIsSearching(true);
     try {
-      const res = await ImageLibrary.get().search(value, language);
+      // Detect language from the search text itself, not UI language
+      const detectedLanguage = detectLanguageFromText(value);
+      console.log('[SearchImageModal] Detected language from text:', detectedLanguage, 'for keyword:', value);
+
+      const res = await ImageLibrary.get().search(value, detectedLanguage);
       setResults(res);
     } catch (error) {
       console.error('Search failed:', error);

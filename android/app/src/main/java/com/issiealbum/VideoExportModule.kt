@@ -6,12 +6,14 @@ import android.graphics.Canvas
 import android.graphics.Matrix
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.io.File
+import java.nio.ByteBuffer
 
 class VideoExportModule(private val reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext), LifecycleEventListener {
@@ -63,11 +65,7 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
                     outputFile.delete()
                 }
 
-                if (audioTracks.size() > 0) {
-                    Log.d(TAG, "Audio mixing not yet implemented, exporting video only")
-                }
-
-                exportVideoOnly(frames, outputPath, width, height, frameRate, promise)
+                exportVideoWithAudio(frames, audioTracks, outputPath, width, height, frameRate, promise)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Export failed", e)
@@ -76,8 +74,9 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
         }.start()
     }
 
-    private fun exportVideoOnly(
+    private fun exportVideoWithAudio(
         frames: ReadableArray,
+        audioTracks: ReadableArray,
         outputPath: String,
         width: Int,
         height: Int,
@@ -111,7 +110,8 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
 
             // Prepare muxer
             muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-            var trackIndex = -1
+            var videoTrackIndex = -1
+            var audioTrackIndex = -1
             var muxerStarted = false
 
             val bufferInfo = MediaCodec.BufferInfo()
@@ -173,7 +173,39 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
                             }
                             val newFormat = encoder.outputFormat
                             Log.d(TAG, "Encoder output format changed: $newFormat")
-                            trackIndex = muxer.addTrack(newFormat)
+                            videoTrackIndex = muxer.addTrack(newFormat)
+
+                            // Add audio tracks if present
+                            if (audioTracks.size() > 0) {
+                                Log.d(TAG, "Adding ${audioTracks.size()} audio track(s)")
+                                for (i in 0 until audioTracks.size()) {
+                                    val audioTrackData = audioTracks.getMap(i) ?: continue
+                                    val audioPath = audioTrackData.getString("audioPath") ?: continue
+
+                                    try {
+                                        val extractor = MediaExtractor()
+                                        extractor.setDataSource(audioPath)
+
+                                        // Find audio track
+                                        for (trackIndex in 0 until extractor.trackCount) {
+                                            val format = extractor.getTrackFormat(trackIndex)
+                                            val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+                                            if (mime.startsWith("audio/")) {
+                                                Log.d(TAG, "Found audio track: $format")
+                                                audioTrackIndex = muxer.addTrack(format)
+                                                extractor.release()
+                                                break
+                                            }
+                                        }
+                                        if (audioTrackIndex == -1) {
+                                            extractor.release()
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "Failed to add audio track from $audioPath", e)
+                                    }
+                                }
+                            }
+
                             muxer.start()
                             muxerStarted = true
                         }
@@ -196,7 +228,7 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
 
                                 encodedData.position(bufferInfo.offset)
                                 encodedData.limit(bufferInfo.offset + bufferInfo.size)
-                                muxer.writeSampleData(trackIndex, encodedData, bufferInfo)
+                                muxer.writeSampleData(videoTrackIndex, encodedData, bufferInfo)
                             }
 
                             encoder.releaseOutputBuffer(encoderStatus, false)
@@ -242,7 +274,7 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
                         if (bufferInfo.size != 0) {
                             encodedData.position(bufferInfo.offset)
                             encodedData.limit(bufferInfo.offset + bufferInfo.size)
-                            muxer.writeSampleData(trackIndex, encodedData, bufferInfo)
+                            muxer.writeSampleData(videoTrackIndex, encodedData, bufferInfo)
                         }
 
                         encoder.releaseOutputBuffer(encoderStatus, false)
@@ -250,6 +282,63 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
                         if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                             encoderDone = true
                         }
+                    }
+                }
+            }
+
+            // Copy audio samples if audio track was added
+            if (audioTrackIndex != -1 && audioTracks.size() > 0) {
+                Log.d(TAG, "Copying audio samples")
+                for (i in 0 until audioTracks.size()) {
+                    val audioTrackData = audioTracks.getMap(i) ?: continue
+                    val audioPath = audioTrackData.getString("audioPath") ?: continue
+                    val startTimeSec = audioTrackData.getDouble("startTime")
+
+                    try {
+                        val extractor = MediaExtractor()
+                        extractor.setDataSource(audioPath)
+
+                        // Find audio track
+                        var audioTrackIdx = -1
+                        for (trackIndex in 0 until extractor.trackCount) {
+                            val format = extractor.getTrackFormat(trackIndex)
+                            val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+                            if (mime.startsWith("audio/")) {
+                                audioTrackIdx = trackIndex
+                                break
+                            }
+                        }
+
+                        if (audioTrackIdx == -1) {
+                            extractor.release()
+                            continue
+                        }
+
+                        extractor.selectTrack(audioTrackIdx)
+
+                        // Copy audio samples
+                        val audioBuffer = ByteBuffer.allocate(1024 * 1024) // 1MB buffer
+                        val audioBufferInfo = MediaCodec.BufferInfo()
+                        val startTimeUs = (startTimeSec * 1_000_000).toLong()
+
+                        while (true) {
+                            audioBufferInfo.size = extractor.readSampleData(audioBuffer, 0)
+                            if (audioBufferInfo.size < 0) {
+                                break
+                            }
+
+                            audioBufferInfo.presentationTimeUs = extractor.sampleTime + startTimeUs
+                            audioBufferInfo.flags = extractor.sampleFlags
+                            audioBufferInfo.offset = 0
+
+                            muxer.writeSampleData(audioTrackIndex, audioBuffer, audioBufferInfo)
+                            extractor.advance()
+                        }
+
+                        extractor.release()
+                        Log.d(TAG, "Audio samples copied from $audioPath")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to copy audio from $audioPath", e)
                     }
                 }
             }
@@ -264,7 +353,7 @@ class VideoExportModule(private val reactContext: ReactApplicationContext) :
             promise.resolve(result)
 
         } catch (e: Exception) {
-            Log.e(TAG, "exportVideoOnly failed", e)
+            Log.e(TAG, "exportVideoWithAudio failed", e)
             promise.reject("EXPORT_ERROR", "Failed to export video: ${e.message}", e)
         } finally {
             try {

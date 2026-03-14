@@ -16,6 +16,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, borderRadius } from '../theme/colors';
 import { MODAL_ORIENTATIONS } from '../types/Album';
+import { detectLanguageFromText } from '../utils/languageDetection';
 
 interface SearchSymbolModalProps {
   visible: boolean;
@@ -56,7 +57,11 @@ export function SearchSymbolModal({
 
     setIsSearching(true);
     try {
-      const res = await ImageLibrary.get().search(searchKeyword, language);
+      // Detect language from the search text itself, not UI language
+      const detectedLanguage = detectLanguageFromText(searchKeyword);
+      console.log('[SearchSymbolModal] Detected language from text:', detectedLanguage, 'for keyword:', searchKeyword);
+
+      const res = await ImageLibrary.get().search(searchKeyword, detectedLanguage);
       setResults(res);
     } catch (error) {
       console.error('Search failed:', error);

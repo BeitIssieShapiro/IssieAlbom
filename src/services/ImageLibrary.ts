@@ -24,8 +24,11 @@ export default class ImageLibrary {
           id: item._id,
           url: `${ImageLibrary.BASE_URL}/pictograms/${item._id}?download=false`,
         }));
-    } catch (error) {
-      console.error('Image search failed:', error);
+    } catch (error: any) {
+      // Don't log 404 errors (no results found) as they're expected
+      if (error?.response?.status !== 404) {
+        console.error('Image search failed:', error);
+      }
       return [];
     }
   }
