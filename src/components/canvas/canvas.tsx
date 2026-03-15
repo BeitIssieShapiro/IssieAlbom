@@ -625,6 +625,12 @@ function Canvas({
                 const elemType = startSketchRef.current?.elemType;
 
                 if (!elem && currentElementTypeRef.current === ElementTypes.Sketch) {
+                    // Add the final point directly on the JS thread to avoid race with UI-thread worklet
+                    const finalPoint = screen2Canvas(gState.moveX, gState.moveY);
+                    lastPathSV.value.lineTo(
+                        parseFloat((finalPoint[0] * ratioRef.current).toFixed(1)),
+                        parseFloat((finalPoint[1] * ratioRef.current).toFixed(1))
+                    );
                     const commands = toCmds(lastPathSV.value, ratioRef.current);
                     sketchInProgressRef.current = false;
                     sketchTimerRef.current = setTimeout(() => {
@@ -1216,7 +1222,6 @@ function Canvas({
                     const isSelected = currentElementType == ElementTypes.Image && currentEdited.imageId == image.id;
 
 
-                    // The calculated key is crucial to overcome a bug that the image is blur at first - keep this!
                     return <React.Fragment key={image.id} >
                         <View
                             style={[
@@ -1231,10 +1236,9 @@ function Canvas({
                             ]}
                         >
                             <Image
-                                key={`${image.id}_${imgW}`}
                                 style={{
-                                    width: '100%',
-                                    height: '100%',
+                                    width: PixelRatio.roundToNearestPixel(w),
+                                    height: PixelRatio.roundToNearestPixel(h),
                                 }}
                                 source={{ uri: image.imageUri }}
                                 resizeMode="contain"
