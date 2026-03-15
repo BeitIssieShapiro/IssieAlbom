@@ -1,4 +1,4 @@
-package com.issiealbum
+package org.issieshapiro.issiealbum
 
 import android.app.Application
 import com.facebook.react.PackageList

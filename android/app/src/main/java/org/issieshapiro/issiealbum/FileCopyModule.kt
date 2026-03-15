@@ -1,4 +1,4 @@
-package com.issiealbum
+package org.issieshapiro.issiealbum
 
 import android.content.ContentResolver
 import java.io.File

@@ -84,9 +84,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.issiealbum"
+    namespace "org.issieshapiro.issiealbum"
     defaultConfig {
-        applicationId "com.issiealbum"
+        applicationId "org.issieshapiro.issiealbum"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode versionProps['issiealbum.versionCode']?.toInteger() ?: 1

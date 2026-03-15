@@ -1,4 +1,4 @@
-package com.issiealbum
+package org.issieshapiro.issiealbum
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

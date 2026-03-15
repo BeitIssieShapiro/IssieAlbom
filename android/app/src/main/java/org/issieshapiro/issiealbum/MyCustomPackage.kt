@@ -1,4 +1,4 @@
-package com.issiealbum
+package org.issieshapiro.issiealbum
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
