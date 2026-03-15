@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform, PermissionsAndroid, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform, PermissionsAndroid } from 'react-native';
+import { RTLAlertStatic } from './RTLAlert';
 import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
 import { WordTiming } from '../types/Album';
@@ -78,7 +79,7 @@ export function AudioElement({
         if (grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED) {
           return true;
         } else {
-          Alert.alert(t('editor.permissions'), t('editor.permissionsMessage'));
+          RTLAlertStatic.alert(t('editor.permissions'), t('editor.permissionsMessage'));
           return false;
         }
       } catch (err) {
@@ -108,7 +109,7 @@ export function AudioElement({
       console.log('Recording started');
     } catch (error) {
       console.error('Failed to start recording:', error);
-      Alert.alert(t('home.error'), t('editor.errorRecording'));
+      RTLAlertStatic.alert(t('home.error'), t('editor.errorRecording'));
     }
   };
 
@@ -181,7 +182,7 @@ export function AudioElement({
       console.log('Playback started successfully');
     } catch (error) {
       console.error('Failed to start playback:', error);
-      Alert.alert(t('home.error'), t('editor.errorPlayRecording'));
+      RTLAlertStatic.alert(t('home.error'), t('editor.errorPlayRecording'));
     }
   };
 

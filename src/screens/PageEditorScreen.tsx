@@ -1720,15 +1720,41 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleDeleteTiles = () => {
-    queue.current.pushDeleteTiles();
-    rebuildStateFromQueue();
-    autoSave();
+    showAlert(
+      t('editor.tilesTitle'),
+      t('editor.deleteTilesConfirm'),
+      [
+        { text: t('home.cancel'), style: 'cancel' },
+        {
+          text: t('home.delete'),
+          style: 'destructive',
+          onPress: () => {
+            queue.current.pushDeleteTiles();
+            rebuildStateFromQueue();
+            autoSave();
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteTitle = () => {
-    queue.current.pushTextDelete(TITLE_TEXT_ID);
-    rebuildStateFromQueue();
-    autoSave();
+    showAlert(
+      t('editor.textTitle'),
+      t('editor.deleteTitleConfirm'),
+      [
+        { text: t('home.cancel'), style: 'cancel' },
+        {
+          text: t('home.delete'),
+          style: 'destructive',
+          onPress: () => {
+            queue.current.pushTextDelete(TITLE_TEXT_ID);
+            rebuildStateFromQueue();
+            autoSave();
+          },
+        },
+      ]
+    );
   };
 
   const handleSetSketchMode = () => {
@@ -2056,15 +2082,28 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handleDeletePageAudio = async () => {
     console.log('handleDeletePageAudio');
 
-    // Delete the audio from queue
-    queue.current.pushDeleteAudio({ id: PAGE_AUDIO_ID });
-    rebuildStateFromQueue();
+    showAlert(
+      t('editor.audio'),
+      t('editor.deleteAudioConfirm'),
+      [
+        { text: t('home.cancel'), style: 'cancel' },
+        {
+          text: t('home.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            // Delete the audio from queue
+            queue.current.pushDeleteAudio({ id: PAGE_AUDIO_ID });
+            rebuildStateFromQueue();
 
-    // Auto-save to disk
-    await autoSave();
+            // Auto-save to disk
+            await autoSave();
 
-    // Close modal
-    setShowWordMappingModal(false);
+            // Close modal
+            setShowWordMappingModal(false);
+          },
+        },
+      ]
+    );
   };
 
   const handleReRecordFromWordMapping = async () => {
@@ -2658,11 +2697,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const image = imagesRef.current.find(img => img.id === imageId);
     if (!image) return;
 
-    // Delete the image element from queue (no confirmation - user can undo)
-    queue.current.pushDeleteImage(image);
-    rebuildStateFromQueue();
-    autoSave();
-    setCurrentEdited({});
+    showAlert(
+      t('editor.deleteImage'),
+      t('editor.deleteImageConfirm'),
+      [
+        { text: t('home.cancel'), style: 'cancel' },
+        {
+          text: t('home.delete'),
+          style: 'destructive',
+          onPress: () => {
+            queue.current.pushDeleteImage(image);
+            rebuildStateFromQueue();
+            autoSave();
+            setCurrentEdited({});
+          },
+        },
+      ]
+    );
   };
 
   const handleSearchImageSelect = async (filePath: string) => {
@@ -2862,34 +2913,47 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handleDeleteElement = (type: ElementTypes, id: string) => {
     console.log('[handleDeleteElement] Deleting element:', { type, id });
 
-    // Add delete operation to queue
-    if (type === ElementTypes.Text) {
-      queue.current.pushTextDelete(id);
-    } else if (type === ElementTypes.Image) {
-      // Find the image to get its full data for the delete operation — use ref to avoid stale closure
-      const image = imagesRef.current.find(img => img.id === id);
-      if (image) {
-        queue.current.pushDeleteImage(image);
-      } else {
-        console.error('[handleDeleteElement] Image not found:', id);
-      }
-    } else if (type === ElementTypes.Sketch) {
-      // For paths, we need to find the path and delete it
-      const path = paths.find(p => p.id === id);
-      if (path) {
-        queue.current.pushDeletePath(path);
-      } else {
-        console.error('[handleDeleteElement] Path not found:', id);
-      }
-    }
+    showAlert(
+      t('home.delete'),
+      t('editor.deleteElementConfirm'),
+      [
+        { text: t('home.cancel'), style: 'cancel' },
+        {
+          text: t('home.delete'),
+          style: 'destructive',
+          onPress: () => {
+            // Add delete operation to queue
+            if (type === ElementTypes.Text) {
+              queue.current.pushTextDelete(id);
+            } else if (type === ElementTypes.Image) {
+              // Find the image to get its full data for the delete operation — use ref to avoid stale closure
+              const image = imagesRef.current.find(img => img.id === id);
+              if (image) {
+                queue.current.pushDeleteImage(image);
+              } else {
+                console.error('[handleDeleteElement] Image not found:', id);
+              }
+            } else if (type === ElementTypes.Sketch) {
+              // For paths, we need to find the path and delete it
+              const path = paths.find(p => p.id === id);
+              if (path) {
+                queue.current.pushDeletePath(path);
+              } else {
+                console.error('[handleDeleteElement] Path not found:', id);
+              }
+            }
 
-    // Rebuild state from queue (this will reflect the deletion)
-    rebuildStateFromQueue();
+            // Rebuild state from queue (this will reflect the deletion)
+            rebuildStateFromQueue();
 
-    // Auto-save
-    autoSave();
+            // Auto-save
+            autoSave();
 
-    console.log('[handleDeleteElement] Element deleted, queue length:', queue.current.getAll().length);
+            console.log('[handleDeleteElement] Element deleted, queue length:', queue.current.getAll().length);
+          },
+        },
+      ]
+    );
   };
 
   // Render callback for custom elements

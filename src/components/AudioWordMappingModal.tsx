@@ -7,8 +7,8 @@ import {
   StyleSheet,
   Dimensions,
   PanResponder,
-  Alert,
 } from 'react-native';
+import { RTLAlertStatic } from './RTLAlert';
 import { AudioWaveform } from './AudioWaveform';
 import Sound from 'react-native-nitro-sound';
 import { MyIcon } from '../common/icons';
@@ -389,7 +389,7 @@ export function AudioWordMappingModal({
         setPlaying(true);
       } catch (error) {
         console.error('Failed to play audio:', error);
-        Alert.alert('שגיאה', 'הפעלת השמע נכשלה');
+        RTLAlertStatic.alert('שגיאה', 'הפעלת השמע נכשלה');
       }
     }
   };

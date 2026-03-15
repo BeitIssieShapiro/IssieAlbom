@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { RTLAlertStatic } from './RTLAlert';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { MyIcon } from '../common/icons';
 import { MODAL_ORIENTATIONS } from '../types/Album';
@@ -56,7 +56,7 @@ export function CameraModal({ visible, onCapture, onCancel }: CameraModalProps) 
       onCapture(photoUri);
     } catch (error) {
       console.error('[CameraModal] Failed to capture image:', error);
-      Alert.alert('Error', 'Failed to capture photo');
+      RTLAlertStatic.alert('Error', 'Failed to capture photo');
     } finally {
       setCaptureInProgress(false);
     }

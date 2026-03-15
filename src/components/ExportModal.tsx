@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { RTLAlertStatic } from './RTLAlert';
 import RNFS from 'react-native-fs';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ExportService } from '../services/ExportService';
@@ -75,7 +75,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         console.warn('[ExportModal] Failed to cleanup ZIP:', cleanupError);
       }
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('export.exportComplete'),
         t('export.exportComplete')
       );
@@ -91,7 +91,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('export.exportFailed'),
         error instanceof Error ? error.message : String(error)
       );
@@ -118,7 +118,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       setRenderingPDF(true);
     } catch (error: any) {
       console.error('[ExportModal] PDF export failed:', error);
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('export.exportFailed'),
         error instanceof Error ? error.message : String(error)
       );
@@ -161,7 +161,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         console.warn('[ExportModal] Failed to cleanup PDF:', cleanupError);
       }
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('export.exportComplete'),
         t('export.exportComplete')
       );
@@ -177,7 +177,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('export.exportFailed'),
         error instanceof Error ? error.message : String(error)
       );
@@ -192,7 +192,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handlePDFRenderError = (error: Error) => {
     console.error('[ExportModal] PDF rendering failed:', error);
-    Alert.alert(
+    RTLAlertStatic.alert(
       t('export.exportFailed'),
       error.message
     );
@@ -206,7 +206,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const handleExportAsVideo = async () => {
     // Check if native module is available
     if (!videoExportNative.isAvailable()) {
-      Alert.alert(
+      RTLAlertStatic.alert(
         'Setup Required',
         'Video export requires native module setup.\n\n' +
         'Steps:\n' +
@@ -232,7 +232,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       console.log('[ExportModal] Loaded', albumPages.length, 'pages');
 
       if (albumPages.length === 0) {
-        Alert.alert(t('export.exportFailed'), 'Album has no pages to export');
+        RTLAlertStatic.alert(t('export.exportFailed'), 'Album has no pages to export');
         setExporting(false);
         setExportType(null);
         return;
@@ -295,7 +295,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         console.warn('[ExportModal] Failed to cleanup video:', cleanupError);
       }
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('export.exportComplete'),
         `Video exported successfully!\nDuration: ${Math.round(result.duration)}s`
       );
@@ -312,7 +312,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         return;
       }
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('export.exportFailed'),
         error instanceof Error ? error.message : String(error)
       );

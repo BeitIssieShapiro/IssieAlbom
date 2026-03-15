@@ -104,6 +104,10 @@ interface Translations {
     editImage: string;
     deleteImage: string;
     deleteImageConfirm: string;
+    deleteTitleConfirm: string;
+    deleteTilesConfirm: string;
+    deleteAudioConfirm: string;
+    deleteElementConfirm: string;
     multipleImagesSelected: string;
     addToCurrentPage: string;
     createNewPages: string;
@@ -333,6 +337,10 @@ export const translations: Record<LanguageCode, Translations> = {
       editImage: 'ערוך תמונה',
       deleteImage: 'מחק תמונה',
       deleteImageConfirm: 'האם למחוק את התמונה?',
+      deleteTitleConfirm: 'האם למחוק את הכותרת?',
+      deleteTilesConfirm: 'האם למחוק את האריחים?',
+      deleteAudioConfirm: 'האם למחוק את ההקלטה?',
+      deleteElementConfirm: 'האם למחוק אלמנט זה?',
       multipleImagesSelected: 'נבחרו {count} תמונות',
       addToCurrentPage: 'הוסף לעמוד נוכחי',
       createNewPages: 'צור עמודים חדשים',
@@ -550,6 +558,10 @@ export const translations: Record<LanguageCode, Translations> = {
       editImage: 'Edit Image',
       deleteImage: 'Delete Image',
       deleteImageConfirm: 'Delete this image?',
+      deleteTitleConfirm: 'Delete the title?',
+      deleteTilesConfirm: 'Delete the tiles?',
+      deleteAudioConfirm: 'Delete the recording?',
+      deleteElementConfirm: 'Delete this element?',
       multipleImagesSelected: '{count} images selected',
       addToCurrentPage: 'Add to Current Page',
       createNewPages: 'Create New Pages',
@@ -767,6 +779,10 @@ export const translations: Record<LanguageCode, Translations> = {
       editImage: 'تحرير الصورة',
       deleteImage: 'حذف الصورة',
       deleteImageConfirm: 'هل تريد حذف هذه الصورة?',
+      deleteTitleConfirm: 'هل تريد حذف العنوان؟',
+      deleteTilesConfirm: 'هل تريد حذف البلاطات؟',
+      deleteAudioConfirm: 'هل تريد حذف التسجيل؟',
+      deleteElementConfirm: 'هل تريد حذف هذا العنصر؟',
       multipleImagesSelected: 'تم تحديد {count} صور',
       addToCurrentPage: 'أضف إلى الصفحة الحالية',
       createNewPages: 'إنشاء صفحات جديدة',

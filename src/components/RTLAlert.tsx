@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -99,16 +99,16 @@ export function RTLAlert({
   );
 }
 
-// Static methods to match React Native Alert API
-let currentAlert: {
+// --- Static alert API (drop-in replacement for Alert.alert) ---
+
+type AlertConfig = {
   visible: boolean;
   title?: string;
   message?: string;
   buttons?: AlertButton[];
-  onDismiss: () => void;
-} | null = null;
+};
 
-let alertCallback: ((alert: typeof currentAlert) => void) | null = null;
+let alertListener: ((config: AlertConfig) => void) | null = null;
 
 export const RTLAlertStatic = {
   alert: (
@@ -116,30 +116,40 @@ export const RTLAlertStatic = {
     message?: string,
     buttons?: AlertButton[],
   ) => {
-    currentAlert = {
+    const config: AlertConfig = {
       visible: true,
       title,
       message,
       buttons: buttons || [{ text: 'OK' }],
-      onDismiss: () => {
-        if (currentAlert) {
-          currentAlert.visible = false;
-          if (alertCallback) {
-            alertCallback({ ...currentAlert });
-          }
-        }
-      },
     };
-
-    if (alertCallback) {
-      alertCallback({ ...currentAlert });
+    if (alertListener) {
+      alertListener(config);
     }
   },
-
-  setAlertCallback: (callback: (alert: typeof currentAlert) => void) => {
-    alertCallback = callback;
-  },
 };
+
+/**
+ * Mount once in App.tsx to enable RTLAlertStatic.alert() globally.
+ * Usage: <GlobalRTLAlert />
+ */
+export function GlobalRTLAlert() {
+  const [config, setConfig] = useState<AlertConfig>({ visible: false });
+
+  useEffect(() => {
+    alertListener = setConfig;
+    return () => { alertListener = null; };
+  }, []);
+
+  return (
+    <RTLAlert
+      visible={config.visible}
+      title={config.title}
+      message={config.message}
+      buttons={config.buttons}
+      onDismiss={() => setConfig({ visible: false })}
+    />
+  );
+}
 
 const styles = StyleSheet.create({
   overlay: {

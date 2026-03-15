@@ -7,9 +7,9 @@ import {
   Modal,
   ScrollView,
   Dimensions,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
+import { RTLAlertStatic } from '../components/RTLAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -65,7 +65,7 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
         t('backup.backupAllAlbums')
       );
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('backup.backupComplete'),
         t('backup.backupComplete')
       );
@@ -80,14 +80,14 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
 
       // Check if no albums
       if (error?.message?.includes('No albums')) {
-        Alert.alert(
+        RTLAlertStatic.alert(
           t('backup.backupFailed'),
           t('backup.noAlbumsToBackup')
         );
         return;
       }
 
-      Alert.alert(
+      RTLAlertStatic.alert(
         t('backup.backupFailed'),
         error.message || String(error)
       );

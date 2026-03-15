@@ -19,7 +19,7 @@ if (typeof global !== 'undefined') {
 }
 
 import React, { useState, useEffect } from 'react';
-import { StatusBar, useColorScheme, View, Linking, Alert, Platform } from 'react-native';
+import { StatusBar, useColorScheme, View, Linking, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Album } from './types/Album';
 import { AlbumService } from './services/AlbumService';
@@ -29,6 +29,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { AlbumScreen } from './screens/AlbumScreen';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { GlobalRTLAlert, RTLAlertStatic } from './components/RTLAlert';
 import FileCopyModule from './modules/FileCopyModule';
 
 interface OpenedAlbum {
@@ -67,7 +68,7 @@ function AppContent() {
           console.log('[App] Copied to temp file:', url);
         } catch (error) {
           console.error('[App] Failed to copy content URI:', error);
-          Alert.alert('Import Failed', 'Could not access shared file');
+          RTLAlertStatic.alert('Import Failed', 'Could not access shared file');
           return;
         }
       }
@@ -93,7 +94,7 @@ function AppContent() {
 
           if (zipInfo.metadata.exportType === 'backup') {
             // This is a backup - restore all albums
-            Alert.alert(
+            RTLAlertStatic.alert(
               t('backup.restoreFromBackup'),
               t('backup.restoreFromBackup') + '?',
               [
@@ -105,7 +106,7 @@ function AppContent() {
                       console.log('[App] Starting backup restore');
                       const stats = await BackupService.restoreFromBackup(zipPath);
 
-                      Alert.alert(
+                      RTLAlertStatic.alert(
                         t('backup.restoreComplete'),
                         `${t('backup.albumsImported')}: ${stats.imported}\n${t('backup.albumsSkipped')}: ${stats.skipped}`
                       );
@@ -114,7 +115,7 @@ function AppContent() {
                       setRefreshTrigger(prev => prev + 1);
                     } catch (error: any) {
                       console.error('[App] Restore failed:', error);
-                      Alert.alert(
+                      RTLAlertStatic.alert(
                         t('backup.restoreFailed'),
                         error.message || String(error)
                       );
@@ -125,7 +126,7 @@ function AppContent() {
             );
           } else if (zipInfo.metadata.exportType === 'album') {
             // Import single album
-            Alert.alert(
+            RTLAlertStatic.alert(
               t('import.importAlbum'),
               `Import album "${zipInfo.metadata.albumName}"?`,
               [
@@ -135,7 +136,7 @@ function AppContent() {
                   onPress: async () => {
                     try {
                       await ImportService.importAlbum(zipInfo);
-                      Alert.alert(
+                      RTLAlertStatic.alert(
                         t('import.importComplete'),
                         t('import.importComplete')
                       );
@@ -143,7 +144,7 @@ function AppContent() {
                       setRefreshTrigger(prev => prev + 1);
                     } catch (error: any) {
                       console.error('[App] Import failed:', error);
-                      Alert.alert(
+                      RTLAlertStatic.alert(
                         t('import.importFailed'),
                         error.message || String(error)
                       );
@@ -155,7 +156,7 @@ function AppContent() {
           }
         } catch (error) {
           console.error('[App] Failed to handle ZIP file:', error);
-          Alert.alert(
+          RTLAlertStatic.alert(
             'Import Failed',
             error instanceof Error ? error.message : String(error)
           );
@@ -207,6 +208,7 @@ function AppContent() {
         )}
       </SafeAreaView>
       <View style={{backgroundColor: colors.background, position:"absolute", bottom: 0, width:"100%", height: 200, zIndex:0}}/>
+      <GlobalRTLAlert />
     </SafeAreaProvider>
   );
 }

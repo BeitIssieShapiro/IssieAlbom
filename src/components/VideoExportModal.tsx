@@ -6,8 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { RTLAlertStatic } from './RTLAlert';
 import Share from 'react-native-share';
 import { AlbumPageV2 } from '../types/Album';
 import {
@@ -47,7 +47,7 @@ export function VideoExportModal({
 
   const handleExport = async () => {
     if (!canvasRef.current) {
-      Alert.alert('Error', 'Canvas not ready. Please try again.');
+      RTLAlertStatic.alert('Error', 'Canvas not ready. Please try again.');
       return;
     }
 
@@ -70,7 +70,7 @@ export function VideoExportModal({
       setExporting(false);
 
       // Show success message
-      Alert.alert(
+      RTLAlertStatic.alert(
         'Export Complete',
         `Video exported successfully!\nDuration: ${Math.round(exportResult.duration)}s\nSize: ${formatFileSize(exportResult.fileSize)}`,
         [
@@ -81,7 +81,7 @@ export function VideoExportModal({
     } catch (error) {
       console.error('Export failed:', error);
       setExporting(false);
-      Alert.alert('Export Failed', error instanceof Error ? error.message : 'Unknown error');
+      RTLAlertStatic.alert('Export Failed', error instanceof Error ? error.message : 'Unknown error');
     }
   };
 

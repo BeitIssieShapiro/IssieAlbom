@@ -10,6 +10,7 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { RTLAlertStatic } from './RTLAlert';
 import RNFS from 'react-native-fs';
 import { MyIcon } from '../common/icons';
 import ImageLibrary from '../services/ImageLibrary';
@@ -72,7 +73,7 @@ export function SearchImageModal({
       onClose();
     } catch (error) {
       console.error('Download failed:', error);
-      alert(t('editor.errorSaveImage'));
+      RTLAlertStatic.alert(t('editor.errorSaveImage'));
     } finally {
       setIsDownloading(null);
     }

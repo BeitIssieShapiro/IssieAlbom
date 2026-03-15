@@ -1,6 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -13,6 +12,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { RTLAlertStatic } from '../components/RTLAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SplashScreen from 'react-native-splash-screen';
 import Icon from '@react-native-vector-icons/ionicons';
@@ -80,7 +80,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
       setAlbums(loadedAlbums);
     } catch (error) {
       console.error('Failed to load albums:', error);
-      Alert.alert(t('home.error'), t('home.errorLoadAlbums'));
+      RTLAlertStatic.alert(t('home.error'), t('home.errorLoadAlbums'));
     }
   }, [t]);
 
@@ -133,7 +133,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   const handleCreateAlbum = async () => {
     const trimmedName = newAlbumName.trim();
     if (!trimmedName) {
-      Alert.alert(t('home.error'), t('home.errorEnterName'));
+      RTLAlertStatic.alert(t('home.error'), t('home.errorEnterName'));
       return;
     }
 
@@ -164,7 +164,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
             break;
         }
       }
-      Alert.alert(t('home.error'), errorMessage);
+      RTLAlertStatic.alert(t('home.error'), errorMessage);
       // Keep modal open so user can fix the name
     }
   };
@@ -174,7 +174,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   };
 
   const confirmDeleteAlbum = (album: Album) => {
-    Alert.alert(
+    RTLAlertStatic.alert(
       t('home.deleteAlbumTitle'),
       t('home.deleteAlbumMessage', { name: album.name }),
       [
@@ -188,7 +188,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
               await loadAlbums();
             } catch (error) {
               console.error('Failed to delete album:', error);
-              Alert.alert(t('home.error'), t('home.errorDeleteAlbum'));
+              RTLAlertStatic.alert(t('home.error'), t('home.errorDeleteAlbum'));
             }
           },
         },
@@ -207,7 +207,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
 
     const trimmedName = renameAlbumName.trim();
     if (!trimmedName) {
-      Alert.alert(t('home.error'), t('home.errorEnterName'));
+      RTLAlertStatic.alert(t('home.error'), t('home.errorEnterName'));
       return;
     }
 
@@ -239,7 +239,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
             break;
         }
       }
-      Alert.alert(t('home.error'), errorMessage);
+      RTLAlertStatic.alert(t('home.error'), errorMessage);
       // Keep modal open so user can fix the name
     }
   };

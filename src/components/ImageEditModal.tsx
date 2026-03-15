@@ -8,8 +8,8 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { RTLAlertStatic } from './RTLAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -253,7 +253,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       setLoading(true);
 
       if (!viewShotRef.current) {
-        Alert.alert(t('imageEdit.error'), t('imageEdit.errorCapture'));
+        RTLAlertStatic.alert(t('imageEdit.error'), t('imageEdit.errorCapture'));
         return;
       }
 
@@ -269,7 +269,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       onApply(uri, 0);
     } catch (error) {
       console.error('Failed to capture image:', error);
-      Alert.alert(t('imageEdit.error'), t('imageEdit.errorSave'));
+      RTLAlertStatic.alert(t('imageEdit.error'), t('imageEdit.errorSave'));
     } finally {
       setLoading(false);
     }

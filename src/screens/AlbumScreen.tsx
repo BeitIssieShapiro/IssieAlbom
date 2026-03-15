@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
-  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -8,6 +7,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import { RTLAlertStatic } from '../components/RTLAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Carousel from 'react-native-reanimated-carousel';
 import { Album, AlbumPage, HEADER_HEIGHT } from '../types/Album';
@@ -138,7 +138,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       setPages(loadedPages);
     } catch (error) {
       console.error('Failed to load pages:', error);
-      Alert.alert(t('home.error'), t('album.errorLoadPages'));
+      RTLAlertStatic.alert(t('home.error'), t('album.errorLoadPages'));
     }
   }, [album.id, t]);
 
@@ -183,7 +183,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       await loadPages();
     } catch (error) {
       console.error('Failed to save page:', error);
-      Alert.alert(t('home.error'), t('album.errorSavePage'));
+      RTLAlertStatic.alert(t('home.error'), t('album.errorSavePage'));
     }
 
     // Only exit edit mode if explicitly requested
@@ -222,7 +222,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       }
     } catch (error) {
       console.error('Failed to create page:', error);
-      Alert.alert(t('home.error'), t('album.errorCreatePage'));
+      RTLAlertStatic.alert(t('home.error'), t('album.errorCreatePage'));
     } finally {
       // Ensure at least 1 second has elapsed
       const elapsed = Date.now() - startTime;
@@ -237,7 +237,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handleDeletePage = (page: AlbumPage) => {
-    Alert.alert(
+    RTLAlertStatic.alert(
       t('album.deletePageTitle'),
       t('album.deletePageMessage'),
       [
@@ -252,7 +252,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               await loadPages();
             } catch (error) {
               console.error('Failed to delete page:', error);
-              Alert.alert(t('home.error'), t('album.errorDeletePage'));
+              RTLAlertStatic.alert(t('home.error'), t('album.errorDeletePage'));
             } finally {
               setIsDeletingPage(false);
             }
@@ -286,7 +286,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       await loadPages();
     } catch (error) {
       console.error('Failed to delete page:', error);
-      Alert.alert(t('home.error'), t('album.errorDeletePage'));
+      RTLAlertStatic.alert(t('home.error'), t('album.errorDeletePage'));
     } finally {
       // Ensure at least 1 second has elapsed
       const elapsed = Date.now() - startTime;

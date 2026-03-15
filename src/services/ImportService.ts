@@ -1,5 +1,5 @@
 import RNFS from 'react-native-fs';
-import { Alert } from 'react-native';
+import { RTLAlertStatic } from '../components/RTLAlert';
 import { AlbumService } from './AlbumService';
 import { ZipUtils } from '../utils/ZipUtils';
 import { ExportMetadata, ZipInfo, AlbumMetadata } from '../types/Album';
@@ -263,7 +263,7 @@ export class ImportService {
     };
 
     return new Promise((resolve) => {
-      Alert.alert(
+      RTLAlertStatic.alert(
         t.message!,
         `${t.message!}: "${existingName}"`,
         [
