@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  runOnJS,
 } from 'react-native-reanimated';
 import { MODAL_ORIENTATIONS } from '../types/Album';
 import { captureRef } from 'react-native-view-shot';
@@ -32,14 +31,42 @@ interface ImageEditModalProps {
   allowAspectRatioChange?: boolean; // If true, allow resizing crop frame (for adding images)
 }
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-
 export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, onCancel, allowAspectRatioChange = false }: ImageEditModalProps) {
   const { t, isRTL } = useLanguage();
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<View>(null);
+
+  // Track actual image dimensions
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+
+  // Dynamic screen dimensions for rotation support
+  const [screenDimensions, setScreenDimensions] = useState(() => {
+    const window = Dimensions.get('window');
+    return { width: window.width, height: window.height };
+  });
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenDimensions({ width: window.width, height: window.height });
+    });
+    return () => subscription?.remove();
+  }, []);
+
+  const isLandscape = screenDimensions.width > screenDimensions.height;
+  const HEADER_HEIGHT = isLandscape ? 44 : 60;
+  const CONTROLS_HEIGHT = isLandscape ? 44 : 80;
+
+  // Get actual image dimensions when imageUri changes
+  useEffect(() => {
+    if (visible && imageUri) {
+      Image.getSize(
+        imageUri,
+        (width, height) => setImageDimensions({ width, height }),
+        () => setImageDimensions({ width: 0, height: 0 }),
+      );
+    }
+  }, [visible, imageUri]);
 
   // Crop frame resize values (for allowAspectRatioChange mode)
   const frameWidth = useSharedValue(0);
@@ -57,24 +84,44 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
   const rotation = useSharedValue(0);
   const savedRotation = useSharedValue(0);
 
-  // Calculate crop frame size when modal opens
+  // Calculate available container space dynamically
+  const containerPadding = isLandscape ? 12 : 20;
+  const containerWidth = screenDimensions.width - insets.left - insets.right - containerPadding * 2;
+  const containerHeight = screenDimensions.height - HEADER_HEIGHT - CONTROLS_HEIGHT - insets.top - insets.bottom - containerPadding * 2;
+
+  // Calculate initial crop frame dimensions
+  let initialFrameWidth: number, initialFrameHeight: number;
+  if (pageAspectRatio > containerWidth / containerHeight) {
+    initialFrameWidth = containerWidth;
+    initialFrameHeight = containerWidth / pageAspectRatio;
+  } else {
+    initialFrameHeight = containerHeight;
+    initialFrameWidth = containerHeight * pageAspectRatio;
+  }
+
+  // Calculate image size to "cover" the crop frame (fill it, showing max of image)
+  let imageDisplayWidth: number, imageDisplayHeight: number;
+  if (imageDimensions.width > 0 && imageDimensions.height > 0) {
+    const imageAspect = imageDimensions.width / imageDimensions.height;
+    const frameAspect = initialFrameWidth / initialFrameHeight;
+    if (imageAspect > frameAspect) {
+      // Image is wider than frame — match heights, image overflows horizontally
+      imageDisplayHeight = initialFrameHeight;
+      imageDisplayWidth = initialFrameHeight * imageAspect;
+    } else {
+      // Image is taller than frame — match widths, image overflows vertically
+      imageDisplayWidth = initialFrameWidth;
+      imageDisplayHeight = initialFrameWidth / imageAspect;
+    }
+  } else {
+    // Fallback before image dimensions are loaded
+    imageDisplayWidth = initialFrameWidth;
+    imageDisplayHeight = initialFrameHeight;
+  }
+
+  // Calculate crop frame size when modal opens or dimensions change
   React.useEffect(() => {
     if (visible) {
-      const containerWidth = SCREEN_WIDTH - 40;
-      const containerHeight = SCREEN_HEIGHT - 300;
-
-      let initialFrameWidth, initialFrameHeight;
-
-      if (pageAspectRatio > containerWidth / containerHeight) {
-        // Page is wider relative to container
-        initialFrameWidth = containerWidth;
-        initialFrameHeight = containerWidth / pageAspectRatio;
-      } else {
-        // Page is taller relative to container
-        initialFrameHeight = containerHeight;
-        initialFrameWidth = containerHeight * pageAspectRatio;
-      }
-
       // Initialize shared values for resizable frame
       frameWidth.value = initialFrameWidth;
       frameHeight.value = initialFrameHeight;
@@ -91,7 +138,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       rotation.value = 0;
       savedRotation.value = 0;
     }
-  }, [visible, pageAspectRatio]);
+  }, [visible, pageAspectRatio, containerWidth, containerHeight]);
 
   // Pinch gesture for zoom
   const pinchGesture = Gesture.Pinch()
@@ -132,7 +179,6 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
   // Resize gestures for crop frame (only when allowAspectRatioChange is true)
   const rightHandlePan = Gesture.Pan()
     .onUpdate((e) => {
-      const containerWidth = SCREEN_WIDTH - 40;
       const newWidth = Math.max(100, Math.min(containerWidth, savedFrameWidth.value + e.translationX));
       frameWidth.value = newWidth;
     })
@@ -142,7 +188,6 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
 
   const bottomHandlePan = Gesture.Pan()
     .onUpdate((e) => {
-      const containerHeight = SCREEN_HEIGHT - 300;
       const newHeight = Math.max(100, Math.min(containerHeight, savedFrameHeight.value + e.translationY));
       frameHeight.value = newHeight;
     })
@@ -152,8 +197,6 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
 
   const cornerHandlePan = Gesture.Pan()
     .onUpdate((e) => {
-      const containerWidth = SCREEN_WIDTH - 40;
-      const containerHeight = SCREEN_HEIGHT - 300;
       const newWidth = Math.max(100, Math.min(containerWidth, savedFrameWidth.value + e.translationX));
       const newHeight = Math.max(100, Math.min(containerHeight, savedFrameHeight.value + e.translationY));
       frameWidth.value = newWidth;
@@ -248,19 +291,6 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
 
     // Reset frame size to initial values
     if (allowAspectRatioChange) {
-      const containerWidth = SCREEN_WIDTH - 40;
-      const containerHeight = SCREEN_HEIGHT - 300;
-
-      let initialFrameWidth, initialFrameHeight;
-
-      if (pageAspectRatio > containerWidth / containerHeight) {
-        initialFrameWidth = containerWidth;
-        initialFrameHeight = containerWidth / pageAspectRatio;
-      } else {
-        initialFrameHeight = containerHeight;
-        initialFrameWidth = containerHeight * pageAspectRatio;
-      }
-
       frameWidth.value = withSpring(initialFrameWidth);
       frameHeight.value = withSpring(initialFrameHeight);
       savedFrameWidth.value = initialFrameWidth;
@@ -278,26 +308,32 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
       <GestureHandlerRootView style={styles.container}>
         <View style={styles.container}>
           {/* Header */}
-          <View style={[styles.header, { paddingTop: insets.top + 16, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-              <Text style={styles.cancelButtonText}>{t('imageEdit.cancel')}</Text>
+          <View style={[styles.header, {
+            paddingTop: insets.top + (isLandscape ? 4 : 16),
+            paddingBottom: isLandscape ? 4 : 16,
+            paddingLeft: insets.left + 16,
+            paddingRight: insets.right + 16,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          }]}>
+            <TouchableOpacity style={[styles.cancelButton, isLandscape && styles.compactButton]} onPress={handleCancel}>
+              <Text style={[styles.cancelButtonText, isLandscape && styles.compactButtonText]}>{t('imageEdit.cancel')}</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>{t('imageEdit.title')}</Text>
+            <Text style={[styles.title, isLandscape && styles.compactTitle]}>{t('imageEdit.title')}</Text>
             <TouchableOpacity
-              style={styles.applyButton}
+              style={[styles.applyButton, isLandscape && styles.compactButton]}
               onPress={handleApply}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={styles.applyButtonText}>{t('imageEdit.apply')}</Text>
+                <Text style={[styles.applyButtonText, isLandscape && styles.compactButtonText]}>{t('imageEdit.apply')}</Text>
               )}
             </TouchableOpacity>
           </View>
 
           {/* Crop frame with image */}
-          <View style={[styles.imageContainer, { paddingBottom: insets.bottom + 80 }]}>
+          <View style={[styles.imageContainer, { padding: containerPadding, paddingLeft: insets.left + containerPadding, paddingRight: insets.right + containerPadding }]}>
             <Animated.View style={[{ position: 'relative' }, frameAnimatedStyle]}>
               <Animated.View
                 ref={viewShotRef}
@@ -314,8 +350,8 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
                   <Animated.View
                     style={[
                       {
-                        width: SCREEN_WIDTH,
-                        height: SCREEN_HEIGHT,
+                        width: '100%',
+                        height: '100%',
                         justifyContent: 'center',
                         alignItems: 'center',
                       },
@@ -325,8 +361,8 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
                     <Image
                       source={{ uri: imageUri }}
                       style={{
-                        width: SCREEN_WIDTH,
-                        height: SCREEN_HEIGHT,
+                        width: imageDisplayWidth,
+                        height: imageDisplayHeight,
                       }}
                       resizeMode="contain"
                     />
@@ -397,11 +433,20 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
           </View>
 
           {/* Controls */}
-          <View style={[styles.controls, { paddingBottom: insets.bottom }]}>
-            <Text style={[styles.instructionText, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {t('imageEdit.instructions')}
-            </Text>
-            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+          <View style={[styles.controls, {
+            paddingBottom: isLandscape ? 4 : insets.bottom,
+            paddingVertical: isLandscape ? 4 : 20,
+            paddingLeft: insets.left + 20,
+            paddingRight: insets.right + 20,
+            flexDirection: isLandscape ? 'row' : 'column',
+            justifyContent: isLandscape ? 'center' : 'flex-start',
+          }]}>
+            {!isLandscape && (
+              <Text style={[styles.instructionText, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t('imageEdit.instructions')}
+              </Text>
+            )}
+            <TouchableOpacity style={[styles.resetButton, isLandscape && { paddingVertical: 6, paddingHorizontal: 12 }]} onPress={handleReset}>
               <MyIcon
                 info={{
                   type: 'MDI',
@@ -438,6 +483,9 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
+  compactTitle: {
+    fontSize: 15,
+  },
   cancelButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -448,6 +496,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  compactButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  compactButtonText: {
+    fontSize: 14,
   },
   applyButton: {
     paddingHorizontal: 16,

@@ -43,6 +43,7 @@ import { PageService } from '../services/PageService';
 import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
 import { SymbolSearchService } from '../services/SymbolSearchService';
+import { detectLanguageFromText } from '../utils/languageDetection';
 import ImageLibrary from '../services/ImageLibrary';
 import { MyIcon } from '../common/icons';
 import { RTLAlert } from '../components/RTLAlert';
@@ -722,12 +723,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     console.log('[PageEditorScreen] page.pageNumber:', page.pageNumber);
     console.log('[PageEditorScreen] pageModifiedRef.current:', pageModifiedRef.current);
 
-    // Save currently edited text before exiting
-    if (currentEdited.textId) {
-      const text = displayTexts.find(t => t.id === currentEdited.textId);
-      if (text) {
-        queue.current.pushText(text);
-      }
+    // Save currently edited text before exiting — use refs to avoid stale closure
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
     }
 
     // Clear undo queue to delete unreachable attachments
@@ -756,6 +755,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handlePrevPage = () => {
     if (!pages || !onNavigatePage || !hasPrevPage) return;
 
+    // Save pending text edits before navigating
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
+      setCurrentEdited({});
+    }
+
     // Clear undo queue to delete unreachable attachments
     queue.current.clearUndo();
 
@@ -777,6 +783,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const handleNextPage = () => {
     if (!pages || !onNavigatePage || !hasNextPage) return;
 
+    // Save pending text edits before navigating
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
+      setCurrentEdited({});
+    }
+
     // Clear undo queue to delete unreachable attachments
     queue.current.clearUndo();
 
@@ -797,6 +810,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleNewPage = () => {
     if (!onCreatePage) return;
+
+    // Save pending text edits before creating new page
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
+      setCurrentEdited({});
+    }
 
     // Clear undo queue to delete unreachable attachments
     queue.current.clearUndo();
@@ -845,13 +865,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleUndo = () => {
-    // Save any pending text edits before undo
-    if (currentEdited.textId || editingTextChanges) {
-      const textId = currentEdited.textId || editingTextChanges?.id;
-      if (textId) {
-        handleTextEditEnd(textId);
-        setCurrentEdited({});
-      }
+    // Save any pending text edits before undo — use refs to avoid stale closure
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
+      setCurrentEdited({});
     }
 
     if (queue.current.undo(ENABLE_UNLIMITED_UNDO ? undefined : baselineQueueLength.current)) {
@@ -873,13 +891,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleRedo = () => {
-    // Save any pending text edits before redo
-    if (currentEdited.textId || editingTextChanges) {
-      const textId = currentEdited.textId || editingTextChanges?.id;
-      if (textId) {
-        handleTextEditEnd(textId);
-        setCurrentEdited({});
-      }
+    // Save any pending text edits before redo — use refs to avoid stale closure
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
+      setCurrentEdited({});
     }
 
     if (queue.current.redo()) {
@@ -1174,6 +1190,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   // When switching to text mode, create first text element if none exist
   const handleSetTextMode = () => {
+    // Save currently edited text before switching modes
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
+      setCurrentEdited({});
+    }
+
     setCurrentElementType(ElementTypes.Text);
     currentElementTypeRef.current = ElementTypes.Text;
     setShowToolOptions(true);
@@ -1184,9 +1207,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleEditTitle = () => {
-    // Save current text before switching
-    if (currentEdited.textId) {
-      handleTextEditEnd(currentEdited.textId);
+    // Save current text before switching — use refs to avoid stale closure
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
     }
 
     // Clear editing text changes
@@ -1249,12 +1273,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleEditBody = () => {
-    console.log('[handleEditBody] START - currentEdited:', currentEdited);
+    console.log('[handleEditBody] START - currentEdited:', currentEditedRef.current);
 
-    // Save current text before switching
-    if (currentEdited.textId) {
-      console.log('[handleEditBody] Saving previous text:', currentEdited.textId);
-      handleTextEditEnd(currentEdited.textId);
+    // Save current text before switching — use refs to avoid stale closure
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      console.log('[handleEditBody] Saving previous text:', textToSave);
+      handleTextEditEnd(textToSave);
     }
 
     // Clear editing text changes
@@ -1308,9 +1333,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleEditTiles = () => {
-    // Save current text before switching
-    if (currentEdited.textId) {
-      handleTextEditEnd(currentEdited.textId);
+    // Save current text before switching — use refs to avoid stale closure
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
     }
 
     // If tiles already exist, just select them (don't open modal)
@@ -1396,6 +1422,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     if (needsSymbolSearch) {
       setSearchingSymbols(true);
       setSearchingSymbolsMode('auto');
+      // Detect language from the typed text, not UI language
+      const detectedLanguage = detectLanguageFromText(text);
       try {
         // Extract words that need symbols
         const wordsToSearch = tileWords.map(tile => tile.symbol ? null : tile.text);
@@ -1405,7 +1433,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           wordsToSearch.map(async (word, index) => {
             if (word === null) return null; // Already has symbol
             try {
-              return await SymbolSearchService.searchSymbol(word, language, albumId);
+              return await SymbolSearchService.searchSymbol(word, detectedLanguage, albumId);
             } catch (error) {
               console.error('[PageEditor] Symbol search failed for', word, error);
               return null;
@@ -1661,7 +1689,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       autoSave();
     } catch (error) {
       console.error('[PageEditor] Failed to download symbol:', error);
-      alert(t.editor.errorSaveImage);
+      showAlert(t('home.error'), t('editor.errorSaveImage'));
     } finally {
       setSearchingSymbols(false);
       setSelectedTileIndex(null);
@@ -1705,8 +1733,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleSetSketchMode = () => {
     // Save currently edited text before switching modes
-    if (currentEdited.textId) {
-      handleTextEditEnd(currentEdited.textId);
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
       setCurrentEdited({});
     }
 
@@ -1719,8 +1748,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleSetImageMode = () => {
     // Save currently edited text before switching modes
-    if (currentEdited.textId) {
-      handleTextEditEnd(currentEdited.textId);
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
       setCurrentEdited({});
     }
 
@@ -1732,8 +1762,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleSetEmojiMode = () => {
     // Save currently edited text before switching modes
-    if (currentEdited.textId) {
-      handleTextEditEnd(currentEdited.textId);
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
       setCurrentEdited({});
     }
 
@@ -1749,8 +1780,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleSetAudioMode = () => {
     // Save currently edited text before switching modes
-    if (currentEdited.textId) {
-      handleTextEditEnd(currentEdited.textId);
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
       setCurrentEdited({});
     }
 
@@ -1765,8 +1797,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   const handleSetBackgroundMode = () => {
     // Save currently edited text before switching modes
-    if (currentEdited.textId) {
-      handleTextEditEnd(currentEdited.textId);
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
       setCurrentEdited({});
     }
 
@@ -2527,7 +2560,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       } else if (source === 'edit-existing') {
         // Editing an existing image - replace it with the edited version
         const imageId = pendingImageId;
-        const existingImage = images.find(img => img.id === imageId);
+        const existingImage = imagesRef.current.find(img => img.id === imageId);
 
         if (existingImage) {
           // Update the image with new relative path (edited version)
@@ -2596,11 +2629,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleEditExistingImage = () => {
-    // Get the currently selected image
-    const imageId = currentEdited.imageId;
+    // Get the currently selected image — use refs to avoid stale closure
+    const imageId = currentEditedRef.current.imageId;
     if (!imageId) return;
 
-    const image = images.find(img => img.id === imageId);
+    const image = imagesRef.current.find(img => img.id === imageId);
     if (!image) return;
 
     // Build the full path to the image
@@ -2617,11 +2650,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleDeleteImage = () => {
-    const imageId = currentEdited.imageId;
+    // Use refs to avoid stale closure
+    const imageId = currentEditedRef.current.imageId;
     if (!imageId) return;
 
     // Find the image to delete
-    const image = images.find(img => img.id === imageId);
+    const image = imagesRef.current.find(img => img.id === imageId);
     if (!image) return;
 
     // Delete the image element from queue (no confirmation - user can undo)
@@ -2724,7 +2758,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     } else if (type === MoveTypes.ElementMove) {
       // For audio elements (generic elements)
       console.log('Moving audio element');
-      const audio = audios.find(a => a.id === id);
+      const audio = audiosRef.current.find(a => a.id === id);
       if (audio) {
         setAudios(prev => prev.map(a => a.id === id ? { ...a, x: p[0], y: p[1] } : a));
       }
@@ -2739,7 +2773,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const textChanges = editingTextChangesRef.current;
       console.log('Text moved, saving from editingTextChanges:', textChanges);
 
-      if (textChanges && textChanges.id === id && currentEditedRef.current != id) {
+      if (textChanges && textChanges.id === id && currentEditedRef.current.textId !== id) {
         // Use displayTextsRef which has canvas layout mutations (width/height)
         const textElem = findLast(displayTextsRef.current, (t => t.id === id));
         if (textElem) {
@@ -2808,8 +2842,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       currentEditedRef.current = newCurrentEdited; // Update ref immediately too
       console.log('Set currentEdited after move:', newCurrentEdited);
     } else if (type === MoveTypes.ElementMove) {
-      // For audio elements
-      const audio = audios.find(a => a.id === id);
+      // For audio elements — use ref to avoid stale closure
+      const audio = audiosRef.current.find(a => a.id === id);
       if (audio && !audio.editMode) {
         // Only save position if audio is not in edit mode (recording)
         const positionData = {
@@ -2832,8 +2866,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     if (type === ElementTypes.Text) {
       queue.current.pushTextDelete(id);
     } else if (type === ElementTypes.Image) {
-      // Find the image to get its full data for the delete operation
-      const image = images.find(img => img.id === id);
+      // Find the image to get its full data for the delete operation — use ref to avoid stale closure
+      const image = imagesRef.current.find(img => img.id === id);
       if (image) {
         queue.current.pushDeleteImage(image);
       } else {
@@ -3197,23 +3231,26 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             ]}
             pointerEvents="box-none"
           >
-            <ScrollView
-              style={{ flex: 1, backgroundColor: '#fff' }}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              showsVerticalScrollIndicator={true}
-              pointerEvents="auto"
-            >
-              {/* Close Button */}
+            {/* Fixed header with title and close button */}
+            <View style={[styles.toolbarTitleSection, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }]} pointerEvents="auto">
+              <Text style={styles.toolbarTitle}>
+                {audioMode
+                  ? t('editor.audio')
+                  : currentElementType === ElementTypes.Sketch ? t('editor.pen')
+                  : currentElementType === ElementTypes.Text ? t('editor.textInput')
+                  : currentElementType === ElementTypes.Image ? t('editor.addImage')
+                  : currentElementType === ElementTypes.Emoji ? t('editor.emojis')
+                  : currentElementType === ElementTypes.Background ? t('editor.background')
+                  : ''}
+              </Text>
               <TouchableOpacity
-                style={[
-                  styles.closeButton,
-                  isRTL ? { left: 12 } : { right: 12 }
-                ]}
+                style={styles.toolbarCloseButton}
                 onPress={() => {
                   console.log('[Close toolbar] Closing tool options');
-                  // Save text before closing
-                  if (currentEdited.textId) {
-                    handleTextEditEnd(currentEdited.textId);
+                  // Save text before closing — use refs to avoid stale closure
+                  const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+                  if (textToSave) {
+                    handleTextEditEnd(textToSave);
                     setCurrentEdited({});
                   }
                   setShowToolOptions(false);
@@ -3221,14 +3258,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               >
                 <MyIcon info={{ name: "close", size: 24, color: '#666', type: "MI" }} />
               </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={{ flex: 1, backgroundColor: '#fff' }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              showsVerticalScrollIndicator={true}
+              pointerEvents="auto"
+            >
 
               {!audioMode && currentElementType === ElementTypes.Sketch && (
                 <>
-                  {/* Toolbar Title */}
-                  <View style={styles.toolbarTitleSection}>
-                    <Text style={styles.toolbarTitle}>{t('editor.pen')}</Text>
-                  </View>
-
                   {/* Color Picker with Eraser */}
                   <View style={styles.optionsSection}>
                     <Text style={styles.sectionLabel}>{t('editor.color')}</Text>
@@ -3477,11 +3517,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
               {!audioMode && currentElementType === ElementTypes.Image && (
                 <>
-                  {/* Toolbar Title */}
-                  <View style={styles.toolbarTitleSection}>
-                    <Text style={styles.toolbarTitle}>{t('editor.addImage')}</Text>
-                  </View>
-
                   <View style={styles.optionsSection}>
                     <TouchableOpacity
                       style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
@@ -3540,11 +3575,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
               {audioMode && (
                 <>
-                  {/* Toolbar Title */}
-                  <View style={styles.toolbarTitleSection}>
-                    <Text style={styles.toolbarTitle}>{t('editor.audio')}</Text>
-                  </View>
-
                   <View style={styles.optionsSection}>
                     <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
@@ -3614,11 +3644,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {/* Emoji Mode Options */}
               {!audioMode && currentElementType === ElementTypes.Emoji && (
                 <>
-                  {/* Toolbar Title */}
-                  <View style={styles.toolbarTitleSection}>
-                    <Text style={styles.toolbarTitle}>{t('editor.emojis')}</Text>
-                  </View>
-
                   {console.log('[RENDER] Showing Emoji toolbar options, currentElementType:', currentElementType)}
                   {/* Pick Emoji Button */}
                   <View style={styles.optionsSection}>
@@ -3709,11 +3734,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {/* Background Mode Options */}
               {!audioMode && currentElementType === ElementTypes.Background && (
                 <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                  {/* Toolbar Title */}
-                  <View style={styles.toolbarTitleSection}>
-                    <Text style={styles.toolbarTitle}>{t('editor.background')}</Text>
-                  </View>
-
                   {/* Solid Colors */}
                   <View style={styles.optionsSection}>
                     <Text style={styles.sectionLabel}>{t('editor.solidColor')}</Text>
@@ -3952,7 +3972,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#007AFF" />
             <Text style={styles.loadingText}>
-              {searchingSymbolsMode === 'auto' ? t.findingSymbols : t.searchingSymbols}
+              {searchingSymbolsMode === 'auto' ? t('editor.findingSymbols') : t('editor.searchingSymbols')}
             </Text>
           </View>
         </View>
@@ -4154,6 +4174,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1001,
+  },
+  toolbarCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   optionsSection: {
     marginBottom: 15,
