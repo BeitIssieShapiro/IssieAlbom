@@ -31,6 +31,7 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { GlobalRTLAlert, RTLAlertStatic } from './components/RTLAlert';
 import FileCopyModule from './modules/FileCopyModule';
+import { StorageCleanupService } from './services/StorageCleanupService';
 
 interface OpenedAlbum {
   album: Album;
@@ -53,6 +54,13 @@ function AppContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { colors } = useTheme();
   const { direction, t } = useLanguage();
+
+  // Run storage cleanup on startup (non-blocking)
+  useEffect(() => {
+    StorageCleanupService.runFullCleanup().catch(err =>
+      console.warn('[App] Storage cleanup failed:', err)
+    );
+  }, []);
 
   // Handle incoming shared files or URLs
   useEffect(() => {

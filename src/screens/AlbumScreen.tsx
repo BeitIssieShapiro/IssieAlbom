@@ -19,6 +19,7 @@ import { MyIcon } from '../common/icons';
 import { spacing, borderRadius } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { StorageCleanupService } from '../services/StorageCleanupService';
 
 
 interface AlbumScreenProps {
@@ -250,6 +251,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             try {
               await PageService.deletePage(album.id, page.id);
               await loadPages();
+              // Clean up orphaned attachment files
+              StorageCleanupService.cleanupAlbum(album.id).catch(() => {});
             } catch (error) {
               console.error('Failed to delete page:', error);
               RTLAlertStatic.alert(t('home.error'), t('album.errorDeletePage'));
@@ -284,6 +287,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 
       // Update pages state
       await loadPages();
+      // Clean up orphaned attachment files
+      StorageCleanupService.cleanupAlbum(album.id).catch(() => {});
     } catch (error) {
       console.error('Failed to delete page:', error);
       RTLAlertStatic.alert(t('home.error'), t('album.errorDeletePage'));
