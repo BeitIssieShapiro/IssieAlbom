@@ -2824,7 +2824,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       const textChanges = editingTextChangesRef.current;
       console.log('Text moved, saving from editingTextChanges:', textChanges);
 
-      if (textChanges && textChanges.id === id && currentEditedRef.current.textId !== id) {
+      if (textChanges && textChanges.id === id) {
+        if (currentEditedRef.current.textId === id) {
+          // Text is currently being edited — keep editingTextChanges so position
+          // persists visually and gets merged when handleTextEditEnd runs
+          console.log('Text in edit mode, keeping editingTextChanges for later save');
+          return;
+        }
         // Use displayTextsRef which has canvas layout mutations (width/height)
         const textElem = findLast(displayTextsRef.current, (t => t.id === id));
         if (textElem) {
