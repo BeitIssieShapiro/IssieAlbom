@@ -53,6 +53,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 const TOOLBAR_WIDTH = 90; // Default toolbar width (will be overridden responsively)
 const CANVAS_MARGIN = 6; // Margin around canvas in edit mode (reduced for mobile)
+const SUBTOOLBAR_WIDTH = 240; // Width of the second-level tool options panel
 const MAX_TILE_SIZE_RATIO = 0.35; // Max tile size as percentage of page height
 
 // Debug: Allow unlimited undo in development (set to false for production)
@@ -521,8 +522,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const toolbarGap = isMobileLandscape ? 8 : 12;
   const toolbarPaddingVertical = isMobileLandscape ? 4 : 8;
 
-  // Calculate available space for canvas (subtracting toolbar width from the right and margins)
-  const availableWidth = screenDimensions.width - toolbarWidth - CANVAS_MARGIN * 2 - insets.left - insets.right;
+  // Calculate available space for canvas (subtracting toolbar width and subtoolbar when open)
+  const subtoolbarOffset = showToolOptions ? SUBTOOLBAR_WIDTH : 0;
+  const availableWidth = screenDimensions.width - toolbarWidth - subtoolbarOffset - CANVAS_MARGIN * 2 - insets.left - insets.right;
   const availableHeight = screenDimensions.height - HEADER_HEIGHT - CANVAS_MARGIN * 2 - insets.top - insets.bottom;
 
   // Get original page dimensions (screen dimensions when page was created)
@@ -553,14 +555,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
   // Calculate centering offset for canvas
   // Available width for canvas area (excluding toolbar)
-  const canvasAreaWidth = screenDimensions.width - toolbarWidth - insets.left - insets.right;
+  const canvasAreaWidth = screenDimensions.width - toolbarWidth - subtoolbarOffset - insets.left - insets.right;
   // Remaining horizontal space after placing canvas
   const horizontalSpace = canvasAreaWidth - canvasWidth;
   // Center the canvas within available space, with minimum margin
   const centeringOffset = Math.max(0, horizontalSpace / 2);
 
-  // Canvas left margin (start margin in RTL-aware terms)
-  const canvasLeftMargin = centeringOffset;
+  // Canvas start margin: offset past subtoolbar (absolute positioned, so flex doesn't account for it) + centering
+  // In both LTR and RTL, subtoolbar is on the "start" side, so marginStart needs the offset
+  const canvasLeftMargin = subtoolbarOffset + centeringOffset;
 
   console.log('[PageEditorScreen] Canvas centering:', {
     language,
@@ -573,17 +576,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     canvasLeftMargin,
   });
 
-  // Absolute sideMargin for screen2Canvas calculation:
-  // In LTR (English): toolbar is on left, so canvas left = toolbar + margin
-  // In RTL (Hebrew/Arabic): toolbar is on right, so canvas left = margin only
-  const toolbarOffset = language === 'en' ? toolbarWidth : 0;
-  const sideMargin = toolbarOffset + canvasLeftMargin + insets.left;
+  // Absolute sideMargin for screen2Canvas calculation (absolute screen-left of canvas):
+  // In LTR: canvas left = toolbar + subtoolbar + centeringOffset + insets.left
+  // In RTL: canvas left = insets.left + centeringOffset (subtoolbar is on right, pushes canvas left)
+  const sideMargin = language === 'en'
+    ? toolbarWidth + subtoolbarOffset + centeringOffset + insets.left
+    : insets.left + centeringOffset;
 
   console.log('[PageEditorScreen] sideMargin calculation:', {
     language,
     isLTR: language === 'en',
-    toolbarOffset,
+    toolbarWidth,
+    subtoolbarOffset,
     canvasLeftMargin,
+    centeringOffset,
     insetsLeft: insets.left,
     finalSideMargin: sideMargin,
   });
@@ -1242,7 +1248,6 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     } else {
       // Create new title after subtoolbar with margin
       // Note: title coords are in canvas space, so convert screen space (subtoolbar) to canvas space
-      const SUBTOOLBAR_WIDTH = 240;
       const TITLE_MARGIN = 10;
       const subtoolbarCanvasWidth = SUBTOOLBAR_WIDTH;
       const marginCanvasWidth = TITLE_MARGIN;
