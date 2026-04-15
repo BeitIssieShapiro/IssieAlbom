@@ -1,3 +1,11 @@
+## Apr-15
+V- moving the title text, and it disappear
+V- moving body -returns and no way to delete
+- don't allow toolbar on top of canvas
+- decide if landscape or portrait album
+
+
+
 ## March 11
 V- themes - only colors
 V- add multiple images, ask if same page ot new pages
