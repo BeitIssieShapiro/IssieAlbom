@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -30,6 +32,7 @@ export function TilesModal({
   const { t, isRTL } = useLanguage();
 
   const [text, setText] = useState(initialText);
+  const inputRef = useRef<TextInput>(null);
 
   // Update state when modal opens with new initial values
   React.useEffect(() => {
@@ -53,80 +56,88 @@ export function TilesModal({
       onRequestClose={onClose}
       supportedOrientations={MODAL_ORIENTATIONS}
     >
-      <View style={styles.overlay}>
-        <View
-          style={[
-            styles.modal,
-            {
-              backgroundColor: colors.cardBackground,
-              borderRadius: borderRadius.large,
-            },
-          ]}
-        >
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
-            {t('editor.tilesTitle')}
-          </Text>
-
-          {/* Text Input */}
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {t('editor.tilesPrompt')}
-          </Text>
-          <TextInput
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.overlay}>
+          <View
             style={[
-              styles.input,
+              styles.modal,
               {
-                backgroundColor: colors.background,
-                color: colors.textPrimary,
-                borderColor: colors.border,
-                borderRadius: borderRadius.medium,
-                fontWeight: 'bold',
-                textAlign: 'center',
+                backgroundColor: colors.cardBackground,
+                borderRadius: borderRadius.large,
               },
             ]}
-            value={text}
-            onChangeText={setText}
-            placeholder={t('editor.tilesPlaceholder')}
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            autoFocus
-          />
+          >
+            <Text style={[styles.title, { color: colors.textPrimary }]}>
+              {t('editor.tilesTitle')}
+            </Text>
 
-          {/* Buttons */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
+            {/* Text Input */}
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              {t('editor.tilesPrompt')}
+            </Text>
+            <TextInput
+              ref={inputRef}
               style={[
-                styles.button,
-                { backgroundColor: colors.border, borderRadius: borderRadius.medium },
-              ]}
-              onPress={onClose}
-            >
-              <Text style={[styles.buttonText, { color: colors.textPrimary }]}>
-                {t('imageEdit.cancel')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.button,
+                styles.input,
                 {
-                  backgroundColor: text.trim() ? colors.primary : colors.border,
+                  backgroundColor: colors.background,
+                  color: colors.textPrimary,
+                  borderColor: colors.border,
                   borderRadius: borderRadius.medium,
+                  fontWeight: 'bold',
+                  textAlign: 'center',
                 },
               ]}
-              onPress={handleConfirm}
-              disabled={!text.trim()}
-            >
-              <Text style={[styles.buttonText, { color: '#FFF' }]}>
-                {isEditing ? t('editor.tilesUpdate') : t('editor.tilesCreate')}
-              </Text>
-            </TouchableOpacity>
+              value={text}
+              onChangeText={setText}
+              placeholder={t('editor.tilesPlaceholder')}
+              placeholderTextColor={colors.textSecondary}
+              multiline
+            />
+
+            {/* Buttons */}
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: colors.border, borderRadius: borderRadius.medium },
+                ]}
+                onPress={onClose}
+              >
+                <Text style={[styles.buttonText, { color: colors.textPrimary }]}>
+                  {t('imageEdit.cancel')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: text.trim() ? colors.primary : colors.border,
+                    borderRadius: borderRadius.medium,
+                  },
+                ]}
+                onPress={handleConfirm}
+                disabled={!text.trim()}
+              >
+                <Text style={[styles.buttonText, { color: '#FFF' }]}>
+                  {isEditing ? t('editor.tilesUpdate') : t('editor.tilesCreate')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

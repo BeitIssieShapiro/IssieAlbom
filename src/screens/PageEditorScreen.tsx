@@ -244,17 +244,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [showTilesModal, setShowTilesModal] = useState(false);
   const [tilesSelected, setTilesSelected] = useState(false); // Track if tiles are selected for editing styling
   const [tiles, setTiles] = useState<SketchTiles | null>(null);
+  const tilesRef = useRef<SketchTiles | null>(null);
   const [selectedTileIndex, setSelectedTileIndex] = useState<number | null>(null);
   const [searchingSymbols, setSearchingSymbols] = useState(false); // Track symbol search loading
   const [searchingSymbolsMode, setSearchingSymbolsMode] = useState<'auto' | 'manual'>('auto'); // Track if auto-search or manual download
   const [showSearchSymbolModal, setShowSearchSymbolModal] = useState(false);
 
   // Tiles styling state (for subtoolbar controls)
-  const [tilesBgColor, setTilesBgColor] = useState('#4A69BD');
-  const [tilesTextColor, setTilesTextColor] = useState('#FFFFFF');
+  const [tilesBgColor, setTilesBgColor] = useState('#FFFDE7');
+  const [tilesTextColor, setTilesTextColor] = useState('#333333');
   const [tilesSize, setTilesSize] = useState(0.12); // Default to M
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
+  const [emojiPinchSize, setEmojiPinchSize] = useState<number | undefined>(); // Temporary size during pinch
+  const emojiPinchSizeRef = useRef<number | undefined>(undefined);
   const [backgroundPattern, setBackgroundPattern] = useState<BackgroundPattern | undefined>(undefined);
   const [currentEdited, setCurrentEdited] = useState<CurrentEdited>({});
   const [currentElementType, setCurrentElementType] = useState<ElementTypes>(ElementTypes.Sketch);
@@ -279,6 +282,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const displayTextsRef = useRef<SketchText[]>([]);
   const currentEmojiIdRef = useRef<string | null>(null);
   const emojiRotationRef = useRef<number | undefined>(undefined);
+  const emojiPinchBaseRef = useRef<{ rotation: number; fontSize: number } | null>(null);
   const sketchColorRef = useRef<string>('#333333');
   const sketchStrokeWidthRef = useRef<number>(3);
   const handleSketchEndRef = useRef<((commands?: PathCommand[]) => void) | null>(null);
@@ -322,12 +326,20 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   }, [texts]);
 
   useEffect(() => {
+    tilesRef.current = tiles;
+  }, [tiles]);
+
+  useEffect(() => {
     currentEmojiIdRef.current = currentEmojiId;
   }, [currentEmojiId]);
 
   useEffect(() => {
     emojiRotationRef.current = emojiRotation;
   }, [emojiRotation]);
+
+  useEffect(() => {
+    emojiPinchSizeRef.current = emojiPinchSize;
+  }, [emojiPinchSize]);
 
   // Computed texts array that includes editing changes and move changes
   const displayTexts = useMemo(() => {
@@ -348,11 +360,16 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       if (movingElement?.type === 'text' && movingElement.id === t.id && !editingTextChanges) {
         return { ...t, x: movingElement.x, y: movingElement.y };
       }
-      // Apply temporary rotation for selected emoji ONLY
-      console.log("rotation change?", t.id, t.isEmoji, currentEmojiId, emojiRotation)
-      if (t.isEmoji && t.id === currentEmojiId && emojiRotation != undefined) {
-        console.log("rotation change!", emojiRotation)
-        return { ...t, rotation: emojiRotation };
+      // Apply temporary rotation/size for selected emoji during pinch
+      if (t.isEmoji && t.id === currentEmojiId) {
+        let updated = { ...t };
+        if (emojiRotation !== undefined) updated.rotation = emojiRotation;
+        if (emojiPinchSize !== undefined) {
+          updated.fontSize = emojiPinchSize;
+          updated.width = emojiPinchSize / ratio;
+          updated.height = emojiPinchSize / ratio;
+        }
+        return updated;
       }
       return t;
     });
@@ -365,7 +382,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
 
     return result;
-  }, [texts, editingTextChanges, movingElement, currentEmojiId, emojiRotation]);
+  }, [texts, editingTextChanges, movingElement, currentEmojiId, emojiRotation, emojiPinchSize]);
 
   // Sync displayTexts to ref (contains canvas layout mutations like width/height)
   useEffect(() => {
@@ -502,7 +519,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
 
   // Tiles styling constants
-  const TILES_BG_COLORS = ['#FF6B9D', '#C44569', '#4A69BD', '#60A3BC', '#78E08F', '#FFC312', '#EE5A6F', '#B8E994'];
+  const TILES_BG_COLORS = ['#FFFDE7', '#E3F2FD', '#FCE4EC', '#F3E5F5', '#FFFFFF'];
   const TILES_TEXT_COLORS = ['#FFFFFF', '#000000', '#333333', '#666666', '#2C3E50', '#E74C3C', '#3498DB', '#2ECC71'];
   const TILES_SIZES = [
     { label: 'XS', value: 0.08 },
@@ -1045,6 +1062,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     });
 
     queue.current.pushText(textToSave);
+    // Enforce mutual exclusion: if saving title, remove tiles
+    if (id === TITLE_TEXT_ID && tilesRef.current) {
+      queue.current.pushDeleteTiles();
+    }
 
     console.log('QUEUE AFTER PUSH:', {
       totalElements: queue.current.getAll().length,
@@ -1227,7 +1248,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setTilesSelected(false);
 
     // Check if tiles exist - tiles and title are mutually exclusive
-    if (tiles) {
+    if (tilesRef.current) {
       setAlertConfig({
         visible: true,
         title: t('editor.textTitle'),
@@ -1238,7 +1259,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
 
     setTextMode('title');
-    const existingTitle = texts.find(t => t.id === TITLE_TEXT_ID);
+    const existingTitle = textsRef.current.find(t => t.id === TITLE_TEXT_ID);
 
     if (existingTitle) {
       setCurrentEdited({ textId: TITLE_TEXT_ID });
@@ -1345,18 +1366,19 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
 
     // If tiles already exist, just select them (don't open modal)
-    if (tiles) {
+    if (tilesRef.current) {
+      const existingTiles = tilesRef.current;
       // Initialize styling state from existing tiles
-      setTilesBgColor(tiles.backgroundColor);
-      setTilesTextColor(tiles.textColor);
-      setTilesSize(tiles.fontSize && tiles.fontSize > 1 ? 0.12 : tiles.fontSize);
+      setTilesBgColor(existingTiles.backgroundColor);
+      setTilesTextColor(existingTiles.textColor);
+      setTilesSize(existingTiles.fontSize && existingTiles.fontSize > 1 ? 0.12 : existingTiles.fontSize);
       // Mark tiles as selected
       setTilesSelected(true);
       return;
     }
 
     // Check if title exists - tiles and title are mutually exclusive
-    const existingTitle = texts.find(t => t.id === TITLE_TEXT_ID);
+    const existingTitle = textsRef.current.find(t => t.id === TITLE_TEXT_ID);
     if (existingTitle) {
       setAlertConfig({
         visible: true,
@@ -1488,6 +1510,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     };
 
     queue.current.pushTiles(newTiles);
+    // Enforce mutual exclusion: remove title if it exists
+    if (textsRef.current.find(t => t.id === TITLE_TEXT_ID)) {
+      queue.current.pushTextDelete(TITLE_TEXT_ID);
+    }
     rebuildStateFromQueue();
 
     // If there's audio with word timings, regenerate timings for new text
@@ -2247,6 +2273,54 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setEmojiRotation(rotation);
   };
 
+  const handleEmojiPinch = (scaleDelta: number, angleDelta: number) => {
+    const currentId = currentEmojiIdRef.current;
+    if (!currentId) return;
+
+    const emoji = textsRef.current.find(t => t.id === currentId);
+    if (!emoji) return;
+
+    // Capture base state on first pinch event
+    if (!emojiPinchBaseRef.current) {
+      emojiPinchBaseRef.current = {
+        rotation: emoji.rotation ?? 0,
+        fontSize: emoji.fontSize,
+      };
+    }
+
+    const base = emojiPinchBaseRef.current;
+    const newRotation = ((base.rotation + angleDelta) % 360 + 360) % 360;
+    const newSize = Math.max(20, Math.round(base.fontSize * scaleDelta));
+
+    // Live preview only via state — no queue write during gesture
+    setEmojiRotation(newRotation);
+    setEmojiPinchSize(newSize);
+  };
+
+  const handleEmojiPinchEnd = () => {
+    const currentId = currentEmojiIdRef.current;
+    const rotation = emojiRotationRef.current;
+    const newSize = emojiPinchSizeRef.current;
+
+    emojiPinchBaseRef.current = null;
+    setEmojiPinchSize(undefined);
+
+    if (!currentId) return;
+    const emoji = textsRef.current.find(t => t.id === currentId);
+    if (!emoji) return;
+
+    const updatedEmoji = {
+      ...emoji,
+      rotation: rotation ?? emoji.rotation ?? 0,
+      fontSize: newSize ?? emoji.fontSize,
+      width: (newSize ?? emoji.fontSize) / ratio,
+      height: (newSize ?? emoji.fontSize) / ratio,
+    };
+    queue.current.pushText(updatedEmoji);
+    rebuildStateFromQueue();
+    autoSave();
+  };
+
   const handleEmojiRotationEnd = () => {
     // Save rotation to queue when user releases slider
     const currentId = currentEmojiIdRef.current;
@@ -2985,6 +3059,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           onDeleteSymbol={handleDeleteSymbol}
           highlightedWordIndex={undefined}
           albumId={albumId}
+          themeColor={colors.primary}
         />
       );
     }
@@ -3234,6 +3309,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               // Emoji selection
               currentEmojiId={currentEmojiId}
               onEmojiClick={handleEmojiClick}
+              onEmojiPinch={handleEmojiPinch}
+              onEmojiPinchEnd={handleEmojiPinchEnd}
 
               // Image selection
               onImageClick={handleImageClick}

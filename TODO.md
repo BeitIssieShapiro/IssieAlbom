@@ -1,11 +1,11 @@
 ## Apr-29
-- tiles title dialog - should avoid kb
-- tiles default bg-color should be very lite yellow
-- plus button between tiles should follow the app's selected theme
-- bg colors - should be light. yellow, blue, pink, purple, white
-- imoji - after selecting an emoji, allow rotate and enlarge with two fingers pinch and turn
-- replay voice - in view mode, a click on tiles/title replays the audio (if exists)
-- tiles or title - not both? apparently a user was able to have both - need to investigate and prevent.
+V- tiles title dialog - should avoid kb
+V- tiles default bg-color should be very lite yellow
+V- plus button between tiles should follow the app's selected theme
+V- bg colors - should be light. yellow, blue, pink, purple, white
+V- imoji - after selecting an emoji, allow rotate and enlarge with two fingers pinch and turn
+V- replay voice - in view mode, a click on tiles/title replays the audio (if exists)
+V- tiles or title - not both? apparently a user was able to have both - need to investigate and prevent.
 
 ## Apr-15
 V- moving the title text, and it disappear

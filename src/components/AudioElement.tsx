@@ -15,6 +15,7 @@ interface AudioElementProps {
   width?: number;
   height?: number;
   autoPlay?: boolean; // Auto-play audio when component mounts
+  triggerPlay?: number; // Increment to trigger playback (for external play control)
   wordTimings?: WordTiming[]; // Word timings for highlighting
   onWordChange?: (wordIndex: number) => void; // Callback when current word changes
 }
@@ -27,6 +28,7 @@ export function AudioElement({
   width = 80,
   height = 80,
   autoPlay = false,
+  triggerPlay,
   wordTimings = [],
   onWordChange,
 }: AudioElementProps) {
@@ -52,6 +54,17 @@ export function AudioElement({
       onStartPlay();
     }
   }, [autoPlay, audioFile]);
+
+  // External trigger to (re)play
+  useEffect(() => {
+    if (triggerPlay !== undefined && triggerPlay > 0 && audioFile) {
+      if (playing) {
+        onStopPlay().then(() => onStartPlay());
+      } else {
+        onStartPlay();
+      }
+    }
+  }, [triggerPlay]);
 
   useEffect(() => {
     return () => {

@@ -19,6 +19,7 @@ interface TilesElementProps {
   onAddSymbol?: (index: number) => void; // Add/edit symbol for tile at index
   onDeleteSymbol?: (index: number) => void; // Delete symbol for tile at index
   albumId: string; // For constructing image paths
+  themeColor?: string; // Theme primary color for merge/action buttons
 }
 
 export function TilesElement({
@@ -34,6 +35,7 @@ export function TilesElement({
   onAddSymbol,
   onDeleteSymbol,
   albumId,
+  themeColor = '#4CAF50',
 }: TilesElementProps) {
   const yPosition = tiles.y * ratio;
   const numTiles = tiles.words.length;
@@ -197,7 +199,7 @@ export function TilesElement({
             {editMode && canMerge && onMergeTile && (
               <View style={styles.spacer}>
                 <TouchableOpacity
-                  style={[styles.mergeButton, { backgroundColor: '#4CAF50' }]}
+                  style={[styles.mergeButton, { backgroundColor: themeColor }]}
                   onPress={() => onMergeTile(index)}
                 >
                   <Icon name="add" size={16} color="#FFF" />

@@ -162,6 +162,8 @@ interface CanvasProps {
     // Current emoji (for selection/editing)
     currentEmojiId?: string | null;
     onEmojiClick?: (emojiId: string) => void;
+    onEmojiPinch?: (scaleDelta: number, angleDelta: number) => void; // Two-finger pinch on selected emoji
+    onEmojiPinchEnd?: () => void; // Pinch gesture ended
 
     // Image click handler (for selecting images on canvas)
     onImageClick: (imageId: string) => void;
@@ -240,6 +242,8 @@ function Canvas({
     // Current emoji
     currentEmojiId,
     onEmojiClick,
+    onEmojiPinch,
+    onEmojiPinchEnd,
 
     // Image click handler
     onImageClick,
@@ -283,7 +287,10 @@ function Canvas({
         initialPosition?: SketchPoint;
         initialOffset?: Offset;
         pinch?: PinchSession;
+        emojiPinch?: { initialDist: number; initialAngle: number };
     } | null>(null);
+
+    const currentEmojiIdRef = useRef(currentEmojiId);
 
     const currentElementTypeRef = useRef<ElementTypes>(ElementTypes.Sketch);
     const moveContext = useRef<MoveContext | null>(null);
@@ -306,7 +313,8 @@ function Canvas({
         linesRef.current = lines || [];
         elementsRef.current = elements || [];
         currentEditedRef.current = currentEdited;
-    }, [texts, images, tables, lines, elements, currentEdited]);
+        currentEmojiIdRef.current = currentEmojiId ?? null;
+    }, [texts, images, tables, lines, elements, currentEdited, currentEmojiId]);
 
     useEffect(() => {
         // verify the last path is the same as lastPathSV
@@ -483,7 +491,25 @@ function Canvas({
                         const touches = e.nativeEvent.touches
                         const p1 = [touches[0]?.pageX, touches[0]?.pageY] as SketchPoint
                         const p2 = [touches[1]?.pageX, touches[1]?.pageY] as SketchPoint
+                        const dx = p2[0] - p1[0];
+                        const dy = p2[1] - p1[1];
+                        const currentDist = Math.sqrt(dx * dx + dy * dy);
+                        const currentAngle = Math.atan2(dy, dx) * (180 / Math.PI);
 
+                        // If emoji is selected, route pinch to emoji resize/rotate
+                        if (currentEmojiIdRef.current && onEmojiPinch) {
+                            if (!startSketchRef.current.emojiPinch) {
+                                startSketchRef.current.emojiPinch = {
+                                    initialDist: currentDist,
+                                    initialAngle: currentAngle,
+                                };
+                            }
+                            const { initialDist, initialAngle } = startSketchRef.current.emojiPinch;
+                            const scaleDelta = currentDist / initialDist;
+                            const angleDelta = currentAngle - initialAngle;
+                            onEmojiPinch(scaleDelta, angleDelta);
+                            return;
+                        }
 
                         if (!startSketchRef.current.pinch) {
                             startSketchRef.current.pinch = new PinchSession(
@@ -594,6 +620,11 @@ function Canvas({
             },
             onPanResponderRelease: (_, gState) => {
                 if (startSketchRef.current?.pinch) {
+                    startSketchRef.current = null;
+                    return;
+                }
+                if (startSketchRef.current?.emojiPinch) {
+                    onEmojiPinchEnd?.();
                     startSketchRef.current = null;
                     return;
                 }

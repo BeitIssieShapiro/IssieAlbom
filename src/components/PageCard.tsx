@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
 const PAGE_MARGIN = 16;
+const PAGE_TITLE_ID = 'page_title_text';
 
 export interface PageCardRef {
   captureScreenshot: () => Promise<string>;
@@ -42,6 +43,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
 ) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [triggerAudioPlay, setTriggerAudioPlay] = useState(0);
   const canvasRef = useRef<any>(null);
   const viewShotRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
@@ -162,7 +164,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   const handleRenderElements = (elem: SketchElement) => {
     if (elem.type === 'tiles') {
       const tilesElem = elem as any; // Cast to tiles type
-      return (
+      const inner = (
         <TilesElement
           tiles={tilesElem}
           canvasWidth={displayWidth}
@@ -173,6 +175,14 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           albumId={albumId}
         />
       );
+      if (pageAudio?.audioPath) {
+        return (
+          <TouchableOpacity activeOpacity={0.8} onPress={() => setTriggerAudioPlay(n => n + 1)}>
+            {inner}
+          </TouchableOpacity>
+        );
+      }
+      return inner;
     }
     return null;
   };
@@ -223,7 +233,12 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
             onSketchEnd={() => { }}
             sketchColor="#333"
             sketchStrokeWidth={3}
-            onCanvasClick={() => { }}
+            onCanvasClick={(p, elem) => {
+              // Tap on title text triggers audio replay
+              if (pageAudio?.audioPath && (elem as any)?.id === PAGE_TITLE_ID) {
+                setTriggerAudioPlay(n => n + 1);
+              }
+            }}
             onMoveElement={() => { }}
             onMoveEnd={() => { }}
             onDeleteElement={() => { }}
@@ -245,14 +260,15 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           />
         </View>
 
-        {/* Page Audio - hidden off-screen, only plays audio */}
-        {pageAudio?.audioPath && autoPlayAudio && (
+        {/* Page Audio - hidden off-screen, plays on autoPlay or external trigger */}
+        {pageAudio?.audioPath && (
           <View style={{ position: 'absolute', left: -10000, top: -10000, width: 1, height: 1 }}>
             <AudioElement
               audioFile={pageAudio.audioPath}
               albumId={albumId}
               editMode={false}
               autoPlay={autoPlayAudio}
+              triggerPlay={triggerAudioPlay}
               width={1}
               height={1}
               wordTimings={pageAudio.wordTimings}
