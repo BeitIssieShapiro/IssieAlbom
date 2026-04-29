@@ -28,6 +28,8 @@ interface Translations {
     renameAlbumTitle: string;
     renameAlbumPrompt: string;
     rename: string;
+    portrait: string;
+    landscape: string;
   };
 
   // Album Screen
@@ -263,6 +265,8 @@ export const translations: Record<LanguageCode, Translations> = {
       renameAlbumTitle: 'שינוי שם אלבום',
       renameAlbumPrompt: 'הזן שם חדש:',
       rename: 'שינוי שם',
+      portrait: 'לאורך',
+      landscape: 'לרוחב',
     },
 
     album: {
@@ -484,6 +488,8 @@ export const translations: Record<LanguageCode, Translations> = {
       renameAlbumTitle: 'Rename Album',
       renameAlbumPrompt: 'Enter new name:',
       rename: 'Rename',
+      portrait: 'Portrait',
+      landscape: 'Landscape',
     },
 
     album: {
@@ -705,6 +711,8 @@ export const translations: Record<LanguageCode, Translations> = {
       renameAlbumTitle: 'إعادة تسمية الألبوم',
       renameAlbumPrompt: 'أدخل اسمًا جديدًا:',
       rename: 'إعادة تسمية',
+      portrait: 'عمودي',
+      landscape: 'أفقي',
     },
 
     album: {

@@ -48,6 +48,10 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showNewAlbumModal, setShowNewAlbumModal] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
+  const [selectedOrientation, setSelectedOrientation] = useState<'portrait' | 'landscape'>(() => {
+    const { width, height } = Dimensions.get('window');
+    return height >= width ? 'portrait' : 'landscape';
+  });
   const [showAbout, setShowAbout] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [exportModalVisible, setExportModalVisible] = useState(false);
@@ -127,6 +131,8 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
 
   const handleAddAlbum = () => {
     setNewAlbumName('');
+    const { width, height } = Dimensions.get('window');
+    setSelectedOrientation(height >= width ? 'portrait' : 'landscape');
     setShowNewAlbumModal(true);
   };
 
@@ -138,7 +144,14 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
     }
 
     try {
-      const newAlbum = await AlbumService.createAlbum(trimmedName);
+      const { width, height } = Dimensions.get('window');
+      const canvasWidth = selectedOrientation === 'landscape'
+        ? Math.max(width, height)
+        : Math.min(width, height);
+      const canvasHeight = selectedOrientation === 'landscape'
+        ? Math.min(width, height)
+        : Math.max(width, height);
+      const newAlbum = await AlbumService.createAlbum(trimmedName, canvasWidth, canvasHeight);
       setShowNewAlbumModal(false);
       onOpenAlbum(newAlbum);
     } catch (error) {
@@ -373,6 +386,40 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                   returnKeyType="done"
                   onSubmitEditing={handleCreateAlbum}
                 />
+                <View style={styles.orientationPicker}>
+                  <TouchableOpacity
+                    style={[
+                      styles.orientationOption,
+                      {
+                        borderColor: selectedOrientation === 'portrait' ? '#007AFF' : colors.border,
+                        borderWidth: selectedOrientation === 'portrait' ? 2 : 1,
+                        backgroundColor: selectedOrientation === 'portrait' ? '#007AFF10' : colors.background,
+                      },
+                    ]}
+                    onPress={() => setSelectedOrientation('portrait')}
+                  >
+                    <View style={[styles.orientationIconPortrait, { borderColor: selectedOrientation === 'portrait' ? '#007AFF' : colors.textLight }]} />
+                    <Text style={[styles.orientationLabel, { color: selectedOrientation === 'portrait' ? '#007AFF' : colors.textPrimary }]}>
+                      {t('home.portrait')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.orientationOption,
+                      {
+                        borderColor: selectedOrientation === 'landscape' ? '#007AFF' : colors.border,
+                        borderWidth: selectedOrientation === 'landscape' ? 2 : 1,
+                        backgroundColor: selectedOrientation === 'landscape' ? '#007AFF10' : colors.background,
+                      },
+                    ]}
+                    onPress={() => setSelectedOrientation('landscape')}
+                  >
+                    <View style={[styles.orientationIconLandscape, { borderColor: selectedOrientation === 'landscape' ? '#007AFF' : colors.textLight }]} />
+                    <Text style={[styles.orientationLabel, { color: selectedOrientation === 'landscape' ? '#007AFF' : colors.textPrimary }]}>
+                      {t('home.landscape')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton, {
@@ -587,5 +634,35 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  orientationPicker: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: spacing.lg,
+  },
+  orientationOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.medium,
+  },
+  orientationIconPortrait: {
+    width: 28,
+    height: 40,
+    borderWidth: 2,
+    borderRadius: 4,
+    marginBottom: spacing.sm,
+  },
+  orientationIconLandscape: {
+    width: 40,
+    height: 28,
+    borderWidth: 2,
+    borderRadius: 4,
+    marginBottom: spacing.sm,
+  },
+  orientationLabel: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

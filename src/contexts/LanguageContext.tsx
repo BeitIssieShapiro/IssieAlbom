@@ -1,14 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useCallback } from 'react';
 import { getLocales } from 'react-native-localize';
 import { LanguageCode, Direction, LANGUAGES } from '../i18n/types';
 import { t as translateFunction } from '../i18n/i18n';
-import { PreferencesService } from '../services/PreferencesService';
 
 interface LanguageContextValue {
   language: LanguageCode;
   direction: Direction;
   isRTL: boolean;
-  setLanguage: (lang: LanguageCode) => Promise<void>;
   t: (key: string, params?: Record<string, string>) => string;
 }
 
@@ -28,7 +26,7 @@ function detectDeviceLanguage(): LanguageCode {
     const deviceLang = locales[0]?.languageCode;
 
     console.log('[LanguageContext] Device language:', deviceLang);
-
+    // return 'he';
     if (deviceLang === 'he') return 'he';
     if (deviceLang === 'ar') return 'ar';
     return 'en'; // Default to English
@@ -39,47 +37,7 @@ function detectDeviceLanguage(): LanguageCode {
 }
 
 export function LanguageProvider({ children }: LanguageProviderProps) {
-  const [language, setLanguageState] = useState<LanguageCode>('he');
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load language preference on mount
-  useEffect(() => {
-    const loadLanguage = async () => {
-      try {
-        const savedLanguage = await PreferencesService.getLanguage();
-        if (savedLanguage) {
-          console.log('[LanguageContext] Loaded saved language:', savedLanguage);
-          setLanguageState(savedLanguage);
-        } else {
-          // No saved language, detect from device
-          const deviceLang = detectDeviceLanguage();
-          console.log('[LanguageContext] No saved language, using device language:', deviceLang);
-          setLanguageState(deviceLang);
-        }
-      } catch (error) {
-        console.error('[LanguageContext] Failed to load language:', error);
-        setLanguageState('en'); // Fallback to English
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadLanguage();
-  }, []);
-
-  const setLanguage = useCallback(async (lang: LanguageCode) => {
-    try {
-      // Save to preferences
-      await PreferencesService.setLanguage(lang);
-
-      console.log('[LanguageContext] Language changed to:', lang);
-
-      // Update state - direction will be handled by App.tsx
-      setLanguageState(lang);
-    } catch (error) {
-      console.error('[LanguageContext] Failed to set language:', error);
-    }
-  }, []);
+  const language = detectDeviceLanguage();
 
   // Derive direction and isRTL from current language
   const langInfo = LANGUAGES.find(l => l.code === language);
@@ -95,14 +53,8 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     language,
     direction,
     isRTL,
-    setLanguage,
     t,
-  }), [language, direction, isRTL, setLanguage, t]);
-
-  // Wait for language to load before rendering children
-  if (isLoading) {
-    return null;
-  }
+  }), [language, direction, isRTL, t]);
 
   return (
     <LanguageContext.Provider value={value}>

@@ -1,8 +1,17 @@
+## Apr-29
+- tiles title dialog - should avoid kb
+- tiles default bg-color should be very lite yellow
+- plus button between tiles should follow the app's selected theme
+- bg colors - should be light. yellow, blue, pink, purple, white
+- imoji - after selecting an emoji, allow rotate and enlarge with two fingers pinch and turn
+- replay voice - in view mode, a click on tiles/title replays the audio (if exists)
+- tiles or title - not both? apparently a user was able to have both - need to investigate and prevent.
+
 ## Apr-15
 V- moving the title text, and it disappear
 V- moving body -returns and no way to delete
-- don't allow toolbar on top of canvas
-- decide if landscape or portrait album
+V- don't allow toolbar on top of canvas
+V- decide if landscape or portrait album
 
 
 

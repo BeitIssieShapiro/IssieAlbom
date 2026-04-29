@@ -1,4 +1,5 @@
 import RNFS from 'react-native-fs';
+import { Dimensions } from 'react-native';
 import { RTLAlertStatic } from '../components/RTLAlert';
 import { AlbumService } from './AlbumService';
 import { ZipUtils } from '../utils/ZipUtils';
@@ -126,9 +127,12 @@ export class ImportService {
         targetAlbumName = newAlbumName;
       }
 
-      // Create new album with target name
+      // Create new album with target name and canvas dimensions from imported metadata
       console.log('[ImportService] Creating album:', targetAlbumName);
-      const newAlbum = await AlbumService.createAlbum(targetAlbumName);
+      const { width, height } = Dimensions.get('window');
+      const canvasWidth = albumMetadata.canvasWidth || Math.min(width, height);
+      const canvasHeight = albumMetadata.canvasHeight || Math.max(width, height);
+      const newAlbum = await AlbumService.createAlbum(targetAlbumName, canvasWidth, canvasHeight);
       const targetAlbumPath = AlbumService.getAlbumPath(newAlbum.id);
 
       // Copy all files from extracted ZIP to new album

@@ -1,5 +1,5 @@
 import RNFS from 'react-native-fs';
-import { Album, AlbumMetadata, AlbumPage } from '../types/Album';
+import { Album, AlbumMetadata, AlbumPage, AlbumPageV2 } from '../types/Album';
 import { validateAlbumName, getFolderName } from '../utils/albumNameValidator';
 
 const ALBUMS_ROOT = `${RNFS.DocumentDirectoryPath}/albums`;
@@ -83,7 +83,7 @@ export const AlbumService = {
     return albums.sort((a, b) => b.createdAt - a.createdAt);
   },
 
-  async createAlbum(name: string): Promise<Album> {
+  async createAlbum(name: string, canvasWidth: number, canvasHeight: number): Promise<Album> {
     await this.ensureAlbumsDirectory();
 
     // Validate name
@@ -119,6 +119,8 @@ export const AlbumService = {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       pageCount: 1,
+      canvasWidth,
+      canvasHeight,
     };
 
     await RNFS.writeFile(
@@ -129,11 +131,14 @@ export const AlbumService = {
 
     // Create first page
     const firstPageId = `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const firstPage: AlbumPage = {
+    const firstPage: AlbumPageV2 = {
       id: firstPageId,
       pageNumber: 1,
       backgroundPath: null,
+      version: '2.0',
       elements: [],
+      canvasWidth,
+      canvasHeight,
     };
 
     await RNFS.writeFile(

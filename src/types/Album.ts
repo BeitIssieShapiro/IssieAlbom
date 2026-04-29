@@ -235,6 +235,8 @@ export interface AlbumMetadata {
   pageCount: number;
   hasBeenViewed?: boolean;
   thumbnailPath?: string; // Relative path to thumbnail (e.g., "thumbnail_1234567890.jpg")
+  canvasWidth: number;
+  canvasHeight: number;
 }
 
 // Type guards
