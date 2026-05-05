@@ -66,6 +66,19 @@ index 6869a04..18a9d34 100644
              renderItem={renderItem}
              onScroll={handleOnScroll}
              ListFooterComponent={<ListFooterComponent categoryPosition={categoryPosition} />}
+diff --git a/node_modules/rn-emoji-keyboard/src/components/EmojiStaticKeyboard.tsx b/node_modules/rn-emoji-keyboard/src/components/EmojiStaticKeyboard.tsx
+index ff00d44..206cb91 100644
+--- a/node_modules/rn-emoji-keyboard/src/components/EmojiStaticKeyboard.tsx
++++ b/node_modules/rn-emoji-keyboard/src/components/EmojiStaticKeyboard.tsx
+@@ -133,7 +133,7 @@ export const EmojiStaticKeyboard = React.memo(
+           styles.containerShadow,
+           categoryPosition === 'top' && disableSafeArea && styles.containerReverse,
+           themeStyles.container,
+-          { backgroundColor: theme.container },
++          { backgroundColor: theme.container, direction: 'ltr' },
+         ]}
+         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+       >
 diff --git a/node_modules/rn-emoji-keyboard/src/components/ModalWithBackdrop.tsx b/node_modules/rn-emoji-keyboard/src/components/ModalWithBackdrop.tsx
 index b1aad6d..db27dc7 100644
 --- a/node_modules/rn-emoji-keyboard/src/components/ModalWithBackdrop.tsx
