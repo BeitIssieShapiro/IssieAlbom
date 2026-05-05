@@ -92,6 +92,13 @@ interface Translations {
     tilesUnmerge: string;
     tilesCreate: string;
     tilesUpdate: string;
+    tilesSelectAll: string;
+    tilesDeselectAll: string;
+    tilesAddEmoji: string;
+    tilesAddSymbol: string;
+    tilesDeleteSymbol: string;
+    tilesEditText: string;
+    tilesDelete: string;
     tilesExistCannotAddTitle: string;
     titleExistsCannotAddTiles: string;
     fromGallery: string;
@@ -327,6 +334,13 @@ export const translations: Record<LanguageCode, Translations> = {
       tilesUnmerge: 'בטל מיזוג',
       tilesCreate: 'צור אריחים',
       tilesUpdate: 'עדכן אריחים',
+      tilesSelectAll: 'בחר הכל',
+      tilesDeselectAll: 'בטל בחירה',
+      tilesAddEmoji: 'הוסף אמוג׳י',
+      tilesAddSymbol: 'הוסף סמל',
+      tilesDeleteSymbol: 'מחק סמל',
+      tilesEditText: 'ערוך טקסט',
+      tilesDelete: 'מחק קלפים',
       tilesExistCannotAddTitle: 'כבר יש אריחים בעמוד. מחק את האריחים קודם כדי להוסיף כותרת.',
       titleExistsCannotAddTiles: 'כבר יש כותרת בעמוד. מחק את הכותרת קודם כדי להוסיף אריחים.',
       fromGallery: 'מגלריה',
@@ -550,6 +564,13 @@ export const translations: Record<LanguageCode, Translations> = {
       tilesUnmerge: 'Unmerge',
       tilesCreate: 'Create Tiles',
       tilesUpdate: 'Update Tiles',
+      tilesSelectAll: 'Select All',
+      tilesDeselectAll: 'Deselect All',
+      tilesAddEmoji: 'Add Emoji',
+      tilesAddSymbol: 'Add Symbol',
+      tilesDeleteSymbol: 'Delete Symbol',
+      tilesEditText: 'Edit Text',
+      tilesDelete: 'Delete Tiles',
       tilesExistCannotAddTitle: 'This page already has tiles. Delete the tiles first to add a title.',
       titleExistsCannotAddTiles: 'This page already has a title. Delete the title first to add tiles.',
       fromGallery: 'From Gallery',
@@ -773,6 +794,13 @@ export const translations: Record<LanguageCode, Translations> = {
       tilesUnmerge: 'إلغاء الدمج',
       tilesCreate: 'إنشاء البلاط',
       tilesUpdate: 'تحديث البلاط',
+      tilesSelectAll: 'تحديد الكل',
+      tilesDeselectAll: 'إلغاء التحديد',
+      tilesAddEmoji: 'إضافة رمز',
+      tilesAddSymbol: 'إضافة رمز بياني',
+      tilesDeleteSymbol: 'حذف الرمز',
+      tilesEditText: 'تعديل النص',
+      tilesDelete: 'حذف البلاطات',
       tilesExistCannotAddTitle: 'توجد بلاطات بالفعل في هذه الصفحة. احذف البلاطات أولاً لإضافة عنوان.',
       titleExistsCannotAddTiles: 'يوجد عنوان بالفعل في هذه الصفحة. احذف العنوان أولاً لإضافة بلاطات.',
       fromGallery: 'من المعرض',

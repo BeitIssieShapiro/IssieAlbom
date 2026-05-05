@@ -12,14 +12,11 @@ interface TilesElementProps {
   canvasHeight: number;
   ratio: number;
   editMode?: boolean;
-  onMergeTile?: (index: number) => void; // Merge tile at index with next tile
-  onUnmergeTile?: (index: number) => void; // Unmerge tile at index
-  highlightedWordIndex?: number; // For audio playback highlighting
-  onAddEmoji?: (index: number) => void; // Add/edit emoji for tile at index
-  onAddSymbol?: (index: number) => void; // Add/edit symbol for tile at index
-  onDeleteSymbol?: (index: number) => void; // Delete symbol for tile at index
-  albumId: string; // For constructing image paths
-  themeColor?: string; // Theme primary color for merge/action buttons
+  selectedIndices?: Set<number>;
+  onTilePress?: (index: number) => void;
+  highlightedWordIndex?: number;
+  albumId: string;
+  themeColor?: string;
 }
 
 export function TilesElement({
@@ -28,12 +25,9 @@ export function TilesElement({
   canvasHeight,
   ratio,
   editMode = false,
-  onMergeTile,
-  onUnmergeTile,
+  selectedIndices,
+  onTilePress,
   highlightedWordIndex,
-  onAddEmoji,
-  onAddSymbol,
-  onDeleteSymbol,
   albumId,
   themeColor = '#4CAF50',
 }: TilesElementProps) {
@@ -69,7 +63,7 @@ export function TilesElement({
 
   // Detect text direction from the actual text (check first word's first character)
   const isTextRTL = tiles.words.length > 0 && tiles.words[0].text.length > 0
-    ? /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(tiles.words[0].text[0])
+    ? /[֐-׿؀-ۿ܀-ݏݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(tiles.words[0].text[0])
     : false;
 
   // For RTL text, reverse the array to show words in correct order (right to left)
@@ -93,19 +87,20 @@ export function TilesElement({
         const index = isTextRTL ? tiles.words.length - 1 - displayIndex : displayIndex;
         const isHighlighted = highlightedWordIndex !== undefined &&
           word.originalIndices.includes(highlightedWordIndex);
-        const canMerge = index < tiles.words.length - 1;
-        const canUnmerge = word.originalIndices.length > 1;
+        const isSelected = selectedIndices?.has(index) ?? false;
 
         return (
           <React.Fragment key={displayIndex}>
             {/* Tile */}
-            <View
+            <TouchableOpacity
+              activeOpacity={editMode ? 0.7 : 1}
+              onPress={editMode && onTilePress ? () => onTilePress(index) : undefined}
               style={[
                 styles.tile,
                 {
                   backgroundColor: isHighlighted
                     ? '#FFD700' // Gold when highlighted
-                    : tiles.backgroundColor,
+                    : (word.backgroundColor ?? tiles.backgroundColor),
                   width: tileSize,
                   height: tileSize,
                   borderRadius: tileSize * 0.15, // Rounded corners proportional to size
@@ -135,7 +130,7 @@ export function TilesElement({
                   style={[
                     styles.tileText,
                     {
-                      color: tiles.textColor,
+                      color: word.textColor ?? tiles.textColor,
                       fontSize: Math.max(tileSize * tiles.fontSize, 18),
                       textAlign: 'center',
                     },
@@ -147,68 +142,30 @@ export function TilesElement({
                 </Text>
               </View>
 
-              {/* Edit buttons - 3 buttons: emoji, symbol, delete */}
+              {/* Checkbox in edit mode */}
               {editMode && (
-                <View style={styles.editButtonsContainer}>
-                  {/* Emoji button */}
-                  {onAddEmoji && (
-                    <TouchableOpacity
-                      style={[styles.editButton, { backgroundColor: '#4CAF50' }]}
-                      onPress={() => onAddEmoji(index)}
-                    >
-                      <Icon name="happy-outline" size={28} color="#FFF" />
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Symbol button */}
-                  {onAddSymbol && (
-                    <TouchableOpacity
-                      style={[styles.editButton, { backgroundColor: '#2196F3' }]}
-                      onPress={() => onAddSymbol(index)}
-                    >
-                      <Icon name="image-outline" size={28} color="#FFF" />
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Delete symbol button (only if symbol exists) */}
-                  {word.symbol && onDeleteSymbol && (
-                    <TouchableOpacity
-                      style={[styles.editButton, { backgroundColor: '#F44336' }]}
-                      onPress={() => onDeleteSymbol(index)}
-                    >
-                      <Icon name="trash-outline" size={28} color="#FFF" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-
-              {/* Unmerge button in edit mode (on tile) */}
-              {editMode && canUnmerge && onUnmergeTile && (
-                <View style={styles.unmergeButtonContainer}>
-                  <TouchableOpacity
-                    style={[styles.mergeButton, { backgroundColor: '#FF5722' }]}
-                    onPress={() => onUnmergeTile(index)}
-                  >
-                    <Icon name="cut" size={28} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            {/* Merge button between tiles (in the gap) */}
-            {editMode && canMerge && onMergeTile && (
-              <View style={styles.spacer}>
-                <TouchableOpacity
-                  style={[styles.mergeButton, { backgroundColor: themeColor }]}
-                  onPress={() => onMergeTile(index)}
+                <View
+                  style={[
+                    styles.checkboxContainer,
+                    isTextRTL ? styles.checkboxLeft : styles.checkboxRight,
+                  ]}
                 >
-                  <Icon name="add" size={16} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-            )}
+                  <View
+                    style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxChecked,
+                    ]}
+                  >
+                    {isSelected && (
+                      <Icon name="checkmark" size={14} color="#FFF" />
+                    )}
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
 
-            {/* Regular spacer when no merge button needed */}
-            {(!editMode || !canMerge) && displayIndex < wordsToRender.length - 1 && (
+            {/* Spacer between tiles */}
+            {displayIndex < wordsToRender.length - 1 && (
               <View style={styles.spacer} />
             )}
           </React.Fragment>
@@ -261,47 +218,33 @@ const styles = StyleSheet.create({
   symbolImage: {
     // Size is set dynamically based on tileSize
   },
-  editButtonsContainer: {
-    position: 'absolute',
-    top: -16,
-    left: -16,
-    flexDirection: 'row',
-    gap: 6,
-  },
-  editButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  unmergeButtonContainer: {
-    position: 'absolute',
-    top: -16,
-    right: -16,
-    flexDirection: 'row',
-    gap: 6,
-  },
-  mergeButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
-  },
   spacer: {
     justifyContent: 'center',
     alignItems: 'center',
     flex: 1, // Takes up the gap space
+  },
+  checkboxContainer: {
+    position: 'absolute',
+    top: 4,
+  },
+  checkboxRight: {
+    right: 4,
+  },
+  checkboxLeft: {
+    left: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
 });

@@ -12,6 +12,7 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MODAL_ORIENTATIONS } from '../types/Album';
+import Icon from '@react-native-vector-icons/ionicons';
 
 interface TilesModalProps {
   visible: boolean;
@@ -78,25 +79,36 @@ export function TilesModal({
             <Text style={[styles.label, { color: colors.textSecondary }]}>
               {t('editor.tilesPrompt')}
             </Text>
-            <TextInput
-              ref={inputRef}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.background,
-                  color: colors.textPrimary,
-                  borderColor: colors.border,
-                  borderRadius: borderRadius.medium,
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                },
-              ]}
-              value={text}
-              onChangeText={setText}
-              placeholder={t('editor.tilesPlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              multiline
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                ref={inputRef}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.background,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                    borderRadius: borderRadius.medium,
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                  },
+                ]}
+                value={text}
+                onChangeText={setText}
+                placeholder={t('editor.tilesPlaceholder')}
+                placeholderTextColor={colors.textSecondary}
+                multiline
+              />
+              {text.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={() => setText('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="close-circle" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
 
             {/* Buttons */}
             <View style={styles.buttonRow}>
@@ -170,6 +182,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlignVertical: 'top',
     marginBottom: 20,
+  },
+  inputContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  clearButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   buttonRow: {
     flexDirection: 'row',

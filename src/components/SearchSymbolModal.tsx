@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { MyIcon } from '../common/icons';
+import Icon from '@react-native-vector-icons/ionicons';
 import ImageLibrary from '../services/ImageLibrary';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -104,24 +105,36 @@ export function SearchSymbolModal({
 
           {/* Search Input */}
           <View style={styles.searchContainer}>
-            <TextInput
-              ref={textRef}
-              style={[
-                styles.searchInput,
-                {
-                  backgroundColor: colors.inputBackground,
-                  color: colors.text,
-                  textAlign: isRTL ? 'right' : 'left',
-                },
-              ]}
-              placeholder={t('symbolSearch.placeholder')}
-              placeholderTextColor={colors.textSecondary}
-              value={value}
-              onChangeText={setValue}
-              onSubmitEditing={() => doSearch()}
-              returnKeyType="search"
-              autoFocus={!initialKeyword}
-            />
+            <View style={styles.searchInputWrapper}>
+              <TextInput
+                ref={textRef}
+                style={[
+                  styles.searchInput,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.text,
+                    textAlign: isRTL ? 'right' : 'left',
+                  },
+                ]}
+                placeholder={t('symbolSearch.placeholder')}
+                placeholderTextColor={colors.textSecondary}
+                value={value}
+                onChangeText={setValue}
+                onSubmitEditing={() => doSearch()}
+                returnKeyType="search"
+                autoFocus
+                selectTextOnFocus
+              />
+              {value.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={() => setValue('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="close-circle" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: colors.primary }]}
               onPress={() => doSearch()}
@@ -218,12 +231,21 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
-  searchInput: {
+  searchInputWrapper: {
     flex: 1,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  searchInput: {
     height: 48,
     borderRadius: 12,
     paddingHorizontal: 16,
+    paddingRight: 36,
     fontSize: 16,
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 10,
   },
   searchButton: {
     width: 48,

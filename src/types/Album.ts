@@ -93,6 +93,8 @@ export interface TileWord {
   originalIndices: number[]; // Original word indices that were merged
   symbol?: string; // Optional emoji text or image path for this tile
   symbolType?: 'emoji' | 'image'; // Type of symbol (default: emoji for backward compatibility)
+  backgroundColor?: string; // per-tile override; falls back to SketchTiles.backgroundColor
+  textColor?: string; // per-tile override; falls back to SketchTiles.textColor
 }
 
 export interface SketchTiles extends ElementBase {
