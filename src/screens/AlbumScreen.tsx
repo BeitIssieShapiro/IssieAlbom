@@ -467,6 +467,27 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                 </TouchableOpacity>
               )}
 
+              {/* First page button - below prev button */}
+              {pages.length > 2 && currentPageIndex > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.navButton,
+                    isRTL ? { right: 20 } : { left: 20 },
+                    { backgroundColor: colors.primary, top: '50%', marginTop: 40 }
+                  ]}
+                  onPress={() => {
+                    carouselRef.current?.scrollTo({ index: toCarouselIndex(0), animated: true });
+                  }}
+                >
+                  <MyIcon info={{
+                    type: "Ionicons",
+                    name: isRTL ? "play-skip-forward" : "play-skip-back",
+                    size: 28,
+                    color: colors.cardBackground
+                  }} />
+                </TouchableOpacity>
+              )}
+
               {/* Next button - End side (Right in LTR, Left in RTL) */}
               <TouchableOpacity
                 style={[
@@ -491,6 +512,27 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                   color: colors.cardBackground,
                 }} style={{ opacity: currentPageIndex === pages.length - 1 ? 0.3 : 1 }} />
               </TouchableOpacity>
+
+              {/* Last page button - below next button */}
+              {pages.length > 2 && currentPageIndex < pages.length - 1 && (
+                <TouchableOpacity
+                  style={[
+                    styles.navButton,
+                    isRTL ? { left: 20 } : { right: 20 },
+                    { backgroundColor: colors.primary, top: '50%', marginTop: 40 }
+                  ]}
+                  onPress={() => {
+                    carouselRef.current?.scrollTo({ index: toCarouselIndex(pages.length - 1), animated: true });
+                  }}
+                >
+                  <MyIcon info={{
+                    type: "Ionicons",
+                    name: isRTL ? "play-skip-back" : "play-skip-forward",
+                    size: 28,
+                    color: colors.cardBackground
+                  }} />
+                </TouchableOpacity>
+              )}
             </>
           )}
         </View>
