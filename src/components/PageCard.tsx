@@ -9,9 +9,14 @@ import {
   View,
   PixelRatio,
 } from 'react-native';
-import { AlbumPage, AlbumPageV2, ElementTypes, HEADER_HEIGHT, WordTiming } from '../types/Album';
+import { AlbumPage, AlbumPageV2, ElementTypes, HEADER_HEIGHT, SketchText, WordTiming } from '../types/Album';
 import { SketchElement, SketchElementAttributes } from './canvas/types';
-import { loadPageWithMigration, compileQueueToElements } from '../utils/pageUtils';
+import { loadPageWithMigration, compileQueueToElements, getId } from '../utils/pageUtils';
+import DoQueue from '../utils/DoQueue';
+import EmojiPicker, { en } from 'rn-emoji-keyboard';
+import type { EmojiType } from 'rn-emoji-keyboard';
+import { ViewModeEmojiOverlay } from './ViewModeEmojiOverlay';
+import { useLanguage } from '../contexts/LanguageContext';
 import { AttachmentService } from '../services/AttachmentService';
 import Canvas from './canvas/canvas';
 import { AudioElement } from './AudioElement';
@@ -24,6 +29,15 @@ const PAGE_TITLE_ID = 'page_title_text';
 
 export interface PageCardRef {
   captureScreenshot: () => Promise<string>;
+  saveIfDirty: () => void;
+  openEmojiKeyboard: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  undo: () => void;
+  redo: () => void;
+  isDirty: () => boolean;
+  deleteSelectedEmoji: () => void;
+  clearEmojiSelection: () => void;
 }
 
 interface PageCardProps {
@@ -35,10 +49,13 @@ interface PageCardProps {
   onDelete?: (page: AlbumPage) => void;
   autoPlayAudio?: boolean; // Auto-play audio when card is shown
   highlightedWordIndex?: number; // For video export - externally controlled highlight
+  onSavePage?: (updatedPage: AlbumPage, shouldExit?: boolean) => void;
+  onDirtyChange?: (dirty: boolean, canUndo: boolean, canRedo: boolean) => void;
+  onEmojiSelected?: (selected: boolean) => void;
 }
 
 export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard(
-  { page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false, highlightedWordIndex },
+  { page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false, highlightedWordIndex, onSavePage, onDirtyChange, onEmojiSelected },
   ref
 ) {
   const [menuVisible, setMenuVisible] = useState(false);
@@ -47,6 +64,30 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   const canvasRef = useRef<any>(null);
   const viewShotRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
+  const { language, isRTL } = useLanguage();
+  const [showEmojiKeyboard, setShowEmojiKeyboard] = useState(false);
+  const [selectedEmojiId, setSelectedEmojiId] = useState<string | null>(null);
+
+  // Local queue seeded from page elements — tracks view-mode mutations
+  const viewQueue = useRef<DoQueue>(new DoQueue());
+  const [queueVersion, setQueueVersion] = useState(0);
+  const baselineLength = useRef(0);
+  const isDirty = useRef(false);
+
+  // Seed queue when page prop changes
+  useEffect(() => {
+    const q = new DoQueue();
+    const v2 = loadPageWithMigration(page);
+    v2.elements.forEach(qe => q.add(qe));
+    baselineLength.current = q.getQueueLength();
+    viewQueue.current = q;
+    isDirty.current = false;
+    setQueueVersion(v => v + 1);
+  }, [page.id]);
+
+  useEffect(() => {
+    onEmojiSelected?.(selectedEmojiId !== null);
+  }, [selectedEmojiId]);
 
   // Track screen dimensions (updated on rotation)
   const [screenDimensions, setScreenDimensions] = useState(() => {
@@ -66,7 +107,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     };
   }, []);
 
-  // Expose captureScreenshot method via ref
+  // Expose captureScreenshot + saveIfDirty + emoji controls via ref
   useImperativeHandle(ref, () => ({
     captureScreenshot: async () => {
       if (!viewShotRef.current) {
@@ -79,7 +120,41 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
       console.log('[PageCard] Captured screenshot:', uri);
       return uri;
     },
+    saveIfDirty: () => {
+      if (!isDirty.current || !onSavePage) return;
+      const v2 = loadPageWithMigration(page);
+      const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll() };
+      onSavePage(updatedPage as AlbumPage);
+      isDirty.current = false;
+    },
+    openEmojiKeyboard: () => setShowEmojiKeyboard(true),
+    canUndo: () => viewQueue.current.canUndo(baselineLength.current),
+    canRedo: () => viewQueue.current.canRedo(),
+    undo: () => { viewQueue.current.undo(baselineLength.current); rebuildFromQueue(); },
+    redo: () => { viewQueue.current.redo(); rebuildFromQueue(); },
+    isDirty: () => isDirty.current,
+    deleteSelectedEmoji: () => {
+      const id = selectedEmojiId;
+      if (!id) return;
+      viewQueue.current.pushTextDelete(id);
+      isDirty.current = true;
+      setSelectedEmojiId(null);
+      rebuildFromQueue();
+    },
+    clearEmojiSelection: () => setSelectedEmojiId(null),
   }));
+
+  // Save on unmount if dirty
+  useEffect(() => {
+    return () => {
+      if (isDirty.current && onSavePage) {
+        const v2 = loadPageWithMigration(page);
+        const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll() };
+        onSavePage(updatedPage as AlbumPage);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Hardcoded audio ID
   const PAGE_AUDIO_ID = 'page_audio';
@@ -127,8 +202,10 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
 
   // Compile queue elements into final arrays using shared utility
   // Also convert relative paths to absolute URIs
+  // Re-runs on queueVersion bump (view-mode mutations) or albumId change
   const { paths, texts, images, audios, tiles, backgroundPattern } = useMemo(() => {
-    const result = compileQueueToElements(v2Page.elements);
+    const elements = viewQueue.current.getAll();
+    const result = compileQueueToElements(elements);
 
     // Convert image relative paths to absolute URIs
     const imagesWithUris = result.images.map(img => ({
@@ -150,12 +227,88 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
       ...result,
       images: imagesWithUris,
     };
-  }, [v2Page.elements, albumId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueVersion, albumId]);
 
   // Extract page-level audio
   const pageAudio = useMemo(() => {
     return audios.find(a => a.id === PAGE_AUDIO_ID);
   }, [audios]);
+
+  // View-mode emoji helpers
+  const viewModeEmojis = useMemo(
+    () => texts.filter(t => t.isEmoji && t.addedInView),
+    [texts]
+  );
+
+  const canUndo = viewQueue.current.canUndo(baselineLength.current);
+  const canRedo = viewQueue.current.canRedo();
+  const showUndoRedo = isDirty.current || canRedo;
+
+  function rebuildFromQueue() {
+    const newDirty = viewQueue.current.getQueueLength() > baselineLength.current
+      || viewQueue.current.canRedo();
+    isDirty.current = newDirty;
+    onDirtyChange?.(newDirty, viewQueue.current.canUndo(baselineLength.current), viewQueue.current.canRedo());
+    setQueueVersion(v => v + 1);
+  }
+
+  function handleEmojiPick(emojiObject: EmojiType) {
+    const emojiSize = 100;
+    const safeScale = scale || 1;
+    const newEmoji: SketchText = {
+      id: getId('text'),
+      text: emojiObject.emoji,
+      fontSize: emojiSize,
+      color: '#000000',
+      rtl: isRTL,
+      alignment: isRTL ? 'Right' : 'Left',
+      x: (displayWidth / safeScale) / 2 - emojiSize / safeScale / 2,
+      y: (displayHeight / safeScale) / 2 - emojiSize / safeScale / 2,
+      isEmoji: true,
+      addedInView: true,
+      width: emojiSize * 1.2,
+      height: emojiSize * 1.2,
+    };
+    viewQueue.current.pushText(newEmoji);
+    isDirty.current = true;
+    setSelectedEmojiId(newEmoji.id);
+    setShowEmojiKeyboard(false);
+    rebuildFromQueue();
+  }
+
+  function handleEmojiMoveEnd(id: string, x: number, y: number) {
+    const elem = texts.find(t => t.id === id);
+    if (!elem) return;
+    viewQueue.current.pushText({ ...elem, x, y });
+    isDirty.current = true;
+    rebuildFromQueue();
+  }
+
+  function handleEmojiMoveOutOfBounds(id: string) {
+    viewQueue.current.pushTextDelete(id);
+    isDirty.current = true;
+    setSelectedEmojiId(null);
+    rebuildFromQueue();
+  }
+
+  function handleEmojiPinchRotateEnd(id: string, fontSize: number, rotation: number) {
+    const elem = texts.find(t => t.id === id);
+    if (!elem) return;
+    viewQueue.current.pushText({ ...elem, fontSize, rotation, width: fontSize * 1.2, height: fontSize * 1.2 });
+    isDirty.current = true;
+    rebuildFromQueue();
+  }
+
+  function handleUndo() {
+    viewQueue.current.undo(baselineLength.current);
+    rebuildFromQueue();
+  }
+
+  function handleRedo() {
+    viewQueue.current.redo();
+    rebuildFromQueue();
+  }
 
   // No longer using audio elements on canvas
   const audioElements: SketchElement[] = [];
@@ -196,7 +349,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     <View style={styles.container} pointerEvents={isEditMode ? "auto" : "box-none"}>
       <View
         style={[styles.pageContent, { width: displayWidth, height: displayHeight }]}
-        pointerEvents={isEditMode ? "auto" : "box-none"}
+        pointerEvents={isEditMode ? "auto" : (viewModeEmojis.length > 0 ? "auto" : "box-none")}
       >
         <View
           pointerEvents="box-none"
@@ -219,7 +372,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
 
             // Element arrays
             paths={paths}
-            texts={texts}
+            texts={isEditMode ? texts : texts.filter(t => !t.addedInView)}
             images={images}
             lines={[]}
             tables={[]}
@@ -281,6 +434,39 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
         <View style={styles.pageNumber}>
           <Text style={styles.pageNumberText}>{page.pageNumber}</Text>
         </View>
+
+        {/* Overlay for view-mode emojis */}
+        {!isEditMode && viewModeEmojis.length > 0 && (
+          <ViewModeEmojiOverlay
+            emojis={viewModeEmojis}
+            selectedId={selectedEmojiId}
+            ratio={scale}
+            displayWidth={displayWidth}
+            displayHeight={displayHeight}
+            onSelect={(id) => setSelectedEmojiId(id)}
+            onMoveEnd={handleEmojiMoveEnd}
+            onMoveOutOfBounds={handleEmojiMoveOutOfBounds}
+            onPinchRotateEnd={handleEmojiPinchRotateEnd}
+          />
+        )}
+
+        {/* Emoji keyboard */}
+        {!isEditMode && (
+          <View style={{ direction: 'ltr' }}>
+            <EmojiPicker
+              onEmojiSelected={handleEmojiPick}
+              open={showEmojiKeyboard}
+              onClose={() => setShowEmojiKeyboard(false)}
+              allowMultipleSelections={false}
+              emojiSize={48}
+              defaultHeight="50%"
+              enableSearchBar={true}
+              translation={en}
+            />
+          </View>
+        )}
+
+
       </View>
 
 
@@ -397,5 +583,27 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     textAlign: 'center',
     fontWeight: '600',
+  },
+  viewModeControls: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    gap: 6,
+    zIndex: 1001,
+  },
+  viewModeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewModeButtonDisabled: {
+    opacity: 0.35,
+  },
+  viewModeButtonText: {
+    fontSize: 18,
   },
 });

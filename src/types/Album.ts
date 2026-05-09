@@ -86,6 +86,7 @@ export interface SketchText extends ElementBase {
   tempTop2CursorHeight?: number;
   isEmoji?: boolean; // Flag to mark emojis as directly draggable
   rotation?: number; // Rotation in degrees (0-360)
+  addedInView?: boolean; // true = added in view mode; draggable/deletable in view mode only
 }
 
 export interface TileWord {

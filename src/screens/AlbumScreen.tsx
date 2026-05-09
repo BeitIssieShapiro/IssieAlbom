@@ -39,8 +39,20 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isDeletingPage, setIsDeletingPage] = useState(false);
   const [isCreatingPage, setIsCreatingPage] = useState(false);
+  const [viewModeDirty, setViewModeDirty] = useState(false);
+  const [viewModeCanUndo, setViewModeCanUndo] = useState(false);
+  const [viewModeCanRedo, setViewModeCanRedo] = useState(false);
+  const [emojiSelected, setEmojiSelected] = useState(false);
   const carouselRef = useRef<any>(null);
   const hasAutoOpenedRef = useRef(false); // Track if we've auto-opened on first open
+  const pageCardRefs = useRef<Map<string, React.RefObject<PageCardRef | null>>>(new Map());
+
+  function getPageCardRef(pageId: string): React.RefObject<PageCardRef | null> {
+    if (!pageCardRefs.current.has(pageId)) {
+      pageCardRefs.current.set(pageId, React.createRef<PageCardRef>());
+    }
+    return pageCardRefs.current.get(pageId)!;
+  }
 
   // Thumbnail generation state
   const [thumbnailPage, setThumbnailPage] = useState<AlbumPage | null>(null);
@@ -173,6 +185,10 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handleEditPage = (page: AlbumPage) => {
+    const ref = pageCardRefs.current.get(page.id);
+    ref?.current?.saveIfDirty();
+    ref?.current?.clearEmojiSelection();
+    setEmojiSelected(false);
     setEditingPage(page);
   };
 
@@ -377,6 +393,56 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         <View style={styles.headerRight} />
       </View>
 
+      {/* View-mode emoji controls — sits in gap between header and page */}
+      {!isEditMode && !editingPage && pages.length > 0 && (
+        <View style={styles.viewModeControls}>
+          <TouchableOpacity
+            style={styles.viewModeButton}
+            onPress={() => {
+              const ref = pageCardRefs.current.get(pages[currentPageIndex]?.id ?? '');
+              ref?.current?.openEmojiKeyboard();
+            }}
+          >
+            <Text style={styles.viewModeButtonText}>😊</Text>
+          </TouchableOpacity>
+          {(viewModeDirty || viewModeCanRedo) && (
+            <>
+              <TouchableOpacity
+                style={[styles.viewModeButton, !viewModeCanUndo && styles.viewModeButtonDisabled]}
+                onPress={() => {
+                  const ref = pageCardRefs.current.get(pages[currentPageIndex]?.id ?? '');
+                  ref?.current?.undo();
+                }}
+                disabled={!viewModeCanUndo}
+              >
+                <MyIcon info={{ name: 'undo', size: 24, color: viewModeCanUndo ? '#007AFF' : '#ccc', type: 'MI' }} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewModeButton, !viewModeCanRedo && styles.viewModeButtonDisabled]}
+                onPress={() => {
+                  const ref = pageCardRefs.current.get(pages[currentPageIndex]?.id ?? '');
+                  ref?.current?.redo();
+                }}
+                disabled={!viewModeCanRedo}
+              >
+                <MyIcon info={{ name: 'redo', size: 24, color: viewModeCanRedo ? '#007AFF' : '#ccc', type: 'MI' }} />
+              </TouchableOpacity>
+            </>
+          )}
+          {emojiSelected && (
+            <TouchableOpacity
+              style={styles.viewModeButton}
+              onPress={() => {
+                const ref = pageCardRefs.current.get(pages[currentPageIndex]?.id ?? '');
+                ref?.current?.deleteSelectedEmoji();
+              }}
+            >
+              <MyIcon info={{ name: 'delete', size: 24, color: '#FF3B30', type: 'MI' }} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('home.loading')}</Text>
@@ -405,6 +471,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               return (
                 <TouchableOpacity
                   activeOpacity={0.9}
+                  disabled={emojiSelected}
                   onPress={() => {
                     console.log('[AlbumScreen] Clicked on carousel index:', index, 'actual page:', actualPageIndex, 'current:', currentPageIndex);
                     // If clicking on a non-current page, slide to it
@@ -420,6 +487,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                   style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}
                 >
                   <PageCard
+                    ref={getPageCardRef(item.id)}
                     page={item}
                     albumId={album.id}
                     isEditMode={isEditMode}
@@ -427,15 +495,31 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                     onEdit={handleEditPage}
                     onDelete={handleDeletePage}
                     autoPlayAudio={currentPageIndex === actualPageIndex}
+                    onSavePage={(updatedPage) => handleEditorSave(updatedPage, false)}
+                    onDirtyChange={(dirty, canUndo, canRedo) => {
+                      setViewModeDirty(dirty);
+                      setViewModeCanUndo(canUndo);
+                      setViewModeCanRedo(canRedo);
+                    }}
+                    onEmojiSelected={setEmojiSelected}
                   />
                 </TouchableOpacity>
               );
             }}
-            enabled={!isEditMode}
+            enabled={!isEditMode && !emojiSelected}
             onSnapToItem={(index) => {
               const actualPageIndex = fromCarouselIndex(index);
               console.log('[AlbumScreen] Snapped to carousel index:', index, 'actual page:', actualPageIndex);
+              // Save and clear selection on outgoing page
+              const outgoingRef = pageCardRefs.current.get(pages[currentPageIndex]?.id ?? '');
+              outgoingRef?.current?.saveIfDirty();
+              outgoingRef?.current?.clearEmojiSelection();
               setCurrentPageIndex(actualPageIndex);
+              // Reset view-mode dirty state for new page
+              setViewModeDirty(false);
+              setViewModeCanUndo(false);
+              setViewModeCanRedo(false);
+              setEmojiSelected(false);
             }}
             defaultIndex={toCarouselIndex(currentPageIndex)}
             windowSize={3}
@@ -694,5 +778,28 @@ const styles = StyleSheet.create({
   navButtonNext: {},
   navButtonDisabled: {
     opacity: 0.4,
+  },
+  viewModeControls: {
+    position: 'absolute',
+    top: HEADER_HEIGHT + 8,
+    left: 16,
+    flexDirection: 'row',
+    gap: 8,
+    zIndex: 1100,
+  },
+  viewModeButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.2)',
+  },
+  viewModeButtonDisabled: {
+    opacity: 0.35,
+  },
+  viewModeButtonText: {
+    fontSize: 24,
   },
 });
