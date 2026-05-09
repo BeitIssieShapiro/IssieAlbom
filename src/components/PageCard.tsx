@@ -63,6 +63,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   const [triggerAudioPlay, setTriggerAudioPlay] = useState(0);
   const canvasRef = useRef<any>(null);
   const viewShotRef = useRef<View>(null);
+  const pageContentRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
   const { language, isRTL } = useLanguage();
   const [showEmojiKeyboard, setShowEmojiKeyboard] = useState(false);
@@ -110,10 +111,10 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   // Expose captureScreenshot + saveIfDirty + emoji controls via ref
   useImperativeHandle(ref, () => ({
     captureScreenshot: async () => {
-      if (!viewShotRef.current) {
+      if (!pageContentRef.current) {
         throw new Error('ViewShot ref not available');
       }
-      const uri = await captureRef(viewShotRef, {
+      const uri = await captureRef(pageContentRef, {
         format: 'jpg',
         quality: 0.6,
       });
@@ -121,9 +122,11 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
       return uri;
     },
     saveIfDirty: () => {
+      console.log('[PageCard] saveIfDirty called, isDirty:', isDirty.current, 'hasOnSavePage:', !!onSavePage);
       if (!isDirty.current || !onSavePage) return;
       const v2 = loadPageWithMigration(page);
       const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll() };
+      console.log('[PageCard] calling onSavePage with', updatedPage.elements.length, 'elements');
       onSavePage(updatedPage as AlbumPage);
       isDirty.current = false;
     },
@@ -350,6 +353,8 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
       <View
         style={[styles.pageContent, { width: displayWidth, height: displayHeight }]}
         pointerEvents={isEditMode ? "auto" : (viewModeEmojis.length > 0 ? "auto" : "box-none")}
+        ref={pageContentRef}
+        collapsable={false}
       >
         <View
           pointerEvents="box-none"

@@ -145,6 +145,23 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     setCapturingThumbnail(true);
   };
 
+  // Capture thumbnail directly from a live PageCard ref (no off-screen render needed)
+  const generateThumbnailFromLiveCard = async (pageId: string) => {
+    const ref = pageCardRefs.current.get(pageId);
+    if (!ref?.current) {
+      console.warn('[AlbumScreen] generateThumbnailFromLiveCard: ref not available for', pageId);
+      return;
+    }
+    try {
+      console.log('[AlbumScreen] Capturing thumbnail from live card...');
+      const screenshotUri = await ref.current.captureScreenshot();
+      await AlbumService.generateThumbnail(album.id, screenshotUri);
+      console.log('[AlbumScreen] Thumbnail saved from live card');
+    } catch (error) {
+      console.error('[AlbumScreen] Failed to generate thumbnail from live card:', error);
+    }
+  };
+
   const loadPages = useCallback(async () => {
     try {
       const loadedPages = await PageService.getPages(album.id);
@@ -206,12 +223,17 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     // Only exit edit mode if explicitly requested
     if (shouldExit) {
       setEditingPage(null);
+    }
 
-      // If we saved the first page and are exiting, generate thumbnail asynchronously
-      if (wasFirstPage) {
-        console.log('[AlbumScreen] First page saved, will generate thumbnail');
-        // Don't await - let it happen in the background
+    // Regenerate thumbnail whenever page 1 is saved
+    if (wasFirstPage) {
+      console.log('[AlbumScreen] First page saved, will generate thumbnail, capturingThumbnail:', capturingThumbnail);
+      if (shouldExit) {
+        // Edit mode exit: use off-screen card (page no longer in carousel)
         generateThumbnail(updatedPage);
+      } else {
+        // View mode save: capture directly from live carousel card
+        generateThumbnailFromLiveCard(updatedPage.id);
       }
     }
   };
@@ -371,7 +393,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
         {/* Start side (Left in LTR, Right in RTL): Home + Edit buttons */}
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={onBack}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={async () => {
+            // Save dirty page and update thumbnail before leaving
+            const page1 = pages.find(p => p.pageNumber === 1);
+            if (page1) {
+              const ref = pageCardRefs.current.get(page1.id);
+              ref?.current?.saveIfDirty();
+              await generateThumbnailFromLiveCard(page1.id);
+            }
+            onBack();
+          }}>
             <MyIcon info={{ type: "Ionicons", name: "home-outline", size: 28, color: colors.primary }} />
           </TouchableOpacity>
           <TouchableOpacity

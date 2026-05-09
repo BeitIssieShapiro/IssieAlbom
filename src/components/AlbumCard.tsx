@@ -87,7 +87,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
           <Image
             source={{ uri: `file://${album.previewImagePath}?t=${album.updatedAt}` }}
             style={styles.previewImage}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         ) : (
           <View style={[styles.placeholder, { backgroundColor: colors.accent2 }]}>
@@ -193,7 +193,6 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   placeholder: {
     flex: 1,
