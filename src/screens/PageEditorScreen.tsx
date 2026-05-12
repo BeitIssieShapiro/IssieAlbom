@@ -525,7 +525,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const EMOJI_SIZE_STEP = 10; // Step for +/- adjustments
 
   // Tiles styling constants
-  const TILES_BG_COLORS = ['#FFFDE7', '#E3F2FD', '#FCE4EC', '#F3E5F5', '#FFFFFF'];
+  const TILES_BG_COLORS = ['#FFFFFF', '#2C3E50', '#F0F3F4', '#D5DBDB', '#717D7E', '#F1948A', '#ABEBC6', '#AED6F1', '#EDBB99', '#D7BDE2', '#FFC0CB', '#FFFACD', '#E0FFFF', '#F5F5DC', '#FFE4E1'];
   const TILES_TEXT_COLORS = ['#FFFFFF', '#000000', '#333333', '#666666', '#2C3E50', '#E74C3C', '#3498DB', '#2ECC71'];
   const TILES_SIZES = [
     { label: 'XS', value: 0.08 },
