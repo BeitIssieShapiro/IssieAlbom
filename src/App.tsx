@@ -32,6 +32,8 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { GlobalRTLAlert, RTLAlertStatic } from './components/RTLAlert';
 import FileCopyModule from './modules/FileCopyModule';
 import { StorageCleanupService } from './services/StorageCleanupService';
+import { PreferencesService } from './services/PreferencesService';
+import { LANGUAGE_SETTINGS, loadLanguage } from '@beitissieshapiro/issie-shared';
 
 interface OpenedAlbum {
   album: Album;
@@ -39,6 +41,16 @@ interface OpenedAlbum {
 }
 
 function App() {
+   React.useEffect(() => {
+    PreferencesService.getLanguage().then(lang => {
+      const setting =
+        lang === 'he' ? LANGUAGE_SETTINGS.hebrew :
+        lang === 'ar' ? LANGUAGE_SETTINGS.arabic :
+        LANGUAGE_SETTINGS.english;
+      loadLanguage(setting);
+    });
+  }, []);
+
   return (
     <ThemeProvider>
       <LanguageProvider>
