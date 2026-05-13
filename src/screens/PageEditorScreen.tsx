@@ -507,6 +507,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const PEN_SIZES = [2, 3, 5, 8];
 
   // Text size presets (XS/S/M/L/XL)
+  const SIZE_LETTER = language === 'he' ? 'א' : language === 'ar' ? 'أ' : 'A';
+  const SIZE_DISPLAY_PX = [10, 13, 16, 20, 26]; // visual letter sizes for XS→XL
   const TITLE_TEXT_SIZES = [
     { label: 'XS', value: 40 },
     { label: 'S', value: 52 },
@@ -3788,7 +3790,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                           <Text style={styles.sectionLabel}>{t('editor.size')}</Text>
                           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             <View style={styles.sizeGrid}>
-                              {TILES_SIZES.map(s => (
+                              {TILES_SIZES.map((s, i) => (
                                 <TouchableOpacity
                                   key={s.label}
                                   style={[styles.sizeButton, tilesSize === s.value && styles.sizeButtonActive]}
@@ -3802,7 +3804,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                                     }
                                   }}
                                 >
-                                  <Text style={[styles.sizeText, tilesSize === s.value && styles.sizeTextActive]}>{s.label}</Text>
+                                  <Text style={[styles.sizeText, tilesSize === s.value && styles.sizeTextActive, { fontSize: SIZE_DISPLAY_PX[i] }]}>{SIZE_LETTER}</Text>
                                 </TouchableOpacity>
                               ))}
                             </View>
@@ -3846,7 +3848,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       <Text style={styles.sectionLabel}>{t('editor.size')}</Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View style={styles.sizeGrid}>
-                          {(textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map(s => (
+                          {(textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map((s, i) => (
                             <TouchableOpacity
                               key={s.label}
                               style={[styles.sizeButton, textSize === s.value && styles.sizeButtonActive]}
@@ -3858,7 +3860,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                                 }
                               }}
                             >
-                              <Text style={[styles.sizeText, textSize === s.value && styles.sizeTextActive]}>{s.label}</Text>
+                              <Text style={[styles.sizeText, textSize === s.value && styles.sizeTextActive, { fontSize: SIZE_DISPLAY_PX[i] }]}>{SIZE_LETTER}</Text>
                             </TouchableOpacity>
                           ))}
                         </View>

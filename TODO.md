@@ -2,9 +2,9 @@
 V- Change from tiles to Cell/תא
 V- in View mode, click on a tile plays its voice (no playing automatically)
 V- temp emoji is not saved if you go into edit.
-- merge take symbol of first, unmerge - try to find new synbols
+V- merge take symbol of first, unmerge - try to find new synbols
 V- tiles bg colors
-- change S/M/L text to char sizes
+V- change S/M/L text to char sizes
 - Text icons - replace
 
 
