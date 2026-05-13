@@ -48,6 +48,7 @@ import ImageLibrary from '../services/ImageLibrary';
 import { MyIcon } from '../common/icons';
 import { RTLAlert } from '../components/RTLAlert';
 import { spacing, borderRadius } from '../theme/colors';
+import Svg, { Rect as SvgRect, Path as SvgPath } from 'react-native-svg';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -122,6 +123,44 @@ interface PageEditorScreenProps {
   onNavigatePage?: (pageId: string) => void;
   onCreatePage?: () => void;
   onDeletePage?: () => void;
+}
+
+function IconTitle({ color = '#555', size = 24 }: { color?: string; size?: number }) {
+  const s = size / 40;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 40 40">
+      <SvgRect x="3" y="2" width="34" height="36" rx="4" fill="white" stroke={color} strokeWidth="2.2" />
+      <SvgRect x="8" y="8" width="24" height="4" rx="2" fill={color} />
+      <SvgRect x="8" y="17" width="24" height="2.5" rx="1.25" fill={color} opacity="0.35" />
+      <SvgRect x="8" y="22" width="20" height="2.5" rx="1.25" fill={color} opacity="0.35" />
+      <SvgRect x="8" y="27" width="22" height="2.5" rx="1.25" fill={color} opacity="0.35" />
+    </Svg>
+  );
+}
+
+function IconBody({ color = '#555', size = 24 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 40 40">
+      <SvgRect x="3" y="2" width="34" height="36" rx="4" fill="white" stroke={color} strokeWidth="2.2" />
+      <SvgRect x="8" y="8" width="24" height="2.5" rx="1.25" fill={color} opacity="0.35" />
+      <SvgRect x="8" y="16" width="24" height="3" rx="1.5" fill={color} />
+      <SvgRect x="8" y="22" width="20" height="3" rx="1.5" fill={color} />
+      <SvgRect x="8" y="28" width="22" height="3" rx="1.5" fill={color} />
+    </Svg>
+  );
+}
+
+function IconCells({ color = '#555', size = 24 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 40 40">
+      <SvgRect x="3" y="2" width="34" height="36" rx="4" fill="white" stroke={color} strokeWidth="2.2" />
+      <SvgRect x="8" y="8" width="24" height="2.5" rx="1.25" fill={color} opacity="0.35" />
+      <SvgRect x="8" y="13" width="18" height="2.5" rx="1.25" fill={color} opacity="0.35" />
+      <SvgRect x="6" y="23" width="8" height="11" rx="2.5" fill="none" stroke={color} strokeWidth="1.8" />
+      <SvgRect x="16" y="23" width="8" height="11" rx="2.5" fill="none" stroke={color} strokeWidth="1.8" />
+      <SvgRect x="26" y="23" width="8" height="11" rx="2.5" fill="none" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
 }
 
 export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage, onDeletePage }: PageEditorScreenProps) {
@@ -3610,7 +3649,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, textMode === 'title' && currentEdited.textId && styles.optionButtonActive]}
                       onPress={handleEditTitle}
                     >
-                      <MyIcon info={{ name: "format-header-1", size: 24, color: textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
+                      <IconTitle color={textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555'} size={24} />
                       <Text style={[styles.optionLabel, textMode === 'title' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textTitle')}</Text>
                     </TouchableOpacity>
 
@@ -3618,7 +3657,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, textMode === 'body' && currentEdited.textId && styles.optionButtonActive]}
                       onPress={handleEditBody}
                     >
-                      <MyIcon info={{ name: "format-text", size: 24, color: textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555', type: "MDI" }} />
+                      <IconBody color={textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555'} size={24} />
                       <Text style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textBody')}</Text>
                     </TouchableOpacity>
 
@@ -3626,7 +3665,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, tilesSelected && styles.optionButtonActive]}
                       onPress={handleEditTiles}
                     >
-                      <MyIcon info={{ name: "view-grid", size: 24, color: tilesSelected ? '#007AFF' : '#555', type: "MDI" }} />
+                      <IconCells color={tilesSelected ? '#007AFF' : '#555'} size={24} />
                       <Text style={[styles.optionLabel, tilesSelected && styles.optionLabelActive]}>{t('editor.tilesTitle')}</Text>
                     </TouchableOpacity>
 
