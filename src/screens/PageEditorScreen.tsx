@@ -1466,41 +1466,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     }
 
     // Search for symbols for tiles that don't have one
-    const needsSymbolSearch = tileWords.some(tile => !tile.symbol);
-    if (needsSymbolSearch) {
-      setSearchingSymbols(true);
-      setSearchingSymbolsMode('auto');
-      // Detect language from the typed text, not UI language
-      const detectedLanguage = detectLanguageFromText(text);
-      try {
-        // Extract words that need symbols
-        const wordsToSearch = tileWords.map(tile => tile.symbol ? null : tile.text);
-
-        // Search symbols in parallel
-        const searchResults = await Promise.all(
-          wordsToSearch.map(async (word, index) => {
-            if (word === null) return null; // Already has symbol
-            try {
-              return await SymbolSearchService.searchSymbol(word, detectedLanguage, albumId);
-            } catch (error) {
-              console.error('[PageEditor] Symbol search failed for', word, error);
-              return null;
-            }
-          })
-        );
-
-        // Update tileWords with search results
-        tileWords = tileWords.map((tile, index) => ({
-          ...tile,
-          symbol: tile.symbol || searchResults[index] || undefined,
-          symbolType: tile.symbolType || (searchResults[index] ? 'image' : undefined),
-        }));
-      } catch (error) {
-        console.error('[PageEditor] Symbol search error:', error);
-      } finally {
-        setSearchingSymbols(false);
-      }
-    }
+    tileWords = await searchSymbolsForTiles(tileWords, text);
 
     // Calculate approximate tile size for positioning
     // TileSize formula: canvasWidth / (1.5 * numTiles + 0.5)
@@ -1624,6 +1590,38 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     queue.current.pushAudio(updatedAudio);
   };
 
+  const searchSymbolsForTiles = async (tileWords: TileWord[], text: string): Promise<TileWord[]> => {
+    const needsSymbolSearch = tileWords.some(tile => !tile.symbol);
+    if (!needsSymbolSearch) return tileWords;
+    setSearchingSymbols(true);
+    setSearchingSymbolsMode('auto');
+    const detectedLanguage = detectLanguageFromText(text);
+    try {
+      const wordsToSearch = tileWords.map(tile => tile.symbol ? null : tile.text);
+      const searchResults = await Promise.all(
+        wordsToSearch.map(async (word) => {
+          if (word === null) return null;
+          try {
+            return await SymbolSearchService.searchSymbol(word, detectedLanguage, albumId);
+          } catch (error) {
+            console.error('[PageEditor] Symbol search failed for', word, error);
+            return null;
+          }
+        })
+      );
+      return tileWords.map((tile, index) => ({
+        ...tile,
+        symbol: tile.symbol || searchResults[index] || undefined,
+        symbolType: tile.symbolType || (searchResults[index] ? 'image' : undefined),
+      }));
+    } catch (error) {
+      console.error('[PageEditor] Symbol search error:', error);
+      return tileWords;
+    } finally {
+      setSearchingSymbols(false);
+    }
+  };
+
   const handleMergeTile = () => {
     if (!tiles) return;
     const selected = Array.from(selectedTileIndicesRef.current).sort((a, b) => a - b);
@@ -1677,7 +1675,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     setSelectedTileIndices(new Set([mergedPosition !== -1 ? mergedPosition : lowestSelected]));
   };
 
-  const handleUnmergeTile = () => {
+  const handleUnmergeTile = async () => {
     if (!tiles) return;
     const selected = Array.from(selectedTileIndicesRef.current);
     if (selected.length !== 1) return;
@@ -1687,10 +1685,15 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     const tileToUnmerge = tiles.words[index];
     const words = tileToUnmerge.text.split(/\s+/);
 
-    const newTiles: TileWord[] = words.map((word, i) => ({
+    let newTiles: TileWord[] = words.map((word, i) => ({
       text: word,
       originalIndices: [tileToUnmerge.originalIndices[i]],
+      backgroundColor: tileToUnmerge.backgroundColor,
+      textColor: tileToUnmerge.textColor,
     }));
+
+    // Re-run symbol search for the unmerged tiles
+    newTiles = await searchSymbolsForTiles(newTiles, tileToUnmerge.text);
 
     const newWords = [...tiles.words];
     newWords.splice(index, 1, ...newTiles);
