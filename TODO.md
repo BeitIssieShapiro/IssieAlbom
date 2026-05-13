@@ -1,5 +1,5 @@
 ## May-12
-- Change from tiles to Symbol/סמלים
+V- Change from tiles to Cell/תא
 V- in View mode, click on a tile plays its voice (no playing automatically)
 - temp emoji is not saved if you go into edit.
 - merge take symbol of first, unmerge - try to find new synbols

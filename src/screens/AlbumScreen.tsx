@@ -201,12 +201,18 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     // In edit mode, clicking also does nothing (use menu for actions)
   };
 
-  const handleEditPage = (page: AlbumPage) => {
+  const handleEditPage = async (page: AlbumPage) => {
     const ref = pageCardRefs.current.get(page.id);
-    ref?.current?.saveIfDirty();
+    const saved = await ref?.current?.saveIfDirty();
     ref?.current?.clearEmojiSelection();
     setEmojiSelected(false);
-    setEditingPage(page);
+    if (saved) {
+      // saveIfDirty triggered loadPages — fetch the refreshed version for the editor
+      const refreshedPages = await PageService.getPages(album.id);
+      setEditingPage(refreshedPages.find(p => p.id === page.id) ?? page);
+    } else {
+      setEditingPage(page);
+    }
   };
 
   const handleEditorSave = async (updatedPage: AlbumPage, shouldExit: boolean = false) => {

@@ -28,7 +28,7 @@ const PAGE_TITLE_ID = 'page_title_text';
 
 export interface PageCardRef {
   captureScreenshot: () => Promise<string>;
-  saveIfDirty: () => void;
+  saveIfDirty: () => Promise<boolean>;
   openEmojiKeyboard: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
@@ -121,14 +121,15 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
       console.log('[PageCard] Captured screenshot:', uri);
       return uri;
     },
-    saveIfDirty: () => {
+    saveIfDirty: async () => {
       console.log('[PageCard] saveIfDirty called, isDirty:', isDirty.current, 'hasOnSavePage:', !!onSavePage);
-      if (!isDirty.current || !onSavePage) return;
+      if (!isDirty.current || !onSavePage) return false;
       const v2 = loadPageWithMigration(page);
       const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll() };
       console.log('[PageCard] calling onSavePage with', updatedPage.elements.length, 'elements');
-      onSavePage(updatedPage as AlbumPage);
+      await onSavePage(updatedPage as AlbumPage);
       isDirty.current = false;
+      return true;
     },
     openEmojiKeyboard: () => setShowEmojiKeyboard(true),
     canUndo: () => viewQueue.current.canUndo(baselineLength.current),
