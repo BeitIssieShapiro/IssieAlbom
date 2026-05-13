@@ -37,9 +37,10 @@ setup_permissions([
   # 'StoreKit',
 ])
 
+use_frameworks! :linkage => :static
 $RNFirebaseAsStaticFramework = true
 $RNFirebaseAnalyticsWithoutAdIdSupport = true
-use_frameworks! :linkage => :static
+ENV['RCT_USE_PREBUILT_RNCORE'] = '0'
 
 target 'IssieAlbum' do
   config = use_native_modules!

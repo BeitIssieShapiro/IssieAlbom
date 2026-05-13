@@ -42,6 +42,7 @@ interface OpenedAlbum {
 
 function App() {
    React.useEffect(() => {
+
     PreferencesService.getLanguage().then(lang => {
       const setting =
         lang === 'he' ? LANGUAGE_SETTINGS.hebrew :
