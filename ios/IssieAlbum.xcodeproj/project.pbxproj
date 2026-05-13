@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-IssieAlbum.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-IssieAlbum.a */; };
+		6A4A9FB52FB47C6600B244D5 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 6A4A9FB42FB47C6600B244D5 /* GoogleService-Info.plist */; };
 		6A877C422F36762B00888533 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6A877C412F36762B00888533 /* Assets.xcassets */; };
 		6A9E75BD2F643E2200BF34A9 /* VideoExportModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 6A9E75BC2F643E2200BF34A9 /* VideoExportModule.m */; };
 		6A9E75BF2F643E5300BF34A9 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6A9E75BE2F643E5300BF34A9 /* AVFoundation.framework */; };
@@ -23,6 +24,7 @@
 		3B4392A12AC88292D35C810B /* Pods-IssieAlbum.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IssieAlbum.debug.xcconfig"; path = "Target Support Files/Pods-IssieAlbum/Pods-IssieAlbum.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-IssieAlbum.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IssieAlbum.release.xcconfig"; path = "Target Support Files/Pods-IssieAlbum/Pods-IssieAlbum.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-IssieAlbum.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-IssieAlbum.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6A4A9FB42FB47C6600B244D5 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		6A877C412F36762B00888533 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = IssieAlbum/Assets.xcassets; sourceTree = "<group>"; };
 		6A9E75BB2F643E2200BF34A9 /* VideoExportModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = VideoExportModule.h; path = IssieAlbum/VideoExportModule.h; sourceTree = "<group>"; };
 		6A9E75BC2F643E2200BF34A9 /* VideoExportModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = VideoExportModule.m; path = IssieAlbum/VideoExportModule.m; sourceTree = "<group>"; };
@@ -48,6 +50,7 @@
 		13B07FAE1A68108700A75B9A /* IssieAlbum */ = {
 			isa = PBXGroup;
 			children = (
+				6A4A9FB42FB47C6600B244D5 /* GoogleService-Info.plist */,
 				6A9E75BB2F643E2200BF34A9 /* VideoExportModule.h */,
 				6A9E75BC2F643E2200BF34A9 /* VideoExportModule.m */,
 				6A877C412F36762B00888533 /* Assets.xcassets */,
@@ -168,6 +171,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
+				6A4A9FB52FB47C6600B244D5 /* GoogleService-Info.plist in Resources */,
 				6A877C422F36762B00888533 /* Assets.xcassets in Resources */,
 				EAA045ED9C55EADC4AFC5104 /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -402,7 +406,10 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_CFLAGS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -410,10 +417,14 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				USE_HERMES = true;
 			};
 			name = Debug;
@@ -471,7 +482,10 @@
 					"\"$(inherited)\"",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_CFLAGS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -479,9 +493,13 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
