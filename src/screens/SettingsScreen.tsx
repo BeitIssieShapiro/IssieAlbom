@@ -17,6 +17,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { ThemeName, themes } from '../theme/colors';
 import { BackupService } from '../services/BackupService';
 import { ShareUtils } from '../utils/ShareUtils';
+import { FeedbackDialog } from '@beitissieshapiro/issie-shared';
 
 interface SettingsScreenProps {
   visible: boolean;
@@ -30,6 +31,7 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
   const screenWidth = Dimensions.get('window').width;
   const [backupInProgress, setBackupInProgress] = useState(false);
   const [backupProgress, setBackupProgress] = useState({ current: 0, total: 0 });
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const handleThemeSelect = async (theme: ThemeName) => {
     try {
@@ -201,7 +203,36 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
               {t('backup.backupAllAlbums')}
             </Text>
           </TouchableOpacity>
+
+          {/* Feedback Section */}
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
+            {t('settings.feedback')}
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.backupButton,
+              {
+                backgroundColor: colors.primary,
+                borderRadius: borderRadius.medium,
+                padding: spacing.lg,
+              },
+            ]}
+            onPress={() => setShowFeedback(true)}
+            activeOpacity={0.7}
+          >
+            <Icon name="chatbubble-outline" size={24} color="#FFF" />
+            <Text style={styles.backupButtonText}>
+              {t('settings.feedback')}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
+
+        <FeedbackDialog
+          appName="IssieAlbum"
+          visible={showFeedback}
+          onClose={() => setShowFeedback(false)}
+        />
       </View>
     </Modal>
   );
