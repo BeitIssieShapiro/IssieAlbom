@@ -14,6 +14,7 @@ interface TilesElementProps {
   editMode?: boolean;
   selectedIndices?: Set<number>;
   onTilePress?: (index: number) => void;
+  onTilePressViewMode?: (originalIndices: number[]) => void;
   highlightedWordIndex?: number;
   albumId: string;
   themeColor?: string;
@@ -27,6 +28,7 @@ export function TilesElement({
   editMode = false,
   selectedIndices,
   onTilePress,
+  onTilePressViewMode,
   highlightedWordIndex,
   albumId,
   themeColor = '#4CAF50',
@@ -93,8 +95,14 @@ export function TilesElement({
           <React.Fragment key={displayIndex}>
             {/* Tile */}
             <TouchableOpacity
-              activeOpacity={editMode ? 0.7 : 1}
-              onPress={editMode && onTilePress ? () => onTilePress(index) : undefined}
+              activeOpacity={editMode ? 0.7 : (onTilePressViewMode ? 0.6 : 1)}
+              onPress={
+                editMode && onTilePress
+                  ? () => onTilePress(index)
+                  : !editMode && onTilePressViewMode
+                  ? () => onTilePressViewMode(word.originalIndices)
+                  : undefined
+              }
               style={[
                 styles.tile,
                 {

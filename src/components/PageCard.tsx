@@ -5,7 +5,6 @@ import {
   Modal,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   PixelRatio,
 } from 'react-native';
@@ -61,6 +60,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const [triggerAudioPlay, setTriggerAudioPlay] = useState(0);
+  const [seekToTime, setSeekToTime] = useState<{ time: number; seq: number } | undefined>(undefined);
   const canvasRef = useRef<any>(null);
   const viewShotRef = useRef<View>(null);
   const pageContentRef = useRef<View>(null);
@@ -316,11 +316,30 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   // No longer using audio elements on canvas
   const audioElements: SketchElement[] = [];
 
+  function handleTilePress(originalIndices: number[]) {
+    if (!pageAudio?.audioPath) return;
+    const timings = pageAudio.wordTimings;
+    let startTime = 0;
+    let stopAt: number | undefined = undefined;
+    if (timings && timings.length > 0) {
+      const matchedIndices = originalIndices.filter(i => i < timings.length);
+      if (matchedIndices.length > 0) {
+        const maxIndex = Math.max(...matchedIndices);
+        startTime = timings[Math.min(...matchedIndices)].startTime;
+        // stopAt = next word's startTime after the tile's last word
+        if (maxIndex + 1 < timings.length) {
+          stopAt = timings[maxIndex + 1].startTime;
+        }
+      }
+    }
+    setSeekToTime(prev => ({ time: startTime, stopAt, seq: (prev?.seq ?? 0) + 1 }));
+  }
+
   // Render callback for custom elements
   const handleRenderElements = (elem: SketchElement) => {
     if (elem.type === 'tiles') {
       const tilesElem = elem as any; // Cast to tiles type
-      const inner = (
+      return (
         <TilesElement
           tiles={tilesElem}
           canvasWidth={displayWidth}
@@ -329,16 +348,9 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           editMode={false}
           highlightedWordIndex={highlightedWordIndex !== undefined ? highlightedWordIndex : (currentWordIndex !== null ? currentWordIndex : undefined)}
           albumId={albumId}
+          onTilePressViewMode={pageAudio?.audioPath ? handleTilePress : undefined}
         />
       );
-      if (pageAudio?.audioPath) {
-        return (
-          <TouchableOpacity activeOpacity={0.8} onPress={() => setTriggerAudioPlay(n => n + 1)}>
-            {inner}
-          </TouchableOpacity>
-        );
-      }
-      return inner;
     }
     return null;
   };
@@ -425,8 +437,9 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
               audioFile={pageAudio.audioPath}
               albumId={albumId}
               editMode={false}
-              autoPlay={autoPlayAudio}
+              autoPlay={autoPlayAudio && !tiles}
               triggerPlay={triggerAudioPlay}
+              seekToTime={seekToTime}
               width={1}
               height={1}
               wordTimings={pageAudio.wordTimings}

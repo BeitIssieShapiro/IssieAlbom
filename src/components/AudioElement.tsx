@@ -16,6 +16,7 @@ interface AudioElementProps {
   height?: number;
   autoPlay?: boolean; // Auto-play audio when component mounts
   triggerPlay?: number; // Increment to trigger playback (for external play control)
+  seekToTime?: { time: number; stopAt?: number; seq: number }; // Start playback from this time in seconds
   wordTimings?: WordTiming[]; // Word timings for highlighting
   onWordChange?: (wordIndex: number) => void; // Callback when current word changes
 }
@@ -29,14 +30,18 @@ export function AudioElement({
   height = 80,
   autoPlay = false,
   triggerPlay,
+  seekToTime,
   wordTimings = [],
   onWordChange,
 }: AudioElementProps) {
   const { t } = useLanguage();
   const [recording, setRecording] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const playingRef = useRef(false);
+  const stopAtRef = useRef<number | undefined>(undefined);
   const [recordSecs, setRecordSecs] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const seekFloorRef = useRef<number>(0); // ignore word updates before this position
   const isMountedRef = useRef(true);
 
   // Track mounted state
@@ -58,6 +63,8 @@ export function AudioElement({
   // External trigger to (re)play
   useEffect(() => {
     if (triggerPlay !== undefined && triggerPlay > 0 && audioFile) {
+      stopAtRef.current = undefined;
+      seekFloorRef.current = 0;
       if (playing) {
         onStopPlay().then(() => onStartPlay());
       } else {
@@ -65,6 +72,21 @@ export function AudioElement({
       }
     }
   }, [triggerPlay]);
+
+  // Seek-play: start from a specific time
+  useEffect(() => {
+    if (seekToTime === undefined || !audioFile) return;
+    const startFromTime = async () => {
+      if (playingRef.current) await onStopPlay();
+      stopAtRef.current = seekToTime.stopAt;
+      seekFloorRef.current = seekToTime.time;
+      await onStartPlay();
+      if (seekToTime.time > 0) {
+        await Sound.seekToPlayer(seekToTime.time * 1000);
+      }
+    };
+    startFromTime();
+  }, [seekToTime]);
 
   useEffect(() => {
     return () => {
@@ -158,6 +180,8 @@ export function AudioElement({
         const currentTimeSec = e.currentPosition / 1000;
 
         // Update current word based on playback position
+        if (currentTimeSec < seekFloorRef.current) return;
+
         if (wordTimings && wordTimings.length > 0) {
           let wordIndex = -1;
           for (let i = wordTimings.length - 1; i >= 0; i--) {
@@ -182,8 +206,19 @@ export function AudioElement({
           }
         }
 
+        if (stopAtRef.current !== undefined && currentTimeSec >= stopAtRef.current) {
+          stopAtRef.current = undefined;
+          setPlaying(false);
+          playingRef.current = false;
+          setCurrentWordIndex(-1);
+          if (isMountedRef.current && onWordChange) onWordChange(-1);
+          Sound.stopPlayer().catch(console.error);
+          return;
+        }
+
         if (e.currentPosition >= e.duration && e.duration > 0) {
           setPlaying(false);
+          playingRef.current = false;
           setCurrentWordIndex(-1);
           if (isMountedRef.current && onWordChange) {
             onWordChange(-1); // Clear highlights when playback ends
@@ -192,6 +227,7 @@ export function AudioElement({
         }
       });
       setPlaying(true);
+      playingRef.current = true;
       console.log('Playback started successfully');
     } catch (error) {
       console.error('Failed to start playback:', error);
@@ -204,6 +240,7 @@ export function AudioElement({
       await Sound.stopPlayer();
       Sound.removePlayBackListener();
       setPlaying(false);
+      playingRef.current = false;
       setCurrentWordIndex(-1);
       if (isMountedRef.current && onWordChange) {
         onWordChange(-1); // Clear highlights when manually stopped

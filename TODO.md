@@ -1,3 +1,15 @@
+## May-12
+- Change from tiles to Symbol/סמלים
+V- in View mode, click on a tile plays its voice (no playing automatically)
+- temp emoji is not saved if you go into edit.
+- merge take symbol of first, unmerge - try to find new synbols
+V- tiles bg colors
+- change S/M/L text to char sizes
+- Text icons - replace
+
+
+
+
 ## Apr-29
 V- tiles title dialog - should avoid kb
 V- tiles default bg-color should be very lite yellow
