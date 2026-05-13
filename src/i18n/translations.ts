@@ -133,6 +133,7 @@ interface Translations {
     restartRequired: string;
     restartMessage: string;
     ok: string;
+    feedback: string;
   };
 
   // About Screen
@@ -374,6 +375,7 @@ export const translations: Record<LanguageCode, Translations> = {
       restartRequired: 'נדרש אתחול',
       restartMessage: 'יש להפעיל מחדש את האפליקציה כדי שהשינוי ייכנס לתוקף.',
       ok: 'אישור',
+      feedback: 'שלח משוב',
     },
 
     about: {
@@ -604,6 +606,7 @@ export const translations: Record<LanguageCode, Translations> = {
       restartRequired: 'Restart Required',
       restartMessage: 'Please restart the app for the layout change to take effect.',
       ok: 'OK',
+      feedback: 'Send Feedback',
     },
 
     about: {
@@ -832,6 +835,7 @@ export const translations: Record<LanguageCode, Translations> = {
       restartRequired: 'مطلوب إعادة التشغيل',
       restartMessage: 'يرجى إعادة تشغيل التطبيق لتطبيق التغيير.',
       ok: 'موافق',
+      feedback: 'إرسال ملاحظات',
     },
 
     about: {
