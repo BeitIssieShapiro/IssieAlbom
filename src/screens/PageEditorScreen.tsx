@@ -3045,8 +3045,17 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         const height = p[1] - baseImage.y;
         moveData = { id, type, x: baseImage.x, y: baseImage.y, width, height };
       } else {
-        // For move, p contains the new position
-        moveData = { id, type, x: p[0], y: p[1], width: baseImage.width, height: baseImage.height };
+        // For move, p contains the new position — clamp so 20% of image stays on canvas
+        const minVisible = 0.2;
+        const clampedX = Math.max(
+          -(baseImage.width! * (1 - minVisible)),
+          Math.min(p[0], pageWidth - baseImage.width! * minVisible)
+        );
+        const clampedY = Math.max(
+          -(baseImage.height! * (1 - minVisible)),
+          Math.min(p[1], pageHeight - baseImage.height! * minVisible)
+        );
+        moveData = { id, type, x: clampedX, y: clampedY, width: baseImage.width, height: baseImage.height };
       }
       console.log('Setting movingElement:', moveData);
       setMovingElement(moveData);

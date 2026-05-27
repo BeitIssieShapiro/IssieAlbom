@@ -5,6 +5,7 @@ import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -40,6 +41,12 @@ class MainActivity : ReactActivity() {
     // Set the Intent property with the modified Intent data before super.onCreate runs.
     // This ensures React Native's built-in deep link handling reads the correct data.
     intent = modifyIntentForSharing(intent)
+
+    // Lock phones (smallest width < 600dp) to landscape; tablets keep all orientations
+    val smallestWidthDp = resources.configuration.smallestScreenWidthDp
+    if (smallestWidthDp < 600) {
+      requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    }
 
     // IMPORTANT: Must call super.onCreate after the intent is modified.
     super.onCreate(savedInstanceState)

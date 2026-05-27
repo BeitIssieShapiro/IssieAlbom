@@ -33,6 +33,10 @@ const MAX_COLUMNS = 4; // Maximum columns on larger screens
 const CARD_MARGIN = spacing.md;
 const LIST_PADDING = spacing.md;
 
+// Phone = short side < 600dp (excludes iPad and large Android tablets)
+const { width: _w, height: _h } = Dimensions.get('window');
+const isPhone = Platform.OS !== 'web' && Math.min(_w, _h) < 600;
+
 interface HomeScreenProps {
   onOpenAlbum: (album: Album) => void;
   refreshTrigger?: number;
@@ -131,8 +135,12 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
 
   const handleAddAlbum = () => {
     setNewAlbumName('');
-    const { width, height } = Dimensions.get('window');
-    setSelectedOrientation(height >= width ? 'portrait' : 'landscape');
+    if (!isPhone) {
+      const { width, height } = Dimensions.get('window');
+      setSelectedOrientation(height >= width ? 'portrait' : 'landscape');
+    } else {
+      setSelectedOrientation('landscape');
+    }
     setShowNewAlbumModal(true);
   };
 
@@ -271,7 +279,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
 
   const renderItem = ({ item, index }: { item: Album | 'add'; index: number }) => {
     if (item === 'add') {
-      return <AddAlbumButton onPress={handleAddAlbum} screenWidth={screenDimensions.width} />;
+      return <AddAlbumButton onPress={handleAddAlbum} screenWidth={safeWidth} />;
     }
     return (
       <AlbumCard
@@ -280,15 +288,16 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
         onRename={handleRenameAlbum}
         onDelete={confirmDeleteAlbum}
         onShare={handleShareAlbum}
-        screenWidth={screenDimensions.width}
+        screenWidth={safeWidth}
       />
     );
   };
 
   const data: (Album | 'add')[] = [...albums, 'add'];
 
-  // Calculate responsive number of columns based on screen width
-  const availableWidth = screenDimensions.width - LIST_PADDING * 2;
+  // Calculate responsive number of columns based on screen width (subtract safe area insets on mobile)
+  const safeWidth = screenDimensions.width - (isPhone ? insets.left + insets.right : 0);
+  const availableWidth = safeWidth - LIST_PADDING * 2;
   const calculatedColumns = Math.floor(availableWidth / (MIN_CARD_WIDTH + CARD_MARGIN * 2));
   const numColumns = Math.max(1, Math.min(calculatedColumns, MAX_COLUMNS));
 
@@ -386,6 +395,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                   returnKeyType="done"
                   onSubmitEditing={handleCreateAlbum}
                 />
+                {!isPhone && (
                 <View style={styles.orientationPicker}>
                   <TouchableOpacity
                     style={[
@@ -420,6 +430,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                     </Text>
                   </TouchableOpacity>
                 </View>
+                )}
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton, {

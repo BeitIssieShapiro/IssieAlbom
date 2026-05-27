@@ -8,6 +8,20 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>IssieAlbum</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>ZIP Archive</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.zip-archive</string>
+				<string>com.pkware.zip-archive</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,8 +38,12 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -33,6 +51,20 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>IssieAlbum does not access your music library. This permission is required by a third-party library.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>IssieAlbum needs access to your camera to take photos for your albums.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>IssieAlbum does not use your location. This permission is required by a third-party library.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>IssieAlbum needs access to your microphone to record audio notes.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>IssieAlbum needs permission to save videos to your photo library</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>IssieAlbum needs access to your photo library to allow you to select and organize photos in your albums.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AntDesign.ttf</string>
@@ -43,24 +75,8 @@
 		<string>FontAwesome6_Regular.ttf</string>
 		<string>FontAwesome6_Solid.ttf</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>IssieAlbum needs access to your camera to take photos for your albums.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>IssieAlbum needs access to your microphone to record audio notes.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>IssieAlbum needs permission to save videos to your photo library</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>IssieAlbum needs access to your photo library to allow you to select and organize photos in your albums.</string>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>IssieAlbum does not access your music library. This permission is required by a third-party library.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>IssieAlbum does not use your location. This permission is required by a third-party library.</string>
-	<key>RCTNewArchEnabled</key>
-	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>
@@ -69,8 +85,6 @@
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
@@ -80,22 +94,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
-	<key>CFBundleDocumentTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>ZIP Archive</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>public.zip-archive</string>
-				<string>com.pkware.zip-archive</string>
-			</array>
-		</dict>
-	</array>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<false/>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
