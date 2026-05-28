@@ -59,6 +59,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   const [capturingThumbnail, setCapturingThumbnail] = useState(false);
   const [readyToCapture, setReadyToCapture] = useState(false);
   const thumbnailCardRef = useRef<PageCardRef>(null);
+  const thumbnailInProgressRef = useRef(false); // guard against concurrent captures
 
   // Track screen dimensions (updated on rotation)
   const [screenDimensions, setScreenDimensions] = useState(() => {
@@ -147,11 +148,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 
   // Capture thumbnail directly from a live PageCard ref (no off-screen render needed)
   const generateThumbnailFromLiveCard = async (pageId: string) => {
+    if (thumbnailInProgressRef.current) {
+      console.log('[AlbumScreen] generateThumbnailFromLiveCard: already in progress, skipping');
+      return;
+    }
     const ref = pageCardRefs.current.get(pageId);
     if (!ref?.current) {
       console.warn('[AlbumScreen] generateThumbnailFromLiveCard: ref not available for', pageId);
       return;
     }
+    thumbnailInProgressRef.current = true;
     try {
       console.log('[AlbumScreen] Capturing thumbnail from live card...');
       const screenshotUri = await ref.current.captureScreenshot();
@@ -159,6 +165,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       console.log('[AlbumScreen] Thumbnail saved from live card');
     } catch (error) {
       console.error('[AlbumScreen] Failed to generate thumbnail from live card:', error);
+    } finally {
+      thumbnailInProgressRef.current = false;
     }
   };
 
@@ -239,7 +247,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         generateThumbnail(updatedPage);
       } else {
         // View mode save: capture directly from live carousel card
-        generateThumbnailFromLiveCard(updatedPage.id);
+        await generateThumbnailFromLiveCard(updatedPage.id);
       }
     }
   };
@@ -400,12 +408,20 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         {/* Start side (Left in LTR, Right in RTL): Home + Edit buttons */}
         <View style={styles.headerLeft}>
           <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.cardBackground }]} onPress={async () => {
-            // Save dirty page and update thumbnail before leaving
+            // Save dirty page — handleEditorSave will regenerate thumbnail as part of save
             const page1 = pages.find(p => p.pageNumber === 1);
             if (page1) {
               const ref = pageCardRefs.current.get(page1.id);
-              ref?.current?.saveIfDirty();
-              await generateThumbnailFromLiveCard(page1.id);
+              // Clear selection so the selection border doesn't appear in the thumbnail
+              ref?.current?.clearEmojiSelection();
+              // Wait one frame for the deselection to render before capturing
+              await new Promise(resolve => requestAnimationFrame(resolve));
+              const saved = await ref?.current?.saveIfDirty();
+              // Only generate thumbnail here if there was nothing dirty to save
+              // (saveIfDirty → handleEditorSave already handles it when dirty)
+              if (!saved) {
+                await generateThumbnailFromLiveCard(page1.id);
+              }
             }
             onBack();
           }}>

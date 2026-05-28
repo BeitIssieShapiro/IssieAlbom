@@ -222,7 +222,7 @@ function AppContent() {
           <AlbumScreen
             album={openedAlbum.album}
             isFirstOpen={openedAlbum.isFirstOpen}
-            onBack={() => setOpenedAlbum(null)}
+            onBack={() => { setOpenedAlbum(null); setRefreshTrigger(prev => prev + 1); }}
           />
         ) : (
           <HomeScreen onOpenAlbum={handleOpenAlbum} refreshTrigger={refreshTrigger} />
