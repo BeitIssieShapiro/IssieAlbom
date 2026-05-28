@@ -378,7 +378,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           <View style={styles.loadingOverlay}>
             <View style={styles.overlayContent}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.overlayText}>{t('album.deletingPage')}</Text>
+              <Text allowFontScaling={false} style={styles.overlayText}>{t('album.deletingPage')}</Text>
             </View>
           </View>
         )}
@@ -386,7 +386,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           <View style={styles.loadingOverlay}>
             <View style={styles.overlayContent}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.overlayText}>{t('album.creatingPage')}</Text>
+              <Text allowFontScaling={false} style={styles.overlayText}>{t('album.creatingPage')}</Text>
             </View>
           </View>
         )}
@@ -415,13 +415,13 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             style={[styles.editButton, { backgroundColor: colors.primary }]}
             onPress={handleToggleEditMode}
           >
-            <Text style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? t('album.done') : t('album.edit')}</Text>
+            <Text allowFontScaling={false} style={[styles.editButtonText, { color: colors.cardBackground }]}>{isEditMode ? t('album.done') : t('album.edit')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Center: Album title */}
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
+          <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]} numberOfLines={1}>
             {album.name}
           </Text>
         </View>
@@ -440,7 +440,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               ref?.current?.openEmojiKeyboard();
             }}
           >
-            <Text style={styles.viewModeButtonText}>😊</Text>
+            <Text allowFontScaling={false} style={styles.viewModeButtonText}>😊</Text>
           </TouchableOpacity>
           {(viewModeDirty || viewModeCanRedo) && (
             <>
@@ -482,7 +482,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('home.loading')}</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: colors.textSecondary }]}>{t('home.loading')}</Text>
         </View>
       ) : pages.length > 0 ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -659,7 +659,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
         </View>
       ) : (
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('album.noPages')}</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: colors.textSecondary }]}>{t('album.noPages')}</Text>
         </View>
       )}
 
@@ -685,7 +685,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             shadowColor: colors.primary,
           }]}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.overlayText, { color: colors.textPrimary }]}>{t('album.deletingPage')}</Text>
+            <Text allowFontScaling={false} style={[styles.overlayText, { color: colors.textPrimary }]}>{t('album.deletingPage')}</Text>
           </View>
         </View>
       )}
@@ -697,7 +697,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             shadowColor: colors.primary,
           }]}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.overlayText, { color: colors.textPrimary }]}>{t('album.creatingPage')}</Text>
+            <Text allowFontScaling={false} style={[styles.overlayText, { color: colors.textPrimary }]}>{t('album.creatingPage')}</Text>
           </View>
         </View>
       )}

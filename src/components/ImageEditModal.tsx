@@ -316,9 +316,9 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
             flexDirection: isRTL ? 'row-reverse' : 'row',
           }]}>
             <TouchableOpacity style={[styles.cancelButton, isLandscape && styles.compactButton]} onPress={handleCancel}>
-              <Text style={[styles.cancelButtonText, isLandscape && styles.compactButtonText]}>{t('imageEdit.cancel')}</Text>
+              <Text allowFontScaling={false} style={[styles.cancelButtonText, isLandscape && styles.compactButtonText]}>{t('imageEdit.cancel')}</Text>
             </TouchableOpacity>
-            <Text style={[styles.title, isLandscape && styles.compactTitle]}>{t('imageEdit.title')}</Text>
+            <Text allowFontScaling={false} style={[styles.title, isLandscape && styles.compactTitle]}>{t('imageEdit.title')}</Text>
             <TouchableOpacity
               style={[styles.applyButton, isLandscape && styles.compactButton]}
               onPress={handleApply}
@@ -327,7 +327,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
               {loading ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={[styles.applyButtonText, isLandscape && styles.compactButtonText]}>{t('imageEdit.apply')}</Text>
+                <Text allowFontScaling={false} style={[styles.applyButtonText, isLandscape && styles.compactButtonText]}>{t('imageEdit.apply')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -442,7 +442,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
             justifyContent: isLandscape ? 'center' : 'flex-start',
           }]}>
             {!isLandscape && (
-              <Text style={[styles.instructionText, { textAlign: isRTL ? 'right' : 'left' }]}>
+              <Text allowFontScaling={false} style={[styles.instructionText, { textAlign: isRTL ? 'right' : 'left' }]}>
                 {t('imageEdit.instructions')}
               </Text>
             )}
@@ -455,7 +455,7 @@ export function ImageEditModal({ visible, imageUri, pageAspectRatio, onApply, on
                   color: '#007AFF',
                 }}
               />
-              <Text style={styles.resetButtonText}>{t('imageEdit.reset')}</Text>
+              <Text allowFontScaling={false} style={styles.resetButtonText}>{t('imageEdit.reset')}</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -101,7 +101,7 @@ export function SearchImageModal({
           </TouchableOpacity>
 
           {/* Title */}
-          <Text style={[styles.pickerTitle, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.pickerTitle, { color: colors.primary }]}>
             {t('imageSearch.title')}
           </Text>
 
@@ -139,7 +139,7 @@ export function SearchImageModal({
                     ]}
                     onPress={() => setValue('')}
                   >
-                    <Text style={[styles.cleanXText, { color: colors.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.cleanXText, { color: colors.textSecondary }]}>
                       ×
                     </Text>
                   </TouchableOpacity>
@@ -153,7 +153,7 @@ export function SearchImageModal({
                 {isSearching ? (
                   <ActivityIndicator color={colors.cardBackground} />
                 ) : (
-                  <Text style={[styles.searchBtnText, { color: colors.cardBackground }]}>
+                  <Text allowFontScaling={false} style={[styles.searchBtnText, { color: colors.cardBackground }]}>
                     {t('imageSearch.search')}
                   </Text>
                 )}
@@ -181,7 +181,7 @@ export function SearchImageModal({
                       </TouchableOpacity>
                     ))
                   ) : (
-                    <Text style={[styles.noResultMsg, { color: colors.textSecondary }]}>
+                    <Text allowFontScaling={false} style={[styles.noResultMsg, { color: colors.textSecondary }]}>
                       {t('imageSearch.noResults')}
                     </Text>
                   ))}

@@ -51,13 +51,14 @@ export function RTLAlert({
           styles.alertContainer,
         ]}>
           {title && (
-            <Text style={styles.title}>
+            <Text allowFontScaling={false} style={styles.title}>
               {title}
             </Text>
           )}
           {message && (
             <View style={{width:"100%"}}>
               <Text
+                allowFontScaling={false}
                 style={[styles.message]}
               >
                 {message}
@@ -81,6 +82,7 @@ export function RTLAlert({
                   onPress={() => handleButtonPress(button)}
                 >
                   <Text
+                    allowFontScaling={false}
                     style={[
                       styles.buttonText,
                       isCancel && styles.buttonTextCancel,

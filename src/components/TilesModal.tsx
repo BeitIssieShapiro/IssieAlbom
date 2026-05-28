@@ -71,12 +71,12 @@ export function TilesModal({
               },
             ]}
           >
-            <Text style={[styles.title, { color: colors.textPrimary }]}>
+            <Text allowFontScaling={false} style={[styles.title, { color: colors.textPrimary }]}>
               {t('editor.tilesTitle')}
             </Text>
 
             {/* Text Input */}
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
+            <Text allowFontScaling={false} style={[styles.label, { color: colors.textSecondary }]}>
               {t('editor.tilesPrompt')}
             </Text>
             <View style={styles.inputContainer}>
@@ -119,7 +119,7 @@ export function TilesModal({
                 ]}
                 onPress={onClose}
               >
-                <Text style={[styles.buttonText, { color: colors.textPrimary }]}>
+                <Text allowFontScaling={false} style={[styles.buttonText, { color: colors.textPrimary }]}>
                   {t('imageEdit.cancel')}
                 </Text>
               </TouchableOpacity>
@@ -134,7 +134,7 @@ export function TilesModal({
                 onPress={handleConfirm}
                 disabled={!text.trim()}
               >
-                <Text style={[styles.buttonText, { color: '#FFF' }]}>
+                <Text allowFontScaling={false} style={[styles.buttonText, { color: '#FFF' }]}>
                   {isEditing ? t('editor.tilesUpdate') : t('editor.tilesCreate')}
                 </Text>
               </TouchableOpacity>

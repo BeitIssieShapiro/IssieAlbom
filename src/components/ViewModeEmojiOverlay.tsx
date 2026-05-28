@@ -344,7 +344,7 @@ export function ViewModeEmojiOverlay({
             ]}
             {...panHandlers}
           >
-            <Text style={{ fontSize, lineHeight: fontSize * 1.2 }}>{emoji.text}</Text>
+            <Text allowFontScaling={false} style={{ fontSize, lineHeight: fontSize * 1.2 }}>{emoji.text}</Text>
           </View>
         );
       })}

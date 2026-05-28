@@ -65,7 +65,7 @@ export function AboutScreen({ onClose }: AboutScreenProps) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{content.title}</Text>
+        <Text allowFontScaling={false} style={[styles.headerTitle, { color: colors.textPrimary }]}>{content.title}</Text>
         <TouchableOpacity
           onPress={onClose}
           style={styles.closeButton}
@@ -104,6 +104,7 @@ export function AboutScreen({ onClose }: AboutScreenProps) {
         contentContainerStyle={styles.contentContainer}>
         {content.paragraphs.map((paragraph, index) => (
           <Text
+            allowFontScaling={false}
             key={index}
             style={[
               styles.paragraph,
@@ -115,8 +116,8 @@ export function AboutScreen({ onClose }: AboutScreenProps) {
 
         {/* Logo/Branding */}
         <View style={[styles.branding, { borderTopColor: colors.border }]}>
-          <Text style={styles.brandingText}>🎨 IssieAlbum 📚</Text>
-          <Text style={[styles.brandingSubtext, { color: colors.textSecondary }]}>
+          <Text allowFontScaling={false} style={styles.brandingText}>🎨 IssieAlbum 📚</Text>
+          <Text allowFontScaling={false} style={[styles.brandingSubtext, { color: colors.textSecondary }]}>
             {lang === 'he'
               ? 'בית איזי שפירא'
               : lang === 'ar'

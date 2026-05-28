@@ -99,7 +99,7 @@ export function SearchSymbolModal({
           </TouchableOpacity>
 
           {/* Title */}
-          <Text style={[styles.pickerTitle, { color: colors.primary }]}>
+          <Text allowFontScaling={false} style={[styles.pickerTitle, { color: colors.primary }]}>
             {t('symbolSearch.title')}
           </Text>
 
@@ -151,7 +151,7 @@ export function SearchSymbolModal({
             {isSearching && (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.loadingText, { color: colors.textSecondary }]}>
                   {t('symbolSearch.searching')}
                 </Text>
               </View>
@@ -160,7 +160,7 @@ export function SearchSymbolModal({
             {!isSearching && results && results.length === 0 && (
               <View style={styles.emptyContainer}>
                 <MyIcon info={{ type: 'Ionicons', name: 'sad-outline', size: 64, color: colors.textSecondary }} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textSecondary }]}>
                   {t('symbolSearch.noResults')}
                 </Text>
               </View>

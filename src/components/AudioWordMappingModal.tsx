@@ -487,7 +487,7 @@ export function AudioWordMappingModal({
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
-            <Text style={styles.title}>
+            <Text allowFontScaling={false} style={styles.title}>
               {hasTitle ? t('audioWordMapping.title') : t('audioWordMapping.title')}
             </Text>
             <TouchableOpacity
@@ -703,7 +703,7 @@ const WordMarker = React.memo(function WordMarker({ word, position, onDragMove, 
       ]}
       {...panResponder.panHandlers}
     >
-      <Text style={[
+      <Text allowFontScaling={false} style={[
         styles.wordText,
         isActive && styles.wordTextActive,
         isRTL && { transform: [{ scaleX: -1 }] } // Flip text back only for text

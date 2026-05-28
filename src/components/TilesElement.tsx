@@ -125,7 +125,7 @@ export function TilesElement({
                       resizeMode="contain"
                     />
                   ) : (
-                    <Text style={[styles.symbolText, { fontSize: tileSize * 0.4 }]}>
+                    <Text allowFontScaling={false} style={[styles.symbolText, { fontSize: tileSize * 0.4 }]}>
                       {word.symbol}
                     </Text>
                   )}
@@ -135,6 +135,7 @@ export function TilesElement({
               {/* Text - centered if no symbol, bottom 1/3 if symbol exists */}
               <View style={word.symbol ? styles.textArea : styles.textAreaCentered}>
                 <Text
+                  allowFontScaling={false}
                   style={[
                     styles.tileText,
                     {

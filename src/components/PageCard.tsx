@@ -451,7 +451,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
 
 
         <View style={styles.pageNumber}>
-          <Text style={styles.pageNumberText}>{page.pageNumber}</Text>
+          <Text allowFontScaling={false} style={styles.pageNumberText}>{page.pageNumber}</Text>
         </View>
 
         {/* Overlay for view-mode emojis */}

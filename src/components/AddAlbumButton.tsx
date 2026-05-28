@@ -35,9 +35,9 @@ export function AddAlbumButton({ onPress, screenWidth }: AddAlbumButtonProps) {
       activeOpacity={0.7}
     >
       <View style={[styles.iconContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.icon, { color: colors.primary }]}>+</Text>
+        <Text allowFontScaling={false} style={[styles.icon, { color: colors.primary }]}>+</Text>
       </View>
-      <Text style={[styles.label, { color: colors.primary }]}>{t('home.newAlbum')}</Text>
+      <Text allowFontScaling={false} style={[styles.label, { color: colors.primary }]}>{t('home.newAlbum')}</Text>
     </TouchableOpacity>
   );
 }

@@ -320,7 +320,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="menu-outline" size={32} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.primary }]}>{t('home.title')}</Text>
+        <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>{t('home.title')}</Text>
         <TouchableOpacity
           onPress={() => setShowAbout(true)}
           style={styles.aboutButton}
@@ -331,7 +331,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>{t('home.loading')}</Text>
+          <Text allowFontScaling={false} style={[styles.loadingText, { color: colors.textSecondary }]}>{t('home.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -347,7 +347,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.emptyText, { color: colors.textSecondary }]}>
                 {t('home.empty')}
               </Text>
             </View>
@@ -379,7 +379,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                 backgroundColor: colors.cardBackground,
                 shadowColor: colors.primary,
               }]}>
-                <Text style={[styles.modalTitle, { color: colors.primary }]}>{t('home.newAlbumPrompt')}</Text>
+                <Text allowFontScaling={false} style={[styles.modalTitle, { color: colors.primary }]}>{t('home.newAlbumPrompt')}</Text>
                 <TextInput
                   style={[styles.input, {
                     borderColor: colors.border,
@@ -409,7 +409,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                     onPress={() => setSelectedOrientation('portrait')}
                   >
                     <View style={[styles.orientationIconPortrait, { borderColor: selectedOrientation === 'portrait' ? '#007AFF' : colors.textLight }]} />
-                    <Text style={[styles.orientationLabel, { color: selectedOrientation === 'portrait' ? '#007AFF' : colors.textPrimary }]}>
+                    <Text allowFontScaling={false} style={[styles.orientationLabel, { color: selectedOrientation === 'portrait' ? '#007AFF' : colors.textPrimary }]}>
                       {t('home.portrait')}
                     </Text>
                   </TouchableOpacity>
@@ -425,7 +425,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                     onPress={() => setSelectedOrientation('landscape')}
                   >
                     <View style={[styles.orientationIconLandscape, { borderColor: selectedOrientation === 'landscape' ? '#007AFF' : colors.textLight }]} />
-                    <Text style={[styles.orientationLabel, { color: selectedOrientation === 'landscape' ? '#007AFF' : colors.textPrimary }]}>
+                    <Text allowFontScaling={false} style={[styles.orientationLabel, { color: selectedOrientation === 'landscape' ? '#007AFF' : colors.textPrimary }]}>
                       {t('home.landscape')}
                     </Text>
                   </TouchableOpacity>
@@ -438,7 +438,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                     }]}
                     onPress={() => setShowNewAlbumModal(false)}
                   >
-                    <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
+                    <Text allowFontScaling={false} style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.createButton, {
@@ -446,7 +446,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                     }]}
                     onPress={handleCreateAlbum}
                   >
-                    <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.create')}</Text>
+                    <Text allowFontScaling={false} style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.create')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -485,7 +485,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                 backgroundColor: colors.cardBackground,
                 shadowColor: colors.primary,
               }]}>
-                <Text style={[styles.modalTitle, { color: colors.primary }]}>{t('home.renameAlbumPrompt')}</Text>
+                <Text allowFontScaling={false} style={[styles.modalTitle, { color: colors.primary }]}>{t('home.renameAlbumPrompt')}</Text>
                 <TextInput
                   style={[styles.input, {
                     borderColor: colors.border,
@@ -511,7 +511,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                       setAlbumToRename(null);
                     }}
                   >
-                    <Text style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
+                    <Text allowFontScaling={false} style={[styles.cancelButtonText, { color: colors.cardBackground }]}>{t('home.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.createButton, {
@@ -519,7 +519,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                     }]}
                     onPress={handleConfirmRename}
                   >
-                    <Text style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.rename')}</Text>
+                    <Text allowFontScaling={false} style={[styles.createButtonText, { color: colors.cardBackground }]}>{t('home.rename')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>

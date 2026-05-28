@@ -91,7 +91,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
           />
         ) : (
           <View style={[styles.placeholder, { backgroundColor: colors.accent2 }]}>
-            <Text style={styles.placeholderIcon}>📖</Text>
+            <Text allowFontScaling={false} style={styles.placeholderIcon}>📖</Text>
           </View>
         )}
         <TouchableOpacity
@@ -99,14 +99,14 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
           onPress={() => setMenuVisible(true)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={[styles.menuDots, { color: colors.primary }]}>•••</Text>
+          <Text allowFontScaling={false} style={[styles.menuDots, { color: colors.primary }]}>•••</Text>
         </TouchableOpacity>
       </View>
       <View style={[styles.info, { backgroundColor: colors.cardBackground }]}>
-        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
+        <Text allowFontScaling={false} style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
           {album.name}
         </Text>
-        <Text style={[styles.date, { color: colors.textSecondary }]}>{formattedDate}</Text>
+        <Text allowFontScaling={false} style={[styles.date, { color: colors.textSecondary }]}>{formattedDate}</Text>
       </View>
 
       <Modal
@@ -128,7 +128,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
               
             }]}>
               <AlbumIcon size={40} />
-              <Text style={[styles.menuTitle, {
+              <Text allowFontScaling={false} style={[styles.menuTitle, {
                 color: colors.textPrimary,
                 textAlign: isRTL ? 'right' : 'left',
               }]} numberOfLines={1}>{album.name}</Text>
@@ -140,7 +140,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
             >
               <View style={[styles.menuItemContent, { flexDirection: 'row' }]}>
                 <Icon name="create-outline" size={24} color={colors.primary} />
-                <Text style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                <Text allowFontScaling={false} style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t('albumCard.menuRename')}
                 </Text>
               </View>
@@ -151,7 +151,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
             >
               <View style={[styles.menuItemContent, { flexDirection: 'row' }]}>
                 <Icon name="share-outline" size={24} color={colors.primary} />
-                <Text style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
+                <Text allowFontScaling={false} style={[styles.menuItemText, { color: colors.primary, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t('export.share')}
                 </Text>
               </View>
@@ -162,7 +162,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
             >
               <View style={[styles.menuItemContent, { flexDirection: 'row' }]}>
                 <Icon name="trash-outline" size={24} color={colors.error} />
-                <Text style={[styles.menuItemTextDestructive, { color: colors.error, textAlign: isRTL ? 'right' : 'left' }]}>
+                <Text allowFontScaling={false} style={[styles.menuItemTextDestructive, { color: colors.error, textAlign: isRTL ? 'right' : 'left' }]}>
                   {t('albumCard.menuDelete')}
                 </Text>
               </View>
@@ -171,7 +171,7 @@ export function AlbumCard({ album, onPress, onRename, onDelete, onShare, screenW
               style={[styles.menuItem, styles.menuItemCancel, { backgroundColor: colors.background }]}
               onPress={() => setMenuVisible(false)}
             >
-              <Text style={[styles.menuItemTextCancel, { color: colors.textPrimary, textAlign: 'center' }]}>{t('albumCard.menuCancel')}</Text>
+              <Text allowFontScaling={false} style={[styles.menuItemTextCancel, { color: colors.textPrimary, textAlign: 'center' }]}>{t('albumCard.menuCancel')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

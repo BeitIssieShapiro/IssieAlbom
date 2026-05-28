@@ -3254,7 +3254,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       <View style={styles.header}>
         {/* Start side: Done button (Left in LTR, Right in RTL) */}
         <TouchableOpacity style={[styles.doneButton, { backgroundColor: colors.primary }]} onPress={handleBack} accessibilityLabel={t('album.done')}>
-          <Text style={[styles.doneButtonText, { color: colors.cardBackground }]}>{t('album.done')}</Text>
+          <Text allowFontScaling={false} style={[styles.doneButtonText, { color: colors.cardBackground }]}>{t('album.done')}</Text>
         </TouchableOpacity>
 
         {/* Center: Page Navigation and Title */}
@@ -3272,7 +3272,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           )}
 
           {/* Title */}
-          <Text style={styles.title}>
+          <Text allowFontScaling={false} style={styles.title}>
             {t('editor.page')} {page.pageNumber} {pages && pages.length > 1 ? `${t('editor.of')} ${pages.length}` : ''}
           </Text>
 
@@ -3558,7 +3558,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           >
             {/* Fixed header with title and close button */}
             <View style={[styles.toolbarTitleSection, { flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }]} pointerEvents="auto">
-              <Text style={styles.toolbarTitle}>
+              <Text allowFontScaling={false} style={styles.toolbarTitle}>
                 {audioMode
                   ? t('editor.audio')
                   : currentElementType === ElementTypes.Sketch ? t('editor.pen')
@@ -3596,7 +3596,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 <>
                   {/* Color Picker with Eraser */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>{t('editor.color')}</Text>
+                    <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.color')}</Text>
                     <View style={styles.colorGrid}>
                       {/* Eraser as first color option */}
                       <TouchableOpacity
@@ -3631,7 +3631,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                   {/* Size Picker */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>{t('editor.thickness')}</Text>
+                    <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.thickness')}</Text>
                     <View style={styles.sizeGrid}>
                       {PEN_SIZES.map(size => (
                         <TouchableOpacity
@@ -3642,7 +3642,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             setSketchStrokeWidth(size);
                           }}
                         >
-                          <Text style={[styles.sizeText, sketchStrokeWidth === size && styles.sizeTextActive]}>{size}</Text>
+                          <Text allowFontScaling={false} style={[styles.sizeText, sketchStrokeWidth === size && styles.sizeTextActive]}>{size}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -3659,7 +3659,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleEditTitle}
                     >
                       <IconTitle color={textMode === 'title' && currentEdited.textId ? '#007AFF' : '#555'} size={24} />
-                      <Text style={[styles.optionLabel, textMode === 'title' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textTitle')}</Text>
+                      <Text allowFontScaling={false} style={[styles.optionLabel, textMode === 'title' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textTitle')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -3667,7 +3667,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleEditBody}
                     >
                       <IconBody color={textMode === 'body' && currentEdited.textId ? '#007AFF' : '#555'} size={24} />
-                      <Text style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textBody')}</Text>
+                      <Text allowFontScaling={false} style={[styles.optionLabel, textMode === 'body' && currentEdited.textId && styles.optionLabelActive]}>{t('editor.textBody')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -3675,7 +3675,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleEditTiles}
                     >
                       <IconCells color={tilesSelected ? '#007AFF' : '#555'} size={24} />
-                      <Text style={[styles.optionLabel, tilesSelected && styles.optionLabelActive]}>{t('editor.tilesTitle')}</Text>
+                      <Text allowFontScaling={false} style={[styles.optionLabel, tilesSelected && styles.optionLabelActive]}>{t('editor.tilesTitle')}</Text>
                     </TouchableOpacity>
 
                     {/* Delete title button */}
@@ -3685,7 +3685,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                         onPress={handleDeleteTitle}
                       >
                         <MyIcon info={{ name: "delete", size: 24, color: '#FF5722', type: "MDI" }} />
-                        <Text style={[styles.optionLabel, { color: '#FF5722' }]}>Delete Title</Text>
+                        <Text allowFontScaling={false} style={[styles.optionLabel, { color: '#FF5722' }]}>Delete Title</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -3715,7 +3715,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             }}
                           >
                             <MyIcon info={{ name: allSelected ? "checkbox-multiple-marked" : "checkbox-multiple-blank-outline", size: 24, color: '#007AFF', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, { color: '#007AFF' }]}>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, { color: '#007AFF' }]}>
                               {allSelected ? t('editor.tilesDeselectAll') : t('editor.tilesSelectAll')}
                             </Text>
                           </TouchableOpacity>
@@ -3727,7 +3727,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             disabled={!canMerge}
                           >
                             <MyIcon info={{ name: "merge", size: 24, color: canMerge ? '#007AFF' : '#ccc', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, !canMerge && styles.optionLabelDisabled]}>{t('editor.tilesMerge')}</Text>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, !canMerge && styles.optionLabelDisabled]}>{t('editor.tilesMerge')}</Text>
                           </TouchableOpacity>
 
                           {/* Unmerge */}
@@ -3737,7 +3737,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             disabled={!canUnmerge}
                           >
                             <MyIcon info={{ name: "call-split", size: 24, color: canUnmerge ? '#007AFF' : '#ccc', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, !canUnmerge && styles.optionLabelDisabled]}>{t('editor.tilesUnmerge')}</Text>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, !canUnmerge && styles.optionLabelDisabled]}>{t('editor.tilesUnmerge')}</Text>
                           </TouchableOpacity>
 
                           {/* Add Emoji */}
@@ -3747,7 +3747,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             disabled={!canSingleAction}
                           >
                             <MyIcon info={{ name: "emoticon-outline", size: 24, color: canSingleAction ? '#007AFF' : '#ccc', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, !canSingleAction && styles.optionLabelDisabled]}>{t('editor.tilesAddEmoji')}</Text>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, !canSingleAction && styles.optionLabelDisabled]}>{t('editor.tilesAddEmoji')}</Text>
                           </TouchableOpacity>
 
                           {/* Add Symbol */}
@@ -3757,7 +3757,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             disabled={!canSingleAction}
                           >
                             <MyIcon info={{ name: "image-search-outline", size: 24, color: canSingleAction ? '#007AFF' : '#ccc', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, !canSingleAction && styles.optionLabelDisabled]}>{t('editor.tilesAddSymbol')}</Text>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, !canSingleAction && styles.optionLabelDisabled]}>{t('editor.tilesAddSymbol')}</Text>
                           </TouchableOpacity>
 
                           {/* Delete Symbol */}
@@ -3767,7 +3767,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             disabled={!selectedHasSymbol}
                           >
                             <MyIcon info={{ name: "image-remove", size: 24, color: selectedHasSymbol ? '#F44336' : '#ccc', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, !selectedHasSymbol && styles.optionLabelDisabled]}>{t('editor.tilesDeleteSymbol')}</Text>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, !selectedHasSymbol && styles.optionLabelDisabled]}>{t('editor.tilesDeleteSymbol')}</Text>
                           </TouchableOpacity>
 
                           {/* Edit Text */}
@@ -3776,7 +3776,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             onPress={handleEditTilesText}
                           >
                             <MyIcon info={{ name: "pencil", size: 24, color: '#007AFF', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, { color: '#007AFF' }]}>{t('editor.tilesEditText')}</Text>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, { color: '#007AFF' }]}>{t('editor.tilesEditText')}</Text>
                           </TouchableOpacity>
 
                           {/* Delete Tiles */}
@@ -3785,13 +3785,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                             onPress={handleDeleteTiles}
                           >
                             <MyIcon info={{ name: "delete", size: 24, color: '#FF5722', type: "MDI" }} />
-                            <Text style={[styles.optionLabel, { color: '#FF5722' }]}>{t('editor.tilesDelete')}</Text>
+                            <Text allowFontScaling={false} style={[styles.optionLabel, { color: '#FF5722' }]}>{t('editor.tilesDelete')}</Text>
                           </TouchableOpacity>
                         </View>
 
                         {/* BG Color picker — applies to selected tiles */}
                         <View style={[styles.optionsSection, { marginTop: 8 }]}>
-                          <Text style={styles.sectionLabel}>{t('editor.tilesBackgroundColor')}</Text>
+                          <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.tilesBackgroundColor')}</Text>
                           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             <View style={styles.colorGrid}>
                               {TILES_BG_COLORS.map(color => (
@@ -3813,7 +3813,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                         {/* Text Color picker — applies to selected tiles */}
                         <View style={[styles.optionsSection, { marginTop: 8 }]}>
-                          <Text style={styles.sectionLabel}>{t('editor.tilesTextColor')}</Text>
+                          <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.tilesTextColor')}</Text>
                           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             <View style={styles.colorGrid}>
                               {TILES_TEXT_COLORS.map(color => (
@@ -3835,7 +3835,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                         {/* Size picker — applies to all tiles */}
                         <View style={[styles.optionsSection, { marginTop: 8 }]}>
-                          <Text style={styles.sectionLabel}>{t('editor.size')}</Text>
+                          <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.size')}</Text>
                           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             <View style={styles.sizeGrid}>
                               {TILES_SIZES.map((s, i) => (
@@ -3852,7 +3852,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                                     }
                                   }}
                                 >
-                                  <Text style={[styles.sizeText, tilesSize === s.value && styles.sizeTextActive, { fontSize: SIZE_DISPLAY_PX[i] }]}>{SIZE_LETTER}</Text>
+                                  <Text allowFontScaling={false} style={[styles.sizeText, tilesSize === s.value && styles.sizeTextActive, { fontSize: SIZE_DISPLAY_PX[i] }]}>{SIZE_LETTER}</Text>
                                 </TouchableOpacity>
                               ))}
                             </View>
@@ -3865,7 +3865,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Text Color Picker - shown when editing text (not tiles) */}
                   {currentEdited.textId && !tilesSelected && (
                     <View style={[styles.optionsSection, { marginTop: 8 }]}>
-                      <Text style={styles.sectionLabel}>{t('editor.color')}</Text>
+                      <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.color')}</Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View style={styles.colorGrid}>
                           {COLORS.map(color => (
@@ -3893,7 +3893,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {/* Size Picker - shown when editing text (not tiles) */}
                   {currentEdited.textId && !tilesSelected && (
                     <View style={[styles.optionsSection, { marginTop: 8 }]}>
-                      <Text style={styles.sectionLabel}>{t('editor.size')}</Text>
+                      <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.size')}</Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View style={styles.sizeGrid}>
                           {(textMode === 'title' ? TITLE_TEXT_SIZES : BODY_TEXT_SIZES).map((s, i) => (
@@ -3908,7 +3908,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                                 }
                               }}
                             >
-                              <Text style={[styles.sizeText, textSize === s.value && styles.sizeTextActive, { fontSize: SIZE_DISPLAY_PX[i] }]}>{SIZE_LETTER}</Text>
+                              <Text allowFontScaling={false} style={[styles.sizeText, textSize === s.value && styles.sizeTextActive, { fontSize: SIZE_DISPLAY_PX[i] }]}>{SIZE_LETTER}</Text>
                             </TouchableOpacity>
                           ))}
                         </View>
@@ -3931,7 +3931,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       ) : (
                         <MyIcon info={{ name: "image-plus", size: 24, color: '#007AFF', type: "MDI" }} />
                       )}
-                      <Text style={styles.optionLabel}>{t('editor.fromGallery')}</Text>
+                      <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.fromGallery')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -3939,7 +3939,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={() => setShowCameraModal(true)}
                     >
                       <MyIcon info={{ name: "camera", size: 24, color: '#007AFF', type: "MDI" }} />
-                      <Text style={styles.optionLabel}>{t('editor.camera')}</Text>
+                      <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.camera')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -3947,21 +3947,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={() => setShowSearchImageModal(true)}
                     >
                       <MyIcon info={{ name: "image-search", size: 24, color: '#007AFF', type: "MDI" }} />
-                      <Text style={styles.optionLabel}>{t('imageSearch.title')}</Text>
+                      <Text allowFontScaling={false} style={styles.optionLabel}>{t('imageSearch.title')}</Text>
                     </TouchableOpacity>
                   </View>
 
                   {/* Edit existing image options */}
                   {currentEdited.imageId && (
                     <View style={styles.optionsSection}>
-                      <Text style={styles.sectionLabel}>{t('editor.addImage')}</Text>
+                      <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.addImage')}</Text>
 
                       <TouchableOpacity
                         style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]}
                         onPress={handleEditExistingImage}
                       >
                         <MyIcon info={{ name: "image-edit", size: 24, color: '#007AFF', type: "MDI" }} />
-                        <Text style={styles.optionLabel}>{t('editor.editImage')}</Text>
+                        <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.editImage')}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -3969,7 +3969,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                         onPress={handleDeleteImage}
                       >
                         <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
-                        <Text style={styles.optionLabel}>{t('editor.deleteImage')}</Text>
+                        <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.deleteImage')}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -3979,14 +3979,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               {audioMode && (
                 <>
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
+                    <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.addAudio')}</Text>
 
                     <Pressable
                       style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, isRecording && styles.optionButtonActive]}
                       onPress={isRecording ? handleStopRecording : handleStartRecording}
                     >
                       <MyIcon info={{ name: isRecording ? 'stop' : 'record', size: 24, color: isRecording ? '#fff' : '#FF0000', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? t('editor.stopRecording') : t('editor.startRecording')}</Text>
+                      <Text allowFontScaling={false} style={[styles.optionLabel, isRecording && styles.optionLabelActive]}>{isRecording ? t('editor.stopRecording') : t('editor.startRecording')}</Text>
                     </Pressable>
 
                     {/* Live recording waveform indicator */}
@@ -4020,7 +4020,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       disabled={!pageAudioFile}
                     >
                       <MyIcon info={{ name: "play", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.play')}</Text>
+                      <Text allowFontScaling={false} style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.play')}</Text>
                     </Pressable>
 
                     <Pressable
@@ -4029,7 +4029,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       disabled={!pageAudioFile}
                     >
                       <MyIcon info={{ name: "text-box", size: 24, color: pageAudioFile ? '#007AFF' : '#ccc', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.wordMapping')}</Text>
+                      <Text allowFontScaling={false} style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.wordMapping')}</Text>
                     </Pressable>
 
                     <Pressable
@@ -4038,7 +4038,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       disabled={!pageAudioFile}
                     >
                       <MyIcon info={{ name: "delete", size: 24, color: pageAudioFile ? '#FF3B30' : '#ccc', type: "MDI" }} />
-                      <Text style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.deleteRecording')}</Text>
+                      <Text allowFontScaling={false} style={[styles.optionLabel, !pageAudioFile && styles.optionLabelDisabled]}>{t('editor.deleteRecording')}</Text>
                     </Pressable>
                   </View>
                 </>
@@ -4055,7 +4055,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       onPress={handleOpenEmojiKeyboard}
                     >
                       <MyIcon info={{ name: "emoticon-happy-outline", size: 24, color: '#007AFF', type: "MDI" }} />
-                      <Text style={styles.optionLabel}>{t('editor.selectEmoji')}</Text>
+                      <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.selectEmoji')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -4063,7 +4063,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   {currentEmojiId && (
                     <>
                       <View style={styles.optionsSection}>
-                        <Text style={styles.sectionLabel}>{t('editor.emojiSize')}</Text>
+                        <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.emojiSize')}</Text>
 
                         {/* Size adjustment row: (-) presets (+) */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -4087,7 +4087,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                                   style={[styles.sizeButton, isActive && styles.sizeButtonActive]}
                                   onPress={() => handleEmojiResize(size)}
                                 >
-                                  <Text style={[styles.sizeText, isActive && styles.sizeTextActive]}>{labels[index]}</Text>
+                                  <Text allowFontScaling={false} style={[styles.sizeText, isActive && styles.sizeTextActive]}>{labels[index]}</Text>
                                 </TouchableOpacity>
                               );
                             })}
@@ -4105,7 +4105,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                       {/* Rotation Control */}
                       <View style={styles.optionsSection}>
-                        <Text style={styles.sectionLabel}>
+                        <Text allowFontScaling={false} style={styles.sectionLabel}>
                           {t('editor.rotation')}: {(() => {
                             const deg = Math.round(emojiRotation ?? 0);
                             const display = deg > 180 ? deg - 360 : deg;
@@ -4126,7 +4126,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                           onPress={handleEmojiDelete}
                         >
                           <MyIcon info={{ name: "delete", size: 24, color: '#FF3B30', type: "MDI" }} />
-                          <Text style={styles.optionLabel}>{t('editor.deleteEmoji')}</Text>
+                          <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.deleteEmoji')}</Text>
                         </TouchableOpacity>
                       </View>
                     </>
@@ -4139,7 +4139,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
                   {/* Solid Colors */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>{t('editor.solidColor')}</Text>
+                    <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.solidColor')}</Text>
                     <View style={styles.colorGrid}>
                       {SOLID_COLOR_PRESETS.map((preset) => {
                         const isActive = backgroundPattern?.type === 'solid' && backgroundPattern.color === preset.color;
@@ -4160,7 +4160,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                   {/* Patterns */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>{t('background.patterns')}</Text>
+                    <Text allowFontScaling={false} style={styles.sectionLabel}>{t('background.patterns')}</Text>
                     <View style={styles.colorGrid}>
                       {Object.keys(PATTERN_PRESETS).map((patternKey) => {
                         const patternType = patternKey as keyof typeof PATTERN_PRESETS;
@@ -4204,7 +4204,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
                   {/* Background Images */}
                   <View style={styles.optionsSection}>
-                    <Text style={styles.sectionLabel}>{t('background.image')}</Text>
+                    <Text allowFontScaling={false} style={styles.sectionLabel}>{t('background.image')}</Text>
                     <View style={styles.colorGrid}>
                       {/* Camera button */}
                       <TouchableOpacity
@@ -4374,7 +4374,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.loadingText}>
+            <Text allowFontScaling={false} style={styles.loadingText}>
               {searchingSymbolsMode === 'auto' ? t('editor.findingSymbols') : t('editor.searchingSymbols')}
             </Text>
           </View>

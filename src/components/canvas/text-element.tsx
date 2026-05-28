@@ -207,7 +207,7 @@ function TextElement({
         // If no word timings, highlight entire text
         if (!wordTimings || wordTimings.length === 0) {
             return (
-                <Text style={{ backgroundColor: '#FFD700', color: '#000' }}>
+                <Text allowFontScaling={false} style={{ backgroundColor: '#FFD700', color: '#000' }}>
                     {text.text}
                 </Text>
             );
@@ -221,6 +221,7 @@ function TextElement({
                     const isHighlighted = index === currentWordIndex;
                     return (
                         <Text
+                            allowFontScaling={false}
                             key={index}
                             style={isHighlighted ? { backgroundColor: '#FFD700', color: '#000' } : undefined}
                         >

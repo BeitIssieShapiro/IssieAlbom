@@ -116,7 +116,7 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
             },
           ]}
         >
-          <Text style={[styles.title, { color: colors.primary }]}>{t('settings.title')}</Text>
+          <Text allowFontScaling={false} style={[styles.title, { color: colors.primary }]}>{t('settings.title')}</Text>
           <TouchableOpacity
             onPress={onClose}
             style={styles.closeButton}
@@ -131,7 +131,7 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
           contentContainerStyle={[styles.content, { padding: spacing.xl }]}
         >
           {/* Theme Selection */}
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             {t('settings.selectTheme')}
           </Text>
 
@@ -172,14 +172,14 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
           </View>
 
           {/* Backup Section */}
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
             {t('backup.title')}
           </Text>
 
           {backupInProgress && (
             <View style={styles.progressContainer}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+              <Text allowFontScaling={false} style={[styles.progressText, { color: colors.textSecondary }]}>
                 {`${t('backup.backupInProgress')} ${backupProgress.current}/${backupProgress.total}`}
               </Text>
             </View>
@@ -199,13 +199,13 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
             activeOpacity={0.7}
           >
             <Icon name="cloud-upload-outline" size={24} color="#FFF" />
-            <Text style={styles.backupButtonText}>
+            <Text allowFontScaling={false} style={styles.backupButtonText}>
               {t('backup.backupAllAlbums')}
             </Text>
           </TouchableOpacity>
 
           {/* Feedback Section */}
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
+          <Text allowFontScaling={false} style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.xxl }]}>
             {t('settings.feedback')}
           </Text>
 
@@ -222,7 +222,7 @@ export function SettingsScreen({ visible, onClose }: SettingsScreenProps) {
             activeOpacity={0.7}
           >
             <Icon name="chatbubble-outline" size={24} color="#FFF" />
-            <Text style={styles.backupButtonText}>
+            <Text allowFontScaling={false} style={styles.backupButtonText}>
               {t('settings.feedback')}
             </Text>
           </TouchableOpacity>

@@ -71,12 +71,12 @@ export function CameraModal({ visible, onCapture, onCancel }: CameraModalProps) 
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
         <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ color: '#FFFFFF', fontSize: 18 }}>Camera permission required</Text>
+          <Text allowFontScaling={false} style={{ color: '#FFFFFF', fontSize: 18 }}>Camera permission required</Text>
           <TouchableOpacity
             style={[styles.cancelButton, { marginTop: 20 }]}
             onPress={onCancel}
           >
-            <Text style={styles.cancelButtonText}>Close</Text>
+            <Text allowFontScaling={false} style={styles.cancelButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -88,7 +88,7 @@ export function CameraModal({ visible, onCapture, onCancel }: CameraModalProps) 
       <Modal visible={visible} animationType="slide" onRequestClose={onCancel}>
         <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontSize: 16, marginTop: 20 }}>Loading camera...</Text>
+          <Text allowFontScaling={false} style={{ color: '#FFFFFF', fontSize: 16, marginTop: 20 }}>Loading camera...</Text>
         </View>
       </Modal>
     );
@@ -113,7 +113,7 @@ export function CameraModal({ visible, onCapture, onCancel }: CameraModalProps) 
         {/* Top controls */}
         <View style={styles.topControls}>
           <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-            <Text style={styles.cancelButtonText}>ביטול</Text>
+            <Text allowFontScaling={false} style={styles.cancelButtonText}>ביטול</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.switchButton} onPress={toggleCamera}>

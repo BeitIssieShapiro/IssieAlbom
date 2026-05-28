@@ -359,13 +359,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <Text style={styles.title}>{t('export.share')}</Text>
-          <Text style={styles.subtitle}>{albumName}</Text>
+          <Text allowFontScaling={false} style={styles.title}>{t('export.share')}</Text>
+          <Text allowFontScaling={false} style={styles.subtitle}>{albumName}</Text>
 
           {exporting ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#007AFF" />
-              <Text style={styles.loadingText}>
+              <Text allowFontScaling={false} style={styles.loadingText}>
                 {exportType === 'zip'
                   ? t('export.exportingAlbum')
                   : exportType === 'pdf' && pdfProgress.total > 0
@@ -383,12 +383,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 style={styles.option}
                 onPress={handleExportAsZip}
               >
-                <Text style={styles.optionIcon}>📦</Text>
+                <Text allowFontScaling={false} style={styles.optionIcon}>📦</Text>
                 <View style={styles.optionText}>
-                  <Text style={styles.optionTitle}>
+                  <Text allowFontScaling={false} style={styles.optionTitle}>
                     {t('export.exportAsAlbum')}
                   </Text>
-                  <Text style={styles.optionDescription}>
+                  <Text allowFontScaling={false} style={styles.optionDescription}>
                     {t('export.exportAsAlbumDesc')}
                   </Text>
                 </View>
@@ -398,12 +398,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 style={styles.option}
                 onPress={handleExportAsPDF}
               >
-                <Text style={styles.optionIcon}>📄</Text>
+                <Text allowFontScaling={false} style={styles.optionIcon}>📄</Text>
                 <View style={styles.optionText}>
-                  <Text style={styles.optionTitle}>
+                  <Text allowFontScaling={false} style={styles.optionTitle}>
                     {t('export.exportAsPDF')}
                   </Text>
-                  <Text style={styles.optionDescription}>
+                  <Text allowFontScaling={false} style={styles.optionDescription}>
                     {t('export.exportAsPDFDesc')}
                   </Text>
                 </View>
@@ -413,12 +413,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 style={styles.option}
                 onPress={handleExportAsVideo}
               >
-                <Text style={styles.optionIcon}>🎬</Text>
+                <Text allowFontScaling={false} style={styles.optionIcon}>🎬</Text>
                 <View style={styles.optionText}>
-                  <Text style={styles.optionTitle}>
+                  <Text allowFontScaling={false} style={styles.optionTitle}>
                     {t('export.exportAsVideo')}
                   </Text>
-                  <Text style={styles.optionDescription}>
+                  <Text allowFontScaling={false} style={styles.optionDescription}>
                     {t('export.exportAsVideoDesc')}
                   </Text>
                 </View>
@@ -428,7 +428,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 style={styles.cancelButton}
                 onPress={onClose}
               >
-                <Text style={styles.cancelText}>
+                <Text allowFontScaling={false} style={styles.cancelText}>
                   {t('home.cancel')}
                 </Text>
               </TouchableOpacity>

@@ -125,7 +125,7 @@ export function VideoExportModal({
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Export to Video</Text>
+            <Text allowFontScaling={false} style={styles.title}>Export to Video</Text>
             {!exporting && (
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <MyIcon info={{ name: 'close', size: 24, color: '#333', type: 'MDI' }} />
@@ -138,7 +138,7 @@ export function VideoExportModal({
             <View style={styles.configSection}>
               {/* Quality Selection */}
               <View style={styles.configGroup}>
-                <Text style={styles.configLabel}>Quality</Text>
+                <Text allowFontScaling={false} style={styles.configLabel}>Quality</Text>
                 <View style={styles.buttonGroup}>
                   {(['low', 'medium', 'high'] as const).map((quality) => (
                     <TouchableOpacity
@@ -150,6 +150,7 @@ export function VideoExportModal({
                       onPress={() => setConfig({ ...config, quality })}
                     >
                       <Text
+                        allowFontScaling={false}
                         style={[
                           styles.optionButtonText,
                           config.quality === quality && styles.optionButtonTextActive,
@@ -164,7 +165,7 @@ export function VideoExportModal({
 
               {/* Static Page Duration */}
               <View style={styles.configGroup}>
-                <Text style={styles.configLabel}>
+                <Text allowFontScaling={false} style={styles.configLabel}>
                   Duration per page (no audio): {config.staticPageDuration}s
                 </Text>
                 <View style={styles.buttonGroup}>
@@ -178,6 +179,7 @@ export function VideoExportModal({
                       onPress={() => setConfig({ ...config, staticPageDuration: duration })}
                     >
                       <Text
+                        allowFontScaling={false}
                         style={[
                           styles.optionButtonText,
                           config.staticPageDuration === duration &&
@@ -193,18 +195,18 @@ export function VideoExportModal({
 
               {/* Album Info */}
               <View style={styles.infoBox}>
-                <Text style={styles.infoText}>
-                  Album: <Text style={styles.infoTextBold}>{albumName}</Text>
+                <Text allowFontScaling={false} style={styles.infoText}>
+                  Album: <Text allowFontScaling={false} style={styles.infoTextBold}>{albumName}</Text>
                 </Text>
-                <Text style={styles.infoText}>
-                  Pages: <Text style={styles.infoTextBold}>{pages.length}</Text>
+                <Text allowFontScaling={false} style={styles.infoText}>
+                  Pages: <Text allowFontScaling={false} style={styles.infoTextBold}>{pages.length}</Text>
                 </Text>
               </View>
 
               {/* Export Button */}
               <TouchableOpacity style={styles.exportButton} onPress={handleExport}>
                 <MyIcon info={{ name: 'video', size: 24, color: '#fff', type: 'MDI' }} />
-                <Text style={styles.exportButtonText}>Export Video</Text>
+                <Text allowFontScaling={false} style={styles.exportButtonText}>Export Video</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -213,8 +215,8 @@ export function VideoExportModal({
           {exporting && progress && (
             <View style={styles.progressSection}>
               <ActivityIndicator size="large" color="#C8572A" />
-              <Text style={styles.progressMessage}>{progress.message}</Text>
-              <Text style={styles.progressDetails}>
+              <Text allowFontScaling={false} style={styles.progressMessage}>{progress.message}</Text>
+              <Text allowFontScaling={false} style={styles.progressDetails}>
                 {progress.phase === 'capturing' &&
                   `Page ${progress.currentPage} of ${progress.totalPages}`}
                 {progress.phase === 'assembling' && 'This may take a few moments...'}
@@ -224,7 +226,7 @@ export function VideoExportModal({
                   style={[styles.progressBar, { width: `${progress.percentage}%` }]}
                 />
               </View>
-              <Text style={styles.progressPercentage}>{progress.percentage}%</Text>
+              <Text allowFontScaling={false} style={styles.progressPercentage}>{progress.percentage}%</Text>
             </View>
           )}
 
@@ -234,12 +236,12 @@ export function VideoExportModal({
               <MyIcon
                 info={{ name: 'check-circle', size: 64, color: '#4CAF50', type: 'MDI' }}
               />
-              <Text style={styles.resultTitle}>Export Complete!</Text>
+              <Text allowFontScaling={false} style={styles.resultTitle}>Export Complete!</Text>
               <View style={styles.resultDetails}>
-                <Text style={styles.resultText}>
+                <Text allowFontScaling={false} style={styles.resultText}>
                   Duration: {Math.round(result.duration)}s
                 </Text>
-                <Text style={styles.resultText}>
+                <Text allowFontScaling={false} style={styles.resultText}>
                   Size: {formatFileSize(result.fileSize)}
                 </Text>
               </View>
@@ -248,10 +250,10 @@ export function VideoExportModal({
                 onPress={() => handleShare(result.videoPath)}
               >
                 <MyIcon info={{ name: 'share', size: 24, color: '#fff', type: 'MDI' }} />
-                <Text style={styles.shareButtonText}>Share Video</Text>
+                <Text allowFontScaling={false} style={styles.shareButtonText}>Share Video</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.doneButton} onPress={handleClose}>
-                <Text style={styles.doneButtonText}>Done</Text>
+                <Text allowFontScaling={false} style={styles.doneButtonText}>Done</Text>
               </TouchableOpacity>
             </View>
           )}
