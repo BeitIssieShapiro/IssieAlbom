@@ -75,7 +75,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   const baselineLength = useRef(0);
   const isDirty = useRef(false);
 
-  // Seed queue when page prop changes
+  // Seed queue when page prop changes (id OR updatedAt OR element-count)
   useEffect(() => {
     const q = new DoQueue();
     const v2 = loadPageWithMigration(page);
@@ -84,7 +84,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     viewQueue.current = q;
     isDirty.current = false;
     setQueueVersion(v => v + 1);
-  }, [page.id]);
+  }, [page.id, (page as AlbumPageV2).updatedAt, (page as AlbumPageV2).elements?.length]);
 
   useEffect(() => {
     onEmojiSelected?.(selectedEmojiId !== null);
@@ -125,7 +125,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
       console.log('[PageCard] saveIfDirty called, isDirty:', isDirty.current, 'hasOnSavePage:', !!onSavePage);
       if (!isDirty.current || !onSavePage) return false;
       const v2 = loadPageWithMigration(page);
-      const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll() };
+      const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll(), updatedAt: Date.now() };
       console.log('[PageCard] calling onSavePage with', updatedPage.elements.length, 'elements');
       await onSavePage(updatedPage as AlbumPage);
       isDirty.current = false;

@@ -105,6 +105,7 @@ export interface SketchTiles extends ElementBase {
   textColor: string;
   rtl: boolean;
   y: number; // Y position (bottom of page)
+  size?: number; // Optional size multiplier vs auto-calculated default (1.0 = default)
 }
 
 export interface SketchImage extends ElementBase {
@@ -219,6 +220,7 @@ export interface AlbumPageV2 {
   elements: QueueElement[]; // Queue elements instead of flat array
   canvasWidth?: number; // Original canvas width when page was created
   canvasHeight?: number; // Original canvas height when page was created
+  updatedAt?: number; // Bumped on every save - used to invalidate downstream caches
 }
 
 // Union type for backward compatibility

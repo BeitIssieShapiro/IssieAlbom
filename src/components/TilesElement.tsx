@@ -48,7 +48,10 @@ export function TilesElement({
   // Note: canvasHeight is already scaled by ratio, so maxTileSize will also be in scaled coordinates
   const calculatedTileSize = canvasWidth / (1.5 * numTiles + 0.5);
   const maxTileSize = canvasHeight * MAX_TILE_SIZE_RATIO;
-  const tileSize = Math.min(calculatedTileSize, maxTileSize);
+  const autoTileSize = Math.min(calculatedTileSize, maxTileSize);
+  // Apply user size multiplier (default 1), still cap at maxTileSize and floor at small minimum
+  const sizeMultiplier = tiles.size ?? 1;
+  const tileSize = Math.max(20, Math.min(autoTileSize * sizeMultiplier, maxTileSize));
   const halfTileSpacing = tileSize * 0.5;
 
   // Debug logging
