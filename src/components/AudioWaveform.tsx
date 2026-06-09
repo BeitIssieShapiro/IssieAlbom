@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Waveform } from '@simform_solutions/react-native-audio-waveform';
+import { Waveform, useAudioPlayer } from '@simform_solutions/react-native-audio-waveform';
 import Sound from 'react-native-nitro-sound';
 import { AttachmentService } from '../services/AttachmentService';
 
@@ -15,6 +15,9 @@ interface AudioWaveformProps {
   onWaveformData?: (data: number[]) => void; // NEW: Callback with waveform amplitude data
 }
 
+const WAVEFORM_SAMPLE_COUNT = 200;
+const PLAYER_KEY_PREFIX = 'word-mapping-extract';
+
 export function AudioWaveform({
   audioFile,
   albumId,
@@ -27,52 +30,69 @@ export function AudioWaveform({
 }: AudioWaveformProps) {
   const waveformRef = useRef<any>(null);
   const [loaded, setLoaded] = useState(false);
-  const loadedRef = useRef(false); // Use ref to avoid closure trap in timeout
+  const loadedRef = useRef(false);
+  const { extractWaveformData } = useAudioPlayer();
 
-  // Load audio duration ONCE
+  // Load audio duration + real amplitude samples ONCE
   useEffect(() => {
     console.log('[AudioWaveform] Effect running - loaded:', loaded, 'audioFile:', audioFile);
     if (loaded) return;
 
-    const loadDuration = async () => {
+    const absolutePath = AttachmentService.getAbsolutePath(albumId, audioFile);
+    const filePath = `file://${absolutePath}`;
+    let cancelled = false;
+
+    const loadDurationAndAmplitudes = async () => {
+      // Extract real amplitudes via simform native module
+      const playerKey = `${PLAYER_KEY_PREFIX}-${audioFile}`;
+      let amplitudes: number[] | null = null;
       try {
-        // Convert relative path to absolute
-        const absolutePath = AttachmentService.getAbsolutePath(albumId, audioFile);
-        const filePath = `file://${absolutePath}`;
+        console.log('[AudioWaveform] Extracting waveform data for', absolutePath);
+        const result = await extractWaveformData({
+          playerKey,
+          path: absolutePath,
+          noOfSamples: WAVEFORM_SAMPLE_COUNT,
+        });
+        // result is number[][] (channels × samples or one batch). Flatten + normalize.
+        const flat: number[] = [];
+        if (Array.isArray(result)) {
+          for (const chunk of result) {
+            if (Array.isArray(chunk)) flat.push(...chunk);
+          }
+        }
+        if (flat.length > 0) {
+          // Normalize 0..1 by max absolute value
+          let max = 0;
+          for (const v of flat) {
+            const a = Math.abs(v);
+            if (a > max) max = a;
+          }
+          if (max <= 0) max = 1;
+          amplitudes = flat.map(v => Math.min(1, Math.abs(v) / max));
+          console.log('[AudioWaveform] Extracted real amplitudes:', amplitudes.length, 'max=', max);
+        } else {
+          console.log('[AudioWaveform] extractWaveformData returned empty');
+        }
+      } catch (err) {
+        console.warn('[AudioWaveform] extractWaveformData failed:', err);
+      }
+
+      // Get duration via Sound (kept for compatibility with existing flow)
+      try {
         console.log('[AudioWaveform] Starting player for duration extraction:', filePath);
         await Sound.startPlayer(filePath);
 
-        // Collect amplitude samples for waveform heuristics
-        const amplitudeSamples: number[] = [];
-        const SAMPLE_COUNT = 200; // Number of amplitude samples to collect
-
         Sound.addPlayBackListener((e) => {
-          if (e.duration > 0 && !loadedRef.current) {
+          if (e.duration > 0 && !loadedRef.current && !cancelled) {
             const durationInSeconds = e.duration / 1000;
             console.log('[AudioWaveform] Got duration from playback listener:', durationInSeconds);
-
-            // Collect amplitude sample (normalized 0-1)
-            // Note: e.currentPosition / e.duration gives us relative position
-            const sampleIndex = Math.floor((e.currentPosition / e.duration) * SAMPLE_COUNT);
-            if (sampleIndex < SAMPLE_COUNT && !amplitudeSamples[sampleIndex]) {
-              // For now, use a simple heuristic: assume uniform amplitude
-              // In the future, this could be extracted from actual audio analysis
-              amplitudeSamples[sampleIndex] = 0.5 + Math.random() * 0.3; // Random 0.5-0.8 for now
-            }
 
             Sound.stopPlayer().catch(() => {});
             Sound.removePlayBackListener();
 
-            // Fill in missing samples with interpolation or default values
-            for (let i = 0; i < SAMPLE_COUNT; i++) {
-              if (!amplitudeSamples[i]) {
-                amplitudeSamples[i] = 0.5; // Default medium amplitude
-              }
-            }
-
-            if (onWaveformData) {
-              console.log('[AudioWaveform] Calling onWaveformData with', amplitudeSamples.length, 'samples');
-              onWaveformData(amplitudeSamples);
+            if (onWaveformData && amplitudes && amplitudes.length > 0) {
+              console.log('[AudioWaveform] Calling onWaveformData with', amplitudes.length, 'real samples');
+              onWaveformData(amplitudes);
             }
 
             if (onLoad) {
@@ -87,25 +107,28 @@ export function AudioWaveform({
 
         // Timeout fallback
         setTimeout(() => {
-          if (!loadedRef.current) {
+          if (!loadedRef.current && !cancelled) {
             console.log('[AudioWaveform] Timeout fallback triggered - no duration received');
             Sound.stopPlayer().catch(() => {});
             Sound.removePlayBackListener();
+            if (onWaveformData && amplitudes && amplitudes.length > 0) {
+              onWaveformData(amplitudes);
+            }
             if (onLoad) {
               console.log('[AudioWaveform] Calling onLoad with fallback duration: 10');
               onLoad(10);
             }
             loadedRef.current = true;
             setLoaded(true);
-          } else {
-            console.log('[AudioWaveform] Timeout reached but already loaded, skipping fallback');
           }
         }, 1500);
 
       } catch (error) {
         console.error('[AudioWaveform] Error loading audio duration:', error);
         if (onLoad && !loadedRef.current) {
-          console.log('[AudioWaveform] Calling onLoad with error fallback duration: 10');
+          if (onWaveformData && amplitudes && amplitudes.length > 0) {
+            onWaveformData(amplitudes);
+          }
           onLoad(10);
           loadedRef.current = true;
         }
@@ -113,15 +136,16 @@ export function AudioWaveform({
       }
     };
 
-    loadDuration();
+    loadDurationAndAmplitudes();
 
     return () => {
       console.log('[AudioWaveform] Cleanup function called');
+      cancelled = true;
       Sound.stopPlayer().catch(() => {});
       Sound.removePlayBackListener();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioFile, loaded]); // Don't include onLoad - it changes on every render
+  }, [audioFile, loaded]);
 
   return (
     <View style={[styles.container, { width, height, backgroundColor }]}>

@@ -4283,26 +4283,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
       {/* Audio Word Mapping Modal */}
       {showWordMappingModal && pageAudioFile && (() => {
-        // Get title text from queue directly (either title or tiles)
+        // Get title text from compiled queue state (latest version wins)
         const queueElements = queue.current.getAll();
+        const compiled = compileQueueToElements(queueElements);
         let titleText = '';
 
-        // First check for tiles
-        for (const qe of queueElements) {
-          if (qe.type === 'tiles' && qe.elem?.id === TILES_ID) {
-            // Extract text from tiles words
-            titleText = qe.elem.words.map((w: TileWord) => w.text).join(' ');
-            break;
-          }
-        }
-
-        // If no tiles, check for regular title text
-        if (!titleText) {
-          for (const qe of queueElements) {
-            if ((qe.type === 'textAdd' || qe.type === 'text') && qe.elem?.id === 'page_title_text') {
-              titleText = qe.elem.text || '';
-              break;
-            }
+        // Tiles take precedence over title text
+        if (compiled.tiles && compiled.tiles.words?.length > 0) {
+          titleText = compiled.tiles.words.map((w: TileWord) => w.text).join(' ');
+        } else {
+          const titleTextElem = compiled.texts.find(t => t.id === TITLE_TEXT_ID);
+          if (titleTextElem) {
+            titleText = titleTextElem.text || '';
           }
         }
 

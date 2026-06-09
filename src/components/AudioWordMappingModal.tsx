@@ -352,6 +352,21 @@ export function AudioWordMappingModal({
     }
   };
 
+  const handleAutoMap = () => {
+    const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
+    if (parsedWords.length === 0) {
+      console.log('[AudioWordMappingModal] handleAutoMap: no words');
+      return;
+    }
+    const duration = audioDurationRef.current;
+    const data = waveformDataRef.current;
+    console.log('[AudioWordMappingModal] handleAutoMap - words:', parsedWords.length, 'duration:', duration, 'waveformSamples:', data.length);
+    const optimizedTimings = applyWaveformHeuristics(parsedWords, duration, data);
+    setWordTimings(optimizedTimings);
+    wordTimingsRef.current = optimizedTimings;
+    hasAppliedHeuristicsRef.current = true;
+  };
+
   const handlePlay = async () => {
     if (playing) {
       await Sound.stopPlayer();
@@ -582,6 +597,13 @@ export function AudioWordMappingModal({
               onPress={onReRecord}
             >
               <MyIcon info={{ name: 'microphone', size: 28, color: '#C8572A', type: 'MDI' }} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={handleAutoMap}
+            >
+              <MyIcon info={{ name: 'auto-fix', size: 28, color: '#007AFF', type: 'MDI' }} />
             </TouchableOpacity>
 
             <TouchableOpacity
