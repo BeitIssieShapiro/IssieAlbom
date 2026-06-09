@@ -269,21 +269,30 @@ export function AudioWordMappingModal({
     const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
     console.log('[AudioWordMappingModal] Mount - parsedWords:', parsedWords.length, 'initialWordTimings:', initialWordTimings.length, 'audioDuration:', audioDuration);
 
-    if (initialWordTimings.length > 0) {
+    // Detect mismatch: stored timings' words must match the current title words
+    const timingsMatchTitle =
+      initialWordTimings.length === parsedWords.length &&
+      initialWordTimings.every((wt, i) => wt.word === parsedWords[i]);
+
+    if (initialWordTimings.length > 0 && timingsMatchTitle) {
       // Use existing mappings as-is (Requirement #5)
       console.log('[AudioWordMappingModal] Using existing mappings:', initialWordTimings);
       setWordTimings(initialWordTimings);
       wordTimingsRef.current = initialWordTimings; // Update ref immediately
       hasAppliedHeuristicsRef.current = true; // Don't apply heuristics
     } else if (parsedWords.length > 0) {
-      // Create initial even distribution
-      const timings: WordTiming[] = parsedWords.map((word, index) => ({
-        word,
-        startTime: (index / parsedWords.length) * audioDuration,
-      }));
-      console.log('[AudioWordMappingModal] Creating initial even distribution:', timings);
+      // Title text changed since mappings were saved - rebuild from current text.
+      // Preserve startTimes for matching word indices when possible, else even distribution.
+      const timings: WordTiming[] = parsedWords.map((word, index) => {
+        const prior = initialWordTimings[index];
+        const startTime = prior && typeof prior.startTime === 'number'
+          ? prior.startTime
+          : (index / parsedWords.length) * audioDuration;
+        return { word, startTime };
+      });
+      console.log('[AudioWordMappingModal] Title text mismatch - rebuilt timings:', timings);
       setWordTimings(timings);
-      wordTimingsRef.current = timings; // Update ref immediately so handleAudioLoad can see it
+      wordTimingsRef.current = timings;
       // Don't mark hasAppliedHeuristicsRef yet - let handleAudioLoad optimize if it has timing data
     }
 

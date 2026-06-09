@@ -1130,13 +1130,14 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     // Auto-generate word timings if:
     // 1. This is the title text
     // 2. There's audio recorded with duration
-    // 3. The audio doesn't have word timings yet
-    // 4. The title text is not empty
+    // 3. The title text is not empty
+    // Always regenerate on title save so a freshly-typed title remaps audio
+    // (e.g. tiles were deleted and replaced with a title — old tile timings are stale).
     if (id === TITLE_TEXT_ID && textToSave.text && textToSave.text.trim().length > 0) {
       // Check current audio state
       const currentAudio = audiosRef.current.find(a => a.id === 'page_audio');
-      if (currentAudio?.duration && !currentAudio.wordTimings && currentAudio.audioPath) {
-        console.log('[handleTextEditEnd] Auto-generating word timings for existing audio');
+      if (currentAudio?.duration && currentAudio.audioPath) {
+        console.log('[handleTextEditEnd] Auto-mapping word timings for title text');
         const words = textToSave.text.split(/\s+/).filter(w => w.length > 0);
         const audioDurationInSeconds = currentAudio.duration / 1000; // Convert from ms to seconds
         const wordTimings = generateInitialWordTimings(words, audioDurationInSeconds);
@@ -1928,6 +1929,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           style: 'destructive',
           onPress: () => {
             queue.current.pushDeleteTiles();
+            // Clear word timings on the audio - source text is gone
+            const currentAudio = audiosRef.current.find(a => a.id === PAGE_AUDIO_ID) as SketchAudio | undefined;
+            if (currentAudio?.audioPath && currentAudio.wordTimings && currentAudio.wordTimings.length > 0) {
+              const updatedAudio: SketchAudio = { ...currentAudio, wordTimings: [] };
+              queue.current.pushAudio(updatedAudio);
+            }
             rebuildStateFromQueue();
             autoSave();
           },
@@ -1947,6 +1954,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           style: 'destructive',
           onPress: () => {
             queue.current.pushTextDelete(TITLE_TEXT_ID);
+            // Clear word timings on the audio - source text is gone
+            const currentAudio = audiosRef.current.find(a => a.id === PAGE_AUDIO_ID) as SketchAudio | undefined;
+            if (currentAudio?.audioPath && currentAudio.wordTimings && currentAudio.wordTimings.length > 0) {
+              const updatedAudio: SketchAudio = { ...currentAudio, wordTimings: [] };
+              queue.current.pushAudio(updatedAudio);
+            }
             rebuildStateFromQueue();
             autoSave();
           },
@@ -2245,6 +2258,12 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleOpenWordMapping = () => {
+    // Flush any in-progress text edit so modal reads the latest title
+    const textToSave = currentEditedRef.current.textId || editingTextChangesRef.current?.id;
+    if (textToSave) {
+      handleTextEditEnd(textToSave);
+      setCurrentEdited({});
+    }
     setShowWordMappingModal(true);
   };
 
