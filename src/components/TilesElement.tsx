@@ -15,6 +15,7 @@ interface TilesElementProps {
   selectedIndices?: Set<number>;
   onTilePress?: (index: number) => void;
   onTilePressViewMode?: (originalIndices: number[]) => void;
+  onTileLongPressViewMode?: (tileIndex: number) => void;
   highlightedWordIndex?: number;
   albumId: string;
   themeColor?: string;
@@ -29,6 +30,7 @@ export function TilesElement({
   selectedIndices,
   onTilePress,
   onTilePressViewMode,
+  onTileLongPressViewMode,
   highlightedWordIndex,
   albumId,
   themeColor = '#4CAF50',
@@ -103,6 +105,12 @@ export function TilesElement({
                   ? () => onTilePressViewMode(word.originalIndices)
                   : undefined
               }
+              onLongPress={
+                !editMode && onTileLongPressViewMode
+                  ? () => onTileLongPressViewMode(index)
+                  : undefined
+              }
+              delayLongPress={500}
               style={[
                 styles.tile,
                 {

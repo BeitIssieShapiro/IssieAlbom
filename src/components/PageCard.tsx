@@ -317,6 +317,16 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
   // No longer using audio elements on canvas
   const audioElements: SketchElement[] = [];
 
+  // Auto-play page audio 1.5s after this card becomes active
+  useEffect(() => {
+    if (!autoPlayAudio || !pageAudio?.audioPath) return;
+    const handle = setTimeout(() => {
+      console.log('[PageCard] Auto-play firing after 1.5s delay');
+      setTriggerAudioPlay(n => n + 1);
+    }, 1500);
+    return () => clearTimeout(handle);
+  }, [autoPlayAudio, pageAudio?.audioPath]);
+
   function handleTilePress(originalIndices: number[]) {
     if (!pageAudio?.audioPath) return;
     const timings = pageAudio.wordTimings;
@@ -336,6 +346,14 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     setSeekToTime(prev => ({ time: startTime, stopAt, seq: (prev?.seq ?? 0) + 1 }));
   }
 
+  // Long-press first tile = replay full audio
+  function handleTileLongPress(tileIndex: number) {
+    if (!pageAudio?.audioPath) return;
+    if (tileIndex !== 0) return;
+    console.log('[PageCard] Long-press first tile, replaying full audio');
+    setTriggerAudioPlay(n => n + 1);
+  }
+
   // Render callback for custom elements
   const handleRenderElements = (elem: SketchElement) => {
     if (elem.type === 'tiles') {
@@ -350,6 +368,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
           highlightedWordIndex={highlightedWordIndex !== undefined ? highlightedWordIndex : (currentWordIndex !== null ? currentWordIndex : undefined)}
           albumId={albumId}
           onTilePressViewMode={pageAudio?.audioPath ? handleTilePress : undefined}
+          onTileLongPressViewMode={pageAudio?.audioPath ? handleTileLongPress : undefined}
         />
       );
     }
@@ -438,7 +457,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
               audioFile={pageAudio.audioPath}
               albumId={albumId}
               editMode={false}
-              autoPlay={autoPlayAudio && !tiles}
+              autoPlay={false}
               triggerPlay={triggerAudioPlay}
               seekToTime={seekToTime}
               width={1}
