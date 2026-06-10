@@ -77,12 +77,21 @@ export function AudioElement({
   useEffect(() => {
     if (seekToTime === undefined || !audioFile) return;
     const startFromTime = async () => {
-      if (playingRef.current) await onStopPlay();
-      stopAtRef.current = seekToTime.stopAt;
-      seekFloorRef.current = seekToTime.time;
-      await onStartPlay();
-      if (seekToTime.time > 0) {
-        await Sound.seekToPlayer(seekToTime.time * 1000);
+      try {
+        if (playingRef.current) await onStopPlay();
+        stopAtRef.current = seekToTime.stopAt;
+        seekFloorRef.current = seekToTime.time;
+        await onStartPlay();
+        // Only seek if startPlayer actually succeeded (it sets playingRef to true)
+        if (seekToTime.time > 0 && playingRef.current) {
+          try {
+            await Sound.seekToPlayer(seekToTime.time * 1000);
+          } catch (seekErr) {
+            console.warn('[AudioElement] seekToPlayer failed:', seekErr);
+          }
+        }
+      } catch (err) {
+        console.warn('[AudioElement] startFromTime failed:', err);
       }
     };
     startFromTime();
@@ -171,6 +180,15 @@ export function AudioElement({
     }
 
     try {
+      // Defensive: stop any previously-running player on the global Sound singleton.
+      // Multiple AudioElements (carousel neighbours) share one native instance.
+      try {
+        await Sound.stopPlayer();
+        Sound.removePlayBackListener();
+      } catch (e) {
+        // Ignore "no player" errors here — just means nothing was running
+      }
+
       // Convert relative path to absolute
       const absolutePath = AttachmentService.getAbsolutePath(albumId, audioFile);
       const filePath = `file://${absolutePath}`;
@@ -247,7 +265,10 @@ export function AudioElement({
       }
       console.log('Playback stopped');
     } catch (error) {
-      console.error('Failed to stop playback:', error);
+      // "No player instance" etc — treat as already-stopped, just clear local state
+      console.warn('Failed to stop playback (treating as stopped):', error);
+      setPlaying(false);
+      playingRef.current = false;
     }
   };
 

@@ -272,8 +272,13 @@ export class VideoExportService {
     albumId: string,
     config: VideoExportConfig
   ): Promise<VideoExportResult> {
-    // Create FFmpeg command to assemble video
-    const outputPath = `${RNFS.DocumentDirectoryPath}/albums/${albumId}/export_${Date.now()}.${config.videoFormat}`;
+    // Write to central exports dir (same as PDFs) so cleanup-on-startup
+    // sweeps stale files and the share handoff doesn't pollute album storage.
+    const exportsDir = `${RNFS.DocumentDirectoryPath}/exports`;
+    if (!(await RNFS.exists(exportsDir))) {
+      await RNFS.mkdir(exportsDir);
+    }
+    const outputPath = `${exportsDir}/IssieAlbum_${albumId}_${Date.now()}.${config.videoFormat}`;
 
     // Build concat demuxer file
     const concatFilePath = `${this.tempDir}/concat.txt`;

@@ -64,16 +64,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         t('export.share')
       );
 
-      // Clean up the exported ZIP after sharing
-      // (The temporary directory cleanup will also run, but this is immediate)
-      try {
-        const exists = await RNFS.exists(zipPath);
-        if (exists) {
-          await RNFS.unlink(zipPath);
-        }
-      } catch (cleanupError) {
-        console.warn('[ExportModal] Failed to cleanup ZIP:', cleanupError);
-      }
+      // Don't unlink immediately — iOS hands the URL to the receiving app
+      // asynchronously, so the file must outlive Share.open()'s resolve.
+      // Stale exports are swept on app startup (ExportService.cleanupExports / PDFService.cleanupOldPDFs).
 
       RTLAlertStatic.alert(
         t('export.exportComplete'),
@@ -151,15 +144,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         t('export.share')
       );
 
-      // Clean up the PDF after sharing
-      try {
-        const exists = await RNFS.exists(pdfPath);
-        if (exists) {
-          await RNFS.unlink(pdfPath);
-        }
-      } catch (cleanupError) {
-        console.warn('[ExportModal] Failed to cleanup PDF:', cleanupError);
-      }
+      // Don't unlink immediately — iOS hands the URL to the receiving app
+      // asynchronously (e.g. Preview), so the file must outlive Share.open()'s
+      // resolve. Old exports are swept by PDFService.cleanupOldPDFs on app startup.
 
       RTLAlertStatic.alert(
         t('export.exportComplete'),
@@ -285,15 +272,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         t('export.share')
       );
 
-      // Clean up the video after sharing
-      try {
-        const exists = await RNFS.exists(result.videoPath);
-        if (exists) {
-          await RNFS.unlink(result.videoPath);
-        }
-      } catch (cleanupError) {
-        console.warn('[ExportModal] Failed to cleanup video:', cleanupError);
-      }
+      // Don't unlink immediately — iOS hands the URL to the receiving app
+      // asynchronously, so the file must outlive Share.open()'s resolve.
+      // Stale video exports are swept by VideoExportService cleanup.
 
       RTLAlertStatic.alert(
         t('export.exportComplete'),

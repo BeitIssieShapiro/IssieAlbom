@@ -146,8 +146,8 @@ export class PDFService {
   }
 
   /**
-   * Clean up old PDF exports
-   * Should be called on app startup
+   * Clean up old exports (PDFs and videos) from the central exports dir.
+   * Should be called on app startup.
    */
   static async cleanupOldPDFs(): Promise<void> {
     const exportsDir = `${RNFS.DocumentDirectoryPath}/exports`;
@@ -163,10 +163,12 @@ export class PDFService {
       const maxAge = 3600000; // 1 hour
 
       for (const item of items) {
-        if (item.name.endsWith('.pdf')) {
+        // Sweep all export artifacts (pdf, mp4, mov, etc) — anything in this folder
+        // is a transient share-target file.
+        if (item.isFile()) {
           const age = now - new Date(item.mtime!).getTime();
           if (age > maxAge) {
-            console.log('[PDFService] Cleaning up old PDF:', item.name);
+            console.log('[PDFService] Cleaning up old export:', item.name);
             await RNFS.unlink(item.path);
           }
         }

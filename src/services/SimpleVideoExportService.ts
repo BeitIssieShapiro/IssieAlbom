@@ -237,7 +237,13 @@ export class SimpleVideoExportService {
     videoWidth: number,
     videoHeight: number
   ): Promise<VideoExportResult> {
-    const outputPath = `${RNFS.DocumentDirectoryPath}/albums/${albumId}/export_${Date.now()}.${config.videoFormat}`;
+    // Write to central exports dir (same as PDFs) so cleanup-on-startup
+    // sweeps stale files and the share handoff doesn't pollute album storage.
+    const exportsDir = `${RNFS.DocumentDirectoryPath}/exports`;
+    if (!(await RNFS.exists(exportsDir))) {
+      await RNFS.mkdir(exportsDir);
+    }
+    const outputPath = `${exportsDir}/IssieAlbum_${albumId}_${Date.now()}.${config.videoFormat}`;
 
     // Collect all frames with transitions
     const allFrames: FrameData[] = [];
