@@ -125,12 +125,19 @@ function applyWaveformHeuristics(
     startTime: Math.max(burst.startTime, SPEECH_START_DELAY),
   }));
 
-  // Calculate relative weights for words (short words get less weight)
-  const wordWeights = words.map(word => {
-    const len = word.length;
-    if (len <= 2) return 0.5; // Short words like "I", "a", "an"
-    if (len <= 4) return 1.0; // Medium words
-    return 1.5; // Longer words
+  // Calculate relative weights for units. A unit may be a single word OR a
+  // merged phrase (e.g. tile "hello world"). Sum sub-word weights so merged
+  // units get proportionally more audio time.
+  const subWordWeight = (w: string): number => {
+    const len = w.length;
+    if (len <= 2) return 0.5;
+    if (len <= 4) return 1.0;
+    return 1.5;
+  };
+  const wordWeights = words.map(unit => {
+    const subs = unit.trim().split(/\s+/).filter(s => s.length > 0);
+    if (subs.length === 0) return 1.0;
+    return subs.reduce((sum, s) => sum + subWordWeight(s), 0);
   });
   const totalWeight = wordWeights.reduce((a, b) => a + b, 0);
 
@@ -138,12 +145,27 @@ function applyWaveformHeuristics(
   const timings: WordTiming[] = [];
 
   if (adjustedBursts.length >= words.length) {
-    // More bursts than words - assign one word per burst
+    // More bursts than units. Group bursts proportionally to unit weights so
+    // merged multi-word units consume more bursts than single-word units.
+    let burstIdx = 0;
+    let weightAcc = 0;
     words.forEach((word, index) => {
+      // How many of the remaining bursts this unit deserves
+      const remainingWeight = totalWeight - weightAcc;
+      const remainingBursts = adjustedBursts.length - burstIdx;
+      const share = remainingWeight > 0
+        ? Math.max(1, Math.round((wordWeights[index] / remainingWeight) * remainingBursts))
+        : 1;
+      // Don't leave fewer bursts than remaining units
+      const remainingUnits = words.length - index - 1;
+      const cappedShare = Math.min(share, remainingBursts - remainingUnits);
+      const startBurst = adjustedBursts[burstIdx];
       timings.push({
         word,
-        startTime: adjustedBursts[index].startTime,
+        startTime: Math.max(SPEECH_START_DELAY, startBurst.startTime),
       });
+      burstIdx += Math.max(1, cappedShare);
+      weightAcc += wordWeights[index];
     });
   } else {
     // Fewer bursts than words - distribute words across bursts
@@ -189,6 +211,7 @@ interface AudioWordMappingModalProps {
   audioFile: string; // Relative path to audio file
   albumId: string; // Album ID for path conversion
   titleText: string;
+  words?: string[]; // Optional explicit word list (e.g. from merged tiles). Overrides titleText splitting.
   audioDuration?: number; // Duration in seconds (from stored audio element)
   initialWordTimings?: WordTiming[];
   onClose: (wordTimings: WordTiming[]) => void; // Called when modal closes with final state
@@ -201,6 +224,7 @@ export function AudioWordMappingModal({
   audioFile,
   albumId,
   titleText,
+  words: explicitWords,
   audioDuration: propDuration,
   initialWordTimings = [],
   onClose,
@@ -211,9 +235,18 @@ export function AudioWordMappingModal({
 
   const { t, isRTL: uiIsRTL } = useLanguage();
 
+  // Helper: get the authoritative unit list \u2014 explicit words win, else split title
+  const getWords = (): string[] => {
+    if (explicitWords && explicitWords.length > 0) {
+      return explicitWords.filter(w => w && w.length > 0);
+    }
+    return titleText.split(/\s+/).filter(w => w.length > 0);
+  };
+
   // Detect text direction from actual content (not UI language)
-  const isTextRTL = titleText && titleText.length > 0
-    ? /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(titleText[0])
+  const firstChar = (explicitWords?.[0]?.[0]) || (titleText && titleText[0]);
+  const isTextRTL = firstChar
+    ? /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(firstChar)
     : uiIsRTL;
 
   // Use text direction for word markers, UI direction for buttons/controls
@@ -266,7 +299,7 @@ export function AudioWordMappingModal({
     console.log('[AudioWordMappingModal] Mount effect - initialized:', initializedRef.current);
     if (initializedRef.current) return;
 
-    const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
+    const parsedWords = getWords();
     console.log('[AudioWordMappingModal] Mount - parsedWords:', parsedWords.length, 'initialWordTimings:', initialWordTimings.length, 'audioDuration:', audioDuration);
 
     // Detect mismatch: stored timings' words must match the current title words
@@ -335,7 +368,7 @@ export function AudioWordMappingModal({
 
     // Apply heuristics if we haven't already and no initial mappings existed
     if (!hasAppliedHeuristicsRef.current && currentWordTimings.length > 0) {
-      const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
+      const parsedWords = getWords();
       const currentWaveformData = waveformDataRef.current;
       const optimizedTimings = applyWaveformHeuristics(parsedWords, duration, currentWaveformData);
       console.log('[AudioWordMappingModal] Applied waveform heuristics:', optimizedTimings);
@@ -352,7 +385,7 @@ export function AudioWordMappingModal({
 
     // If we haven't applied heuristics yet and have word timings, re-run with waveform data
     if (!hasAppliedHeuristicsRef.current && wordTimingsRef.current.length > 0) {
-      const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
+      const parsedWords = getWords();
       const duration = audioDurationRef.current;
       const optimizedTimings = applyWaveformHeuristics(parsedWords, duration, data);
       console.log('[AudioWordMappingModal] Re-applied heuristics with new waveform data:', optimizedTimings);
@@ -362,7 +395,7 @@ export function AudioWordMappingModal({
   };
 
   const handleAutoMap = () => {
-    const parsedWords = titleText.split(/\s+/).filter(w => w.length > 0);
+    const parsedWords = getWords();
     if (parsedWords.length === 0) {
       console.log('[AudioWordMappingModal] handleAutoMap: no words');
       return;

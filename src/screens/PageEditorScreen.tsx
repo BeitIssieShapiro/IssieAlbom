@@ -44,6 +44,7 @@ import { AttachmentService } from '../services/AttachmentService';
 import { AlbumService } from '../services/AlbumService';
 import { SymbolSearchService } from '../services/SymbolSearchService';
 import { detectLanguageFromText } from '../utils/languageDetection';
+import { useWordTimingHeuristics } from '../utils/wordTimingHeuristics';
 import ImageLibrary from '../services/ImageLibrary';
 import { MyIcon } from '../common/icons';
 import { RTLAlert } from '../components/RTLAlert';
@@ -103,15 +104,23 @@ function RotationSlider({ value, onChange, onRelease }: RotationSliderProps) {
   );
 }
 
-// Simple word timing heuristics - distributes words evenly across audio duration
+// Simple word timing heuristics - distributes units across audio duration,
+// weighted by how many sub-words each unit contains (so merged 2-word tiles
+// get ~2x the time of single-word tiles).
 function generateInitialWordTimings(words: string[], duration: number): WordTiming[] {
   const SPEECH_START_DELAY = 0.5; // Start first word at 0.5s
   const effectiveDuration = Math.max(duration - SPEECH_START_DELAY, 1);
 
-  return words.map((word, index) => ({
-    word,
-    startTime: SPEECH_START_DELAY + (index / words.length) * effectiveDuration,
-  }));
+  // Weight = number of sub-words per unit (min 1)
+  const weights = words.map(w => Math.max(1, w.trim().split(/\s+/).length));
+  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+
+  let accumulated = 0;
+  return words.map((word, index) => {
+    const startTime = SPEECH_START_DELAY + (accumulated / totalWeight) * effectiveDuration;
+    accumulated += weights[index];
+    return { word, startTime };
+  });
 }
 
 interface PageEditorScreenProps {
@@ -167,6 +176,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { t, isRTL, language } = useLanguage();
+  const { computeTimings: computeWaveformTimings } = useWordTimingHeuristics();
   const canvasRef = useRef<any>(null);
 
   // Track screen dimensions (updated on rotation)
@@ -1186,6 +1196,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         console.log('[handleTextEditEnd] Auto-generated word timings:', wordTimings);
       }
     }
+
+    // Always persist text edits — guarantees save even when no audio path runs
+    autoSave();
   };
 
   // Check if edited text is visible (not behind keyboard)
@@ -1610,8 +1623,22 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
       console.log('[handleTilesConfirm] Audio duration for regeneration:', audioDuration, 'ms:', durationMs);
 
-      // Use the same smart algorithm that's used for title text
-      const newWordTimings = generateInitialWordTimings(words, audioDuration);
+      // Use the same smart algorithm that's used for title text.
+      // One timing per tile (tileWords) — preserves merges.
+      const tileTexts = tileWords.map(tw => tw.text);
+      let newWordTimings;
+      try {
+        const absolutePath = AttachmentService.getAbsolutePath(albumId, pageAudioFile);
+        newWordTimings = await computeWaveformTimings(
+          tileTexts,
+          audioDuration,
+          absolutePath,
+          `tilesConfirm-${page.id}-${pageAudioFile}`,
+        );
+      } catch (err) {
+        console.warn('[handleTilesConfirm] Waveform compute failed, falling back:', err);
+        newWordTimings = generateInitialWordTimings(tileTexts, audioDuration);
+      }
 
       // Update audio with new word timings, preserving duration
       const updatedAudio: SketchAudio = {
@@ -1632,7 +1659,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     autoSave();
   };
 
-  const regenerateAudioTimings = (newTileWords: TileWord[]) => {
+  const regenerateAudioTimings = async (newTileWords: TileWord[]) => {
     if (!pageAudioFile || pageAudioWordTimings.length === 0) return;
 
     const queueElements = queue.current.getAll();
@@ -1653,7 +1680,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     const audioDuration = durationMs / 1000;
     const words = newTileWords.map(w => w.text);
-    const newWordTimings = generateInitialWordTimings(words, audioDuration);
+
+    // Run waveform heuristic so merged tiles land on actual speech bursts
+    let newWordTimings;
+    try {
+      const absolutePath = AttachmentService.getAbsolutePath(albumId, pageAudioFile);
+      newWordTimings = await computeWaveformTimings(
+        words,
+        audioDuration,
+        absolutePath,
+        `regen-${page.id}-${pageAudioFile}`,
+      );
+    } catch (err) {
+      console.warn('[regenerateAudioTimings] Waveform compute failed, falling back:', err);
+      newWordTimings = generateInitialWordTimings(words, audioDuration);
+    }
 
     const updatedAudio: SketchAudio = {
       id: PAGE_AUDIO_ID,
@@ -1664,6 +1705,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       wordTimings: newWordTimings,
     };
     queue.current.pushAudio(updatedAudio);
+    rebuildStateFromQueue();
+    autoSave();
   };
 
   const searchSymbolsForTiles = async (tileWords: TileWord[], text: string): Promise<TileWord[]> => {
@@ -4401,10 +4444,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         const queueElements = queue.current.getAll();
         const compiled = compileQueueToElements(queueElements);
         let titleText = '';
+        let words: string[] | undefined = undefined;
 
         // Tiles take precedence over title text
         if (compiled.tiles && compiled.tiles.words?.length > 0) {
-          titleText = compiled.tiles.words.map((w: TileWord) => w.text).join(' ');
+          // Each tile = one mapping unit (preserves merges).
+          words = compiled.tiles.words.map((w: TileWord) => w.text);
+          titleText = words.join(' ');
         } else {
           const titleTextElem = compiled.texts.find(t => t.id === TITLE_TEXT_ID);
           if (titleTextElem) {
@@ -4418,6 +4464,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             audioFile={pageAudioFile}
             albumId={albumId}
             titleText={titleText}
+            words={words}
             audioDuration={pageAudioDuration}
             initialWordTimings={pageAudioWordTimings}
             onClose={(wordTimings) => {

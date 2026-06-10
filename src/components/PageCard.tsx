@@ -153,7 +153,7 @@ export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard
     return () => {
       if (isDirty.current && onSavePage) {
         const v2 = loadPageWithMigration(page);
-        const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll() };
+        const updatedPage: AlbumPageV2 = { ...v2, elements: viewQueue.current.getAll(), updatedAt: Date.now() };
         onSavePage(updatedPage as AlbumPage);
       }
     };
