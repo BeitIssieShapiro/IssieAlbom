@@ -656,23 +656,29 @@ function Canvas({
                 const elemType = startSketchRef.current?.elemType;
 
                 if (!elem && currentElementTypeRef.current === ElementTypes.Sketch) {
-                    // Add the final point directly on the JS thread to avoid race with UI-thread worklet
                     const finalPoint = screen2Canvas(gState.moveX, gState.moveY);
-                    lastPathSV.value.lineTo(
-                        parseFloat((finalPoint[0] * ratioRef.current).toFixed(1)),
-                        parseFloat((finalPoint[1] * ratioRef.current).toFixed(1))
-                    );
-                    const commands = toCmds(lastPathSV.value, ratioRef.current);
+                    const finalX = parseFloat((finalPoint[0] * ratioRef.current).toFixed(1));
+                    const finalY = parseFloat((finalPoint[1] * ratioRef.current).toFixed(1));
                     sketchInProgressRef.current = false;
-                    sketchTimerRef.current = setTimeout(() => {
-                        //console.log("sketch timeout")
-                        sketchTimerRef.current = undefined;
-                        if (!sketchInProgressRef.current) {
-                            //console.log("call sketch end")
-                            sketchPathInSaveProgressRef.current = true;
-                            onSketchEnd(commands);
-                        }
-                    }, 300);
+
+                    // Add the final point via modify() so it queues after all in-flight worklet lineTo calls.
+                    // Then read back on JS thread via setTimeout(0) — by then the worklet queue has flushed.
+                    lastPathSV.modify(p => {
+                        "worklet";
+                        p.lineTo(finalX, finalY);
+                        return p;
+                    });
+
+                    setTimeout(() => {
+                        const commands = toCmds(lastPathSV.value, ratioRef.current);
+                        sketchTimerRef.current = setTimeout(() => {
+                            sketchTimerRef.current = undefined;
+                            if (!sketchInProgressRef.current) {
+                                sketchPathInSaveProgressRef.current = true;
+                                onSketchEnd(commands);
+                            }
+                        }, 300);
+                    }, 0);
                 } else if (!elem && currentElementTypeRef.current === ElementTypes.Line) {
                     onSketchEnd();
                 } else if (elem) {
