@@ -45,6 +45,7 @@ export enum ElementTypes {
   Emoji = 'emoji',
   Background = 'background',
   Tiles = 'tiles',
+  Page = 'page',
 }
 
 export interface ElementBase {

@@ -106,6 +106,22 @@ export const PageService = {
     await this.updateAlbumPageCount(albumId, pages.length);
   },
 
+  async movePage(albumId: string, pageId: string, direction: 'prev' | 'next'): Promise<void> {
+    const pages = await this.getPages(albumId);
+    const idx = pages.findIndex(p => p.id === pageId);
+    if (idx === -1) return;
+
+    const swapIdx = direction === 'prev' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= pages.length) return;
+
+    const tmp = pages[idx].pageNumber;
+    pages[idx].pageNumber = pages[swapIdx].pageNumber;
+    pages[swapIdx].pageNumber = tmp;
+
+    await this.updatePage(albumId, pages[idx]);
+    await this.updatePage(albumId, pages[swapIdx]);
+  },
+
   async reorderPages(albumId: string, pageIds: string[]): Promise<void> {
     const pagesPath = AlbumService.getPagesPath(albumId);
 

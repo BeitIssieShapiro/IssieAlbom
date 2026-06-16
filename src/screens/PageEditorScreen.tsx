@@ -132,6 +132,7 @@ interface PageEditorScreenProps {
   onNavigatePage?: (pageId: string) => void;
   onCreatePage?: (afterPageNumber: number) => void;
   onDeletePage?: () => void;
+  onMovePage?: (direction: 'prev' | 'next') => Promise<void>;
 }
 
 function IconTitle({ color = '#555', size = 24 }: { color?: string; size?: number }) {
@@ -172,7 +173,7 @@ function IconCells({ color = '#555', size = 24 }: { color?: string; size?: numbe
   );
 }
 
-export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage, onDeletePage }: PageEditorScreenProps) {
+export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNavigatePage, onCreatePage, onDeletePage, onMovePage }: PageEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { t, isRTL, language } = useLanguage();
@@ -494,7 +495,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const TILES_ID = 'page_tiles';
 
   // Animation for sliding panel
-  const slideAnim = useRef(new Animated.Value(240)).current; // Start off-screen (width + offset)
+  const slideAnim = useRef(new Animated.Value(240)).current;
+
+  const [toastMessage, setToastMessage] = useState('');
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastMessage(message);
+    toastAnim.setValue(0);
+    Animated.timing(toastAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+    }, 2000);
+  }; // Start off-screen (width + offset)
 
   // Sync isEraser ref (must be after isEraser state declaration)
   useEffect(() => {
@@ -3520,27 +3535,23 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             <MyIcon info={{ name: "emoticon-happy-outline", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
-          {/* New Page Button */}
-          {onCreatePage && (
+          {/* Page management button — only show when at least one page prop is available */}
+          {(onCreatePage || onDeletePage || onMovePage) && (
             <TouchableOpacity
-              style={styles.newPageButton}
-              onPress={handleNewPage}
-              accessibilityLabel="עמוד חדש"
+              style={[styles.mainToolButton, {
+                width: toolbarButtonSize,
+                height: toolbarButtonSize,
+                borderRadius: toolbarButtonSize / 2,
+              }, currentElementType === ElementTypes.Page && styles.mainToolButtonActive]}
+              onPress={() => {
+                setCurrentElementType(ElementTypes.Page);
+                setShowToolOptions(true);
+              }}
             >
-              <MyIcon info={{ name: "plus", size: 32, color: '#007AFF', type: "MDI" }} />
+              <MyIcon info={{ name: "file-cog-outline", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Page ? '#007AFF' : '#555', type: "MDI" }} />
             </TouchableOpacity>
           )}
 
-          {/* Delete Page Button */}
-          {onDeletePage && pages && pages.length > 1 && (
-            <TouchableOpacity
-              style={styles.deletePageButton}
-              onPress={handleDeletePage}
-              accessibilityLabel="מחק עמוד"
-            >
-              <MyIcon info={{ name: "delete", size: 32, color: '#FF3B30', type: "MDI" }} />
-            </TouchableOpacity>
-          )}
         </ScrollView>
 
         {/* Canvas Container - End Side (Right in LTR, Left in RTL due to direction property) */}
@@ -3687,6 +3698,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   : currentElementType === ElementTypes.Image ? t('editor.addImage')
                   : currentElementType === ElementTypes.Emoji ? t('editor.emojis')
                   : currentElementType === ElementTypes.Background ? t('editor.background')
+                  : currentElementType === ElementTypes.Page ? t('editor.pageActions')
                   : ''}
               </Text>
               <TouchableOpacity
@@ -4433,6 +4445,44 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   </View>
                 </ScrollView>
               )}
+
+              {/* Page Actions Panel */}
+              {currentElementType === ElementTypes.Page && (
+                <View style={styles.optionsSection}>
+                  {onCreatePage && (
+                    <TouchableOpacity style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]} onPress={() => { setShowToolOptions(false); handleNewPage(); }}>
+                      <MyIcon info={{ name: "file-plus-outline", size: 24, color: '#007AFF', type: "MDI" }} />
+                      <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.addPage')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onMovePage && pages && pages.length > 1 && (
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !hasPrevPage && styles.optionButtonDisabled]}
+                      onPress={async () => { if (hasPrevPage) { setShowToolOptions(false); await onMovePage('prev'); showToast(t('editor.pageMovedToast')); } }}
+                      disabled={!hasPrevPage}
+                    >
+                      <MyIcon info={{ name: "page-previous-outline", size: 24, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+                      <Text allowFontScaling={false} style={[styles.optionLabel, !hasPrevPage && { color: '#ccc' }]}>{t('editor.movePagePrev')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onMovePage && pages && pages.length > 1 && (
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !hasNextPage && styles.optionButtonDisabled]}
+                      onPress={async () => { if (hasNextPage) { setShowToolOptions(false); await onMovePage('next'); showToast(t('editor.pageMovedToast')); } }}
+                      disabled={!hasNextPage}
+                    >
+                      <MyIcon info={{ name: "page-next-outline", size: 24, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
+                      <Text allowFontScaling={false} style={[styles.optionLabel, !hasNextPage && { color: '#ccc' }]}>{t('editor.movePageNext')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onDeletePage && pages && pages.length > 1 && (
+                    <TouchableOpacity style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive]} onPress={() => { setShowToolOptions(false); handleDeletePage(); }}>
+                      <MyIcon info={{ name: "file-remove-outline", size: 24, color: '#FF3B30', type: "MDI" }} />
+                      <Text allowFontScaling={false} style={[styles.optionLabel, { color: '#FF3B30' }]}>{t('editor.deletePage')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
             </ScrollView>
           </Animated.View>
         )}
@@ -4571,6 +4621,13 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         buttons={alertConfig.buttons}
         onDismiss={() => setAlertConfig({ visible: false })}
       />
+
+      {/* Toast */}
+      {toastMessage !== '' && (
+        <Animated.View style={[styles.toast, { opacity: toastAnim }]} pointerEvents="none">
+          <Text allowFontScaling={false} style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -4684,26 +4741,19 @@ const styles = StyleSheet.create({
   mainToolButtonActive: {
     backgroundColor: '#E8F0FE',
   },
-  newPageButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#E8F0FE',
-    borderWidth: 2,
-    borderColor: '#007AFF',
+  toast: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    zIndex: 9999,
   },
-  deletePageButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFE5E5',
-    borderWidth: 2,
-    borderColor: '#FF3B30',
-    marginTop: 8,
+  toastText: {
+    color: '#fff',
+    fontSize: 14,
   },
   toolOptionsPanel: {
     position: 'absolute',

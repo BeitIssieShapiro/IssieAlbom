@@ -45,6 +45,8 @@ interface Translations {
     deletePageMessage: string;
     creatingPage: string;
     deletingPage: string;
+    pageMovedTitle: string;
+    pageMovedMessage: string;
   };
 
   // Page Editor Screen
@@ -123,6 +125,12 @@ interface Translations {
     multipleImagesPrompt: string;
     searchingSymbols: string;
     findingSymbols: string;
+    pageActions: string;
+    addPage: string;
+    movePagePrev: string;
+    movePageNext: string;
+    deletePage: string;
+    pageMovedToast: string;
   };
 
   // Settings Screen
@@ -289,6 +297,8 @@ export const translations: Record<LanguageCode, Translations> = {
       deletePageMessage: 'האם למחוק עמוד זה? לא ניתן לבטל פעולה זו.',
       creatingPage: 'יוצר עמוד...',
       deletingPage: 'מוחק עמוד...',
+      pageMovedTitle: 'סדר עמודים עודכן',
+      pageMovedMessage: 'העמוד הועבר למיקום חדש.',
     },
 
     editor: {
@@ -366,6 +376,12 @@ export const translations: Record<LanguageCode, Translations> = {
       multipleImagesPrompt: 'האם להוסיף את כל התמונות לעמוד הנוכחי או ליצור עמוד חדש לכל תמונה?',
       searchingSymbols: 'מחפש סמלים...',
       findingSymbols: 'מחפש סמלים למילים...',
+      pageActions: 'פעולות עמוד',
+      addPage: 'הוסף עמוד',
+      movePagePrev: 'הזז עמוד אחורה',
+      movePageNext: 'הזז עמוד קדימה',
+      deletePage: 'מחק עמוד',
+      pageMovedToast: 'סדר העמודים עודכן',
     },
 
     settings: {
@@ -520,6 +536,8 @@ export const translations: Record<LanguageCode, Translations> = {
       deletePageMessage: 'Delete this page? This cannot be undone.',
       creatingPage: 'Creating page...',
       deletingPage: 'Deleting page...',
+      pageMovedTitle: 'Page order updated',
+      pageMovedMessage: 'The page has been moved to its new position.',
     },
 
     editor: {
@@ -597,6 +615,12 @@ export const translations: Record<LanguageCode, Translations> = {
       multipleImagesPrompt: 'Add all images to current page or create a new page for each image?',
       searchingSymbols: 'Searching for symbols...',
       findingSymbols: 'Finding symbols for words...',
+      pageActions: 'Page Actions',
+      addPage: 'Add Page',
+      movePagePrev: 'Move Page Back',
+      movePageNext: 'Move Page Forward',
+      deletePage: 'Delete Page',
+      pageMovedToast: 'Page order updated',
     },
 
     settings: {
@@ -751,6 +775,8 @@ export const translations: Record<LanguageCode, Translations> = {
       deletePageMessage: 'حذف هذه الصفحة؟ لا يمكن التراجع عن هذا.',
       creatingPage: 'جاري إنشاء الصفحة...',
       deletingPage: 'جاري حذف الصفحة...',
+      pageMovedTitle: 'تم تحديث ترتيب الصفحات',
+      pageMovedMessage: 'تم نقل الصفحة إلى موضعها الجديد.',
     },
 
     editor: {
@@ -826,6 +852,14 @@ export const translations: Record<LanguageCode, Translations> = {
       addToCurrentPage: 'أضف إلى الصفحة الحالية',
       createNewPages: 'إنشاء صفحات جديدة',
       multipleImagesPrompt: 'هل تريد إضافة جميع الصور إلى الصفحة الحالية أو إنشاء صفحة جديدة لكل صورة؟',
+      searchingSymbols: 'البحث عن رموز...',
+      findingSymbols: 'البحث عن رموز للكلمات...',
+      pageActions: 'إجراءات الصفحة',
+      addPage: 'إضافة صفحة',
+      movePagePrev: 'تحريك الصفحة للخلف',
+      movePageNext: 'تحريك الصفحة للأمام',
+      deletePage: 'حذف الصفحة',
+      pageMovedToast: 'تم تحديث ترتيب الصفحات',
     },
 
     settings: {

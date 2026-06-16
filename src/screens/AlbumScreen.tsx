@@ -286,6 +286,17 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     }
   };
 
+  const handleMovePageFromEditor = async (direction: 'prev' | 'next') => {
+    if (!editingPage) return;
+    await PageService.movePage(album.id, editingPage.id, direction);
+    const refreshedPages = await loadPages();
+    const movedPage = refreshedPages.find(p => p.id === editingPage.id);
+    if (movedPage) {
+      setEditingPage(movedPage);
+      setCurrentPageIndex(refreshedPages.findIndex(p => p.id === editingPage.id));
+    }
+  };
+
   const handleEditorDiscard = () => {
     setEditingPage(null);
   };
@@ -384,6 +395,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
           onNavigatePage={handleNavigatePage}
           onCreatePage={handleCreatePageFromEditor}
           onDeletePage={handleDeletePageFromEditor}
+          onMovePage={handleMovePageFromEditor}
         />
         {/* Loading overlay for page operations */}
         {isDeletingPage && (
