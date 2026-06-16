@@ -130,7 +130,7 @@ interface PageEditorScreenProps {
   onDiscard: () => void;
   pages?: AlbumPage[];
   onNavigatePage?: (pageId: string) => void;
-  onCreatePage?: () => void;
+  onCreatePage?: (afterPageNumber: number) => void;
   onDeletePage?: () => void;
 }
 
@@ -923,7 +923,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     // Collapse subtoolbar
     setShowToolOptions(false);
 
-    onCreatePage();
+    onCreatePage(page.pageNumber);
   };
 
   const handleDeletePage = () => {

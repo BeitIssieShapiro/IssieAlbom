@@ -29,10 +29,23 @@ export const PageService = {
     return pages.sort((a, b) => a.pageNumber - b.pageNumber);
   },
 
-  async createPage(albumId: string): Promise<AlbumPageV2> {
+  async createPage(albumId: string, afterPageNumber?: number): Promise<AlbumPageV2> {
     const pagesPath = AlbumService.getPagesPath(albumId);
     const existingPages = await this.getPages(albumId);
-    const nextPageNumber = existingPages.length + 1;
+
+    let insertAt: number;
+    if (afterPageNumber !== undefined) {
+      insertAt = afterPageNumber + 1;
+      // Shift all pages after the insertion point up by 1
+      for (const p of existingPages) {
+        if (p.pageNumber >= insertAt) {
+          p.pageNumber += 1;
+          await this.updatePage(albumId, p);
+        }
+      }
+    } else {
+      insertAt = existingPages.length + 1;
+    }
 
     const pageId = `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -43,7 +56,7 @@ export const PageService = {
 
     const newPage: AlbumPageV2 = {
       id: pageId,
-      pageNumber: nextPageNumber,
+      pageNumber: insertAt,
       backgroundPath: null,
       version: '2.0',
       elements: [],
@@ -55,7 +68,7 @@ export const PageService = {
     await RNFS.writeFile(pagePath, JSON.stringify(newPage, null, 2), 'utf8');
 
     // Update album metadata
-    await this.updateAlbumPageCount(albumId, nextPageNumber);
+    await this.updateAlbumPageCount(albumId, existingPages.length + 1);
 
     return newPage;
   },

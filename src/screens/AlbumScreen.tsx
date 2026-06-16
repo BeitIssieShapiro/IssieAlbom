@@ -174,9 +174,11 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     try {
       const loadedPages = await PageService.getPages(album.id);
       setPages(loadedPages);
+      return loadedPages;
     } catch (error) {
       console.error('Failed to load pages:', error);
       RTLAlertStatic.alert(t('home.error'), t('album.errorLoadPages'));
+      return [];
     }
   }, [album.id, t]);
 
@@ -261,17 +263,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     }
   };
 
-  const handleCreatePageFromEditor = async () => {
+  const handleCreatePageFromEditor = async (afterPageNumber: number) => {
     setIsCreatingPage(true);
     const startTime = Date.now();
     try {
-      const newPage = await PageService.createPage(album.id);
-      await loadPages();
-      // Navigate to the new page
-      const refreshedPages = await PageService.getPages(album.id);
+      const newPage = await PageService.createPage(album.id, afterPageNumber);
+      const refreshedPages = await loadPages();
       const createdPage = refreshedPages.find(p => p.id === newPage.id);
       if (createdPage) {
         setEditingPage(createdPage);
+        setCurrentPageIndex(refreshedPages.findIndex(p => p.id === newPage.id));
       }
     } catch (error) {
       console.error('Failed to create page:', error);
@@ -302,7 +303,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
             setIsDeletingPage(true);
             try {
               await PageService.deletePage(album.id, page.id);
-              await loadPages();
+              const remainingPages = await loadPages();
+              setCurrentPageIndex(prev => Math.min(prev, Math.max(0, remainingPages.length - 1)));
               // Clean up orphaned attachment files
               StorageCleanupService.cleanupAlbum(album.id).catch(() => {});
             } catch (error) {
@@ -338,7 +340,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
       }
 
       // Update pages state
-      await loadPages();
+      const remainingPages = await loadPages();
+      setCurrentPageIndex(prev => Math.min(prev, Math.max(0, remainingPages.length - 1)));
       // Clean up orphaned attachment files
       StorageCleanupService.cleanupAlbum(album.id).catch(() => {});
     } catch (error) {
@@ -357,7 +360,8 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     if (!isEditMode) {
       // Entering edit mode - open the current page in editor
       if (pages.length > 0) {
-        handleEditPage(pages[currentPageIndex]);
+        const safeIndex = Math.min(currentPageIndex, pages.length - 1);
+        handleEditPage(pages[safeIndex]);
       }
     } else {
       // Exiting edit mode
@@ -574,7 +578,7 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
               setViewModeCanRedo(false);
               setEmojiSelected(false);
             }}
-            defaultIndex={toCarouselIndex(currentPageIndex)}
+            defaultIndex={pages.length > 0 ? Math.min(toCarouselIndex(currentPageIndex), pages.length - 1) : 0}
             windowSize={3}
           />
 
