@@ -337,9 +337,9 @@ export function AudioWordMappingModal({
     console.log('[AudioWordMappingModal] handleAudioLoad called - duration:', duration, 'propDuration:', propDuration, 'hasAppliedHeuristics:', hasAppliedHeuristicsRef.current, 'current audioDuration:', audioDuration);
     console.log('[AudioWordMappingModal] wordTimings state length:', wordTimings.length, 'wordTimings ref length:', wordTimingsRef.current.length);
 
-    // If we already have the correct duration from props, don't do anything
-    if (propDuration && Math.abs(propDuration - duration) < 0.1) {
-      console.log('[AudioWordMappingModal] Duration matches prop, skipping re-distribution');
+    // If we already have the correct duration from props, don't trust a fallback duration from the player
+    if (propDuration && propDuration > 0 && Math.abs(propDuration - duration) > 0.1) {
+      console.log('[AudioWordMappingModal] Ignoring player duration', duration, '- using propDuration:', propDuration);
       hasAppliedHeuristicsRef.current = true;
       return;
     }

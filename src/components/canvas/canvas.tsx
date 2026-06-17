@@ -1310,32 +1310,27 @@ function Canvas({
                 {elements?.map(elem => {
                     return <View key={elem.id} style={[styles.elementStyle, { left: elem.x * ratio, top: elem.y * ratio }]}
                         onTouchStart={(e) => {
-                            console.log('[canvas] onTouchStart elem', elem.id, e.nativeEvent.pageX, e.nativeEvent.pageY);
                             elemMoveStart.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
                         }}
                         onMoveShouldSetResponderCapture={(e) => {
                             const { pageX, pageY } = e.nativeEvent;
-                            if (!elemMoveStart.current) { console.log('[canvas] onMoveShouldSetResponderCapture: no start'); return false; }
+                            if (!elemMoveStart.current) return false;
                             const dx = pageX - elemMoveStart.current.x;
                             const dy = pageY - elemMoveStart.current.y;
                             const threshold = 10;
-                            console.log('[canvas] onMoveShouldSetResponderCapture dx/dy', dx, dy);
                             if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
                                 isMoving.current = true;
-                                console.log('[canvas] CAPTURING drag for elem', elem.id);
                                 return true;
                             }
                             return false;
                         }}
                         onResponderMove={(e) => {
-                            console.log('[canvas] onResponderMove elem', elem.id);
                             if (e.nativeEvent) {
                                 const touchPoint = screen2Canvas(e.nativeEvent.pageX, e.nativeEvent.pageY) as SketchPoint
                                 onMoveElement?.(MoveTypes.ElementMove, elem.id, touchPoint);
                             }
                         }}
                         onResponderRelease={() => {
-                            console.log('[canvas] onResponderRelease elem', elem.id);
                             isMoving.current = false;
                             elemMoveStart.current = null;
                             onMoveEnd?.(MoveTypes.ElementMove, elem.id)
