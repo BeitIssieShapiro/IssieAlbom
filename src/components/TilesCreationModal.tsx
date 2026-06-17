@@ -6,6 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -184,7 +186,11 @@ export const TilesCreationModal = forwardRef<TilesCreationModalRef, TilesCreatio
         onRequestClose={onClose}
         supportedOrientations={MODAL_ORIENTATIONS}
       >
-        <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoid}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.overlay}>
           <View style={[styles.modal, { backgroundColor: colors.cardBackground, borderRadius: borderRadius.large }]}>
             {/* Tap-to-dismiss overlay inside modal */}
             {editingIndex !== null && (
@@ -289,6 +295,8 @@ export const TilesCreationModal = forwardRef<TilesCreationModalRef, TilesCreatio
                           onSubmitEditing={() => commitText(i, currentInputRef.current)}
                           onBlur={() => commitText(i, currentInputRef.current)}
                           autoFocus
+                          autoCapitalize={i === 0 ? 'sentences' : 'none'}
+                          autoCorrect={i === 0}
                           returnKeyType="done"
                           selectTextOnFocus
                           textAlign="center"
@@ -332,12 +340,16 @@ export const TilesCreationModal = forwardRef<TilesCreationModalRef, TilesCreatio
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
 });
 
 const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
