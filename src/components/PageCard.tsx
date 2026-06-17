@@ -45,7 +45,6 @@ interface PageCardProps {
   isEditMode: boolean;
   onPress: (page: AlbumPage) => void;
   onEdit?: (page: AlbumPage) => void;
-  onDelete?: (page: AlbumPage) => void;
   autoPlayAudio?: boolean; // Auto-play audio when card is shown
   highlightedWordIndex?: number; // For video export - externally controlled highlight
   onSavePage?: (updatedPage: AlbumPage, shouldExit?: boolean) => void;
@@ -54,7 +53,7 @@ interface PageCardProps {
 }
 
 export const PageCard = forwardRef<PageCardRef, PageCardProps>(function PageCard(
-  { page, albumId, isEditMode, onPress, onEdit, onDelete, autoPlayAudio = false, highlightedWordIndex, onSavePage, onDirtyChange, onEmojiSelected },
+  { page, albumId, isEditMode, onPress, onEdit, autoPlayAudio = false, highlightedWordIndex, onSavePage, onDirtyChange, onEmojiSelected },
   ref
 ) {
   const [menuVisible, setMenuVisible] = useState(false);

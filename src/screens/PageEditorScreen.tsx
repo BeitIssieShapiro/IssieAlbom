@@ -131,7 +131,7 @@ interface PageEditorScreenProps {
   pages?: AlbumPage[];
   onNavigatePage?: (pageId: string) => void;
   onCreatePage?: (afterPageNumber: number) => void;
-  onDeletePage?: () => void;
+  onDeletePage?: (pageId: string) => void;
   onMovePage?: (direction: 'prev' | 'next') => Promise<void>;
 }
 
@@ -958,7 +958,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
           style: 'destructive',
           onPress: () => {
             // Call the delete handler
-            onDeletePage();
+            onDeletePage(page.id);
           },
         },
       ],

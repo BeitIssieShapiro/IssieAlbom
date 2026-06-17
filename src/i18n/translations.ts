@@ -45,8 +45,6 @@ interface Translations {
     deletePageMessage: string;
     creatingPage: string;
     deletingPage: string;
-    pageMovedTitle: string;
-    pageMovedMessage: string;
   };
 
   // Page Editor Screen
@@ -297,8 +295,6 @@ export const translations: Record<LanguageCode, Translations> = {
       deletePageMessage: 'האם למחוק עמוד זה? לא ניתן לבטל פעולה זו.',
       creatingPage: 'יוצר עמוד...',
       deletingPage: 'מוחק עמוד...',
-      pageMovedTitle: 'סדר עמודים עודכן',
-      pageMovedMessage: 'העמוד הועבר למיקום חדש.',
     },
 
     editor: {
@@ -536,8 +532,6 @@ export const translations: Record<LanguageCode, Translations> = {
       deletePageMessage: 'Delete this page? This cannot be undone.',
       creatingPage: 'Creating page...',
       deletingPage: 'Deleting page...',
-      pageMovedTitle: 'Page order updated',
-      pageMovedMessage: 'The page has been moved to its new position.',
     },
 
     editor: {
@@ -775,8 +769,6 @@ export const translations: Record<LanguageCode, Translations> = {
       deletePageMessage: 'حذف هذه الصفحة؟ لا يمكن التراجع عن هذا.',
       creatingPage: 'جاري إنشاء الصفحة...',
       deletingPage: 'جاري حذف الصفحة...',
-      pageMovedTitle: 'تم تحديث ترتيب الصفحات',
-      pageMovedMessage: 'تم نقل الصفحة إلى موضعها الجديد.',
     },
 
     editor: {

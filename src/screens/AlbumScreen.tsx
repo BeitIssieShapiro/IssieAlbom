@@ -230,7 +230,16 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
 
     try {
       await PageService.updatePage(album.id, updatedPage);
-      await loadPages();
+      const freshPages = await loadPages();
+
+      // Keep editingPage in sync with the freshly loaded version,
+      // but only if user hasn't already navigated to a different page
+      if (!shouldExit && freshPages.length > 0) {
+        const freshPage = freshPages.find(p => p.id === updatedPage.id);
+        if (freshPage) {
+          setEditingPage(prev => prev?.id === updatedPage.id ? freshPage : prev);
+        }
+      }
     } catch (error) {
       console.error('Failed to save page:', error);
       RTLAlertStatic.alert(t('home.error'), t('album.errorSavePage'));
@@ -255,10 +264,13 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
   };
 
   const handleNavigatePage = async (pageId: string) => {
-    // Find the new page to navigate to
-    const newPage = pages.find(p => p.id === pageId);
+    // Find the new page from the latest loaded state; fall back to a fresh disk read if not found
+    let newPage = pages.find(p => p.id === pageId);
+    if (!newPage) {
+      const freshPages = await loadPages();
+      newPage = freshPages.find(p => p.id === pageId);
+    }
     if (newPage) {
-      // Stay in editor mode, just switch to the new page
       setEditingPage(newPage);
     }
   };
@@ -301,43 +313,12 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
     setEditingPage(null);
   };
 
-  const handleDeletePage = (page: AlbumPage) => {
-    RTLAlertStatic.alert(
-      t('album.deletePageTitle'),
-      t('album.deletePageMessage'),
-      [
-        { text: t('home.cancel'), style: 'cancel' },
-        {
-          text: t('home.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeletingPage(true);
-            try {
-              await PageService.deletePage(album.id, page.id);
-              const remainingPages = await loadPages();
-              setCurrentPageIndex(prev => Math.min(prev, Math.max(0, remainingPages.length - 1)));
-              // Clean up orphaned attachment files
-              StorageCleanupService.cleanupAlbum(album.id).catch(() => {});
-            } catch (error) {
-              console.error('Failed to delete page:', error);
-              RTLAlertStatic.alert(t('home.error'), t('album.errorDeletePage'));
-            } finally {
-              setIsDeletingPage(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleDeletePageFromEditor = async () => {
-    if (!editingPage) return;
-
+  const handleDeletePageFromEditor = async (pageId: string) => {
     setIsDeletingPage(true);
     const startTime = Date.now();
     try {
-      const currentPageIndex = pages.findIndex(p => p.id === editingPage.id);
-      await PageService.deletePage(album.id, editingPage.id);
+      const currentPageIndex = pages.findIndex(p => p.id === pageId);
+      await PageService.deletePage(album.id, pageId);
       const refreshedPages = await PageService.getPages(album.id);
 
       // Stay in edit mode - navigate to another page
@@ -562,7 +543,6 @@ export function AlbumScreen({ album, isFirstOpen, onBack }: AlbumScreenProps) {
                     isEditMode={isEditMode}
                     onPress={() => { }} // Disable PageCard's own press handler
                     onEdit={handleEditPage}
-                    onDelete={handleDeletePage}
                     autoPlayAudio={currentPageIndex === actualPageIndex}
                     onSavePage={(updatedPage) => handleEditorSave(updatedPage, false)}
                     onDirtyChange={(dirty, canUndo, canRedo) => {
