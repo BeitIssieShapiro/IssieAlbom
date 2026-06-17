@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SketchTiles, TileWord } from '../types/Album';
 import { AttachmentService } from '../services/AttachmentService';
 import Icon from '@react-native-vector-icons/ionicons';
+import { MyIcon } from '../common/icons';
 
 const MAX_TILE_SIZE_RATIO = 0.35; // Max tile size as percentage of page height (must match PageEditorScreen)
 
@@ -98,6 +99,13 @@ export function TilesElement({
 
         return (
           <React.Fragment key={displayIndex}>
+            {/* Drag handle — outside first tile for LTR, before first tile in render order */}
+            {editMode && !isTextRTL && displayIndex === 0 && (
+              <View style={styles.dragHandle} pointerEvents="none">
+                <MyIcon info={{ type: 'MDI', name: 'drag', size: Math.max(20, tileSize * 0.35), color: 'rgba(0,0,0,0.35)' }} />
+              </View>
+            )}
+
             {/* Tile */}
             <TouchableOpacity
               activeOpacity={editMode ? 0.7 : (onTilePressViewMode ? 0.6 : 1)}
@@ -188,6 +196,13 @@ export function TilesElement({
             {displayIndex < wordsToRender.length - 1 && (
               <View style={styles.spacer} />
             )}
+
+            {/* Drag handle — outside last tile for RTL */}
+            {editMode && isTextRTL && displayIndex === wordsToRender.length - 1 && (
+              <View style={styles.dragHandle} pointerEvents="none">
+                <MyIcon info={{ type: 'MDI', name: 'drag', size: Math.max(20, tileSize * 0.35), color: 'rgba(0,0,0,0.35)' }} />
+              </View>
+            )}
           </React.Fragment>
         );
       })}
@@ -266,5 +281,10 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: '#007AFF',
     borderColor: '#007AFF',
+  },
+  dragHandle: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
   },
 });

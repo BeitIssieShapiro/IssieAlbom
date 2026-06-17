@@ -3204,6 +3204,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       if (audio) {
         setAudios(prev => prev.map(a => a.id === id ? { ...a, x: p[0], y: p[1] } : a));
       }
+      // For tiles element — Y-only drag
+      if (id === TILES_ID && tilesRef.current) {
+        setTiles(prev => prev ? { ...prev, y: p[1] } : prev);
+        tilesRef.current = { ...tilesRef.current, y: p[1] };
+      }
     }
   };
 
@@ -3303,6 +3308,27 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         rebuildStateFromQueue();
         await autoSave();
         console.log('Saved audio position:', positionData);
+      }
+      // For tiles element — clamp Y to page bounds then save
+      if (id === TILES_ID && tilesRef.current) {
+        const t = tilesRef.current;
+        const numTiles = t.words.length;
+        const MAX_TILE_SIZE_RATIO = 0.35;
+        const calculatedTileSize = pageWidth / (1.5 * numTiles + 0.5);
+        const maxTileSize = pageHeight * MAX_TILE_SIZE_RATIO;
+        const autoTileSize = Math.min(calculatedTileSize, maxTileSize);
+        const tileSize = Math.max(20, Math.min(autoTileSize * (t.size ?? 1), maxTileSize));
+        const tileRowHeight = tileSize;
+
+        const clampedY = Math.max(0, Math.min(pageHeight - tileRowHeight, t.y));
+        const updated: SketchTiles = { ...t, y: clampedY };
+
+        setTiles(updated);
+        tilesRef.current = updated;
+        queue.current.pushTiles(updated);
+        rebuildStateFromQueue();
+        await autoSave();
+        console.log('[handleMoveEnd] Saved tiles Y position:', clampedY);
       }
     }
   };

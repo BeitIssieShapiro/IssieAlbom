@@ -404,14 +404,21 @@ function Canvas({
         const pt = screen2Canvas(x0, y0);
         const iconSize = 30 / ratioRef.current;
 
-        // Check general elements (e.g. audio)
+        // Check general elements (e.g. audio, tiles)
         if (elementsRef.current?.length) {
             const elemSize = 80 / ratioRef.current;
             const padding = currentElementTypeRef.current === ElementTypes.Element ? iconSize : 0;
-            if (elementsRef.current.some(el =>
-                pt[0] >= el.x - padding && pt[0] <= el.x + elemSize &&
-                pt[1] >= el.y && pt[1] <= el.y + elemSize
-            )) return true;
+            if (elementsRef.current.some(el => {
+                // Tiles span full canvas width and use their actual height (up to 35% of canvas height)
+                const elemWidth = el.type === 'tiles'
+                    ? canvasWidth / ratioRef.current
+                    : elemSize;
+                const elemHeight = el.type === 'tiles'
+                    ? canvasHeight * 0.35 / ratioRef.current
+                    : elemSize;
+                return pt[0] >= el.x - padding && pt[0] <= el.x + elemWidth &&
+                    pt[1] >= el.y && pt[1] <= el.y + elemHeight;
+            })) return true;
         }
 
         // Check image delete icon area (visible when image is selected)
@@ -1302,28 +1309,33 @@ function Canvas({
                 {/* General Elements */}
                 {elements?.map(elem => {
                     return <View key={elem.id} style={[styles.elementStyle, { left: elem.x * ratio, top: elem.y * ratio }]}
-                        onMoveShouldSetResponder={(e) => {
+                        onTouchStart={(e) => {
+                            console.log('[canvas] onTouchStart elem', elem.id, e.nativeEvent.pageX, e.nativeEvent.pageY);
+                            elemMoveStart.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
+                        }}
+                        onMoveShouldSetResponderCapture={(e) => {
                             const { pageX, pageY } = e.nativeEvent;
-                            if (!elemMoveStart.current) {
-                                elemMoveStart.current = { x: pageX, y: pageY };
-                                return false;
-                            }
+                            if (!elemMoveStart.current) { console.log('[canvas] onMoveShouldSetResponderCapture: no start'); return false; }
                             const dx = pageX - elemMoveStart.current.x;
                             const dy = pageY - elemMoveStart.current.y;
                             const threshold = 10;
+                            console.log('[canvas] onMoveShouldSetResponderCapture dx/dy', dx, dy);
                             if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
                                 isMoving.current = true;
+                                console.log('[canvas] CAPTURING drag for elem', elem.id);
                                 return true;
                             }
                             return false;
                         }}
                         onResponderMove={(e) => {
+                            console.log('[canvas] onResponderMove elem', elem.id);
                             if (e.nativeEvent) {
                                 const touchPoint = screen2Canvas(e.nativeEvent.pageX, e.nativeEvent.pageY) as SketchPoint
                                 onMoveElement?.(MoveTypes.ElementMove, elem.id, touchPoint);
                             }
                         }}
                         onResponderRelease={() => {
+                            console.log('[canvas] onResponderRelease elem', elem.id);
                             isMoving.current = false;
                             elemMoveStart.current = null;
                             onMoveEnd?.(MoveTypes.ElementMove, elem.id)
