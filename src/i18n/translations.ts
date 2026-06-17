@@ -124,6 +124,7 @@ interface Translations {
     searchingSymbols: string;
     findingSymbols: string;
     pageActions: string;
+    pageAndBackground: string;
     addPage: string;
     movePagePrev: string;
     movePageNext: string;
@@ -373,6 +374,7 @@ export const translations: Record<LanguageCode, Translations> = {
       searchingSymbols: 'מחפש סמלים...',
       findingSymbols: 'מחפש סמלים למילים...',
       pageActions: 'פעולות עמוד',
+      pageAndBackground: 'עמוד ורקע',
       addPage: 'הוסף עמוד',
       movePagePrev: 'הזז עמוד אחורה',
       movePageNext: 'הזז עמוד קדימה',
@@ -610,6 +612,7 @@ export const translations: Record<LanguageCode, Translations> = {
       searchingSymbols: 'Searching for symbols...',
       findingSymbols: 'Finding symbols for words...',
       pageActions: 'Page Actions',
+      pageAndBackground: 'Page & Background',
       addPage: 'Add Page',
       movePagePrev: 'Move Page Back',
       movePageNext: 'Move Page Forward',
@@ -847,6 +850,7 @@ export const translations: Record<LanguageCode, Translations> = {
       searchingSymbols: 'البحث عن رموز...',
       findingSymbols: 'البحث عن رموز للكلمات...',
       pageActions: 'إجراءات الصفحة',
+      pageAndBackground: 'الصفحة والخلفية',
       addPage: 'إضافة صفحة',
       movePagePrev: 'تحريك الصفحة للخلف',
       movePageNext: 'تحريك الصفحة للأمام',

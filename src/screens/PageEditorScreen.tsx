@@ -3544,10 +3544,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
               width: toolbarButtonSize,
               height: toolbarButtonSize,
               borderRadius: toolbarButtonSize / 2,
-            }, currentElementType === ElementTypes.Background && styles.mainToolButtonActive]}
+            }, (currentElementType === ElementTypes.Background || currentElementType === ElementTypes.Page) && styles.mainToolButtonActive]}
             onPress={handleSetBackgroundMode}
           >
-            <MyIcon info={{ name: "format-color-fill", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Background ? '#007AFF' : '#555', type: "MDI" }} />
+            <MyIcon info={{ name: "file-outline", size: isMobileLandscape ? 32 : 38, color: (currentElementType === ElementTypes.Background || currentElementType === ElementTypes.Page) ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -3561,20 +3561,18 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
             <MyIcon info={{ name: "emoticon-happy-outline", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Emoji ? '#007AFF' : '#555', type: "MDI" }} />
           </TouchableOpacity>
 
-          {/* Page management button — only show when at least one page prop is available */}
-          {(onCreatePage || onDeletePage || onMovePage) && (
+          {/* Add page button — standalone + on main strip */}
+          {onCreatePage && (
             <TouchableOpacity
               style={[styles.mainToolButton, {
                 width: toolbarButtonSize,
                 height: toolbarButtonSize,
                 borderRadius: toolbarButtonSize / 2,
-              }, currentElementType === ElementTypes.Page && styles.mainToolButtonActive]}
-              onPress={() => {
-                setCurrentElementType(ElementTypes.Page);
-                setShowToolOptions(true);
-              }}
+                backgroundColor: '#007AFF',
+              }]}
+              onPress={() => { handleNewPage(); }}
             >
-              <MyIcon info={{ name: "file-cog-outline", size: isMobileLandscape ? 32 : 38, color: currentElementType === ElementTypes.Page ? '#007AFF' : '#555', type: "MDI" }} />
+              <MyIcon info={{ name: "plus", size: isMobileLandscape ? 38 : 44, color: '#fff', type: "MDI" }} />
             </TouchableOpacity>
           )}
 
@@ -3723,8 +3721,8 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                   : currentElementType === ElementTypes.Text ? t('editor.textInput')
                   : currentElementType === ElementTypes.Image ? t('editor.addImage')
                   : currentElementType === ElementTypes.Emoji ? t('editor.emojis')
-                  : currentElementType === ElementTypes.Background ? t('editor.background')
-                  : currentElementType === ElementTypes.Page ? t('editor.pageActions')
+                  : currentElementType === ElementTypes.Background ? t('editor.pageAndBackground')
+                  : currentElementType === ElementTypes.Page ? t('editor.pageAndBackground')
                   : ''}
               </Text>
               <TouchableOpacity
@@ -4329,9 +4327,45 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                 </>
               )}
 
+              {/* Page Actions (top of merged panel) */}
+              {(onMovePage || onDeletePage) && (currentElementType === ElementTypes.Background || currentElementType === ElementTypes.Page) && (
+                <View style={styles.optionsSection}>
+                  {onMovePage && (
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !hasPrevPage && styles.optionButtonDisabled]}
+                      onPress={async () => { if (hasPrevPage) { setShowToolOptions(false); await onMovePage('prev'); showToast(t('editor.pageMovedToast')); } }}
+                      disabled={!hasPrevPage}
+                    >
+                      <MyIcon info={{ name: "page-previous-outline", size: 24, color: hasPrevPage ? '#007AFF' : '#aaa', type: "MDI" }} />
+                      <Text allowFontScaling={false} style={[styles.optionLabel, !hasPrevPage && { color: '#aaa' }]}>{t('editor.movePagePrev')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onMovePage && (
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !hasNextPage && styles.optionButtonDisabled]}
+                      onPress={async () => { if (hasNextPage) { setShowToolOptions(false); await onMovePage('next'); showToast(t('editor.pageMovedToast')); } }}
+                      disabled={!hasNextPage}
+                    >
+                      <MyIcon info={{ name: "page-next-outline", size: 24, color: hasNextPage ? '#007AFF' : '#aaa', type: "MDI" }} />
+                      <Text allowFontScaling={false} style={[styles.optionLabel, !hasNextPage && { color: '#aaa' }]}>{t('editor.movePageNext')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onDeletePage && (
+                    <TouchableOpacity
+                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, pages && pages.length <= 1 ? styles.optionButtonDisabled : styles.optionButtonDestructive]}
+                      onPress={() => { if (!pages || pages.length > 1) { setShowToolOptions(false); handleDeletePage(); } }}
+                      disabled={!pages || pages.length <= 1}
+                    >
+                      <MyIcon info={{ name: "file-remove-outline", size: 24, color: (!pages || pages.length <= 1) ? '#aaa' : '#FF3B30', type: "MDI" }} />
+                      <Text allowFontScaling={false} style={[styles.optionLabel, { color: (!pages || pages.length <= 1) ? '#aaa' : '#FF3B30' }]}>{t('editor.deletePage')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
               {/* Background Mode Options */}
-              {!audioMode && currentElementType === ElementTypes.Background && (
-                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              {!audioMode && (currentElementType === ElementTypes.Background || currentElementType === ElementTypes.Page) && (
+                <View>
                   {/* Solid Colors */}
                   <View style={styles.optionsSection}>
                     <Text allowFontScaling={false} style={styles.sectionLabel}>{t('editor.solidColor')}</Text>
@@ -4469,46 +4503,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       })}
                     </View>
                   </View>
-                </ScrollView>
-              )}
-
-              {/* Page Actions Panel */}
-              {currentElementType === ElementTypes.Page && (
-                <View style={styles.optionsSection}>
-                  {onCreatePage && (
-                    <TouchableOpacity style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }]} onPress={() => { setShowToolOptions(false); handleNewPage(); }}>
-                      <MyIcon info={{ name: "file-plus-outline", size: 24, color: '#007AFF', type: "MDI" }} />
-                      <Text allowFontScaling={false} style={styles.optionLabel}>{t('editor.addPage')}</Text>
-                    </TouchableOpacity>
-                  )}
-                  {onMovePage && pages && pages.length > 1 && (
-                    <TouchableOpacity
-                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !hasPrevPage && styles.optionButtonDisabled]}
-                      onPress={async () => { if (hasPrevPage) { setShowToolOptions(false); await onMovePage('prev'); showToast(t('editor.pageMovedToast')); } }}
-                      disabled={!hasPrevPage}
-                    >
-                      <MyIcon info={{ name: "page-previous-outline", size: 24, color: hasPrevPage ? '#007AFF' : '#ccc', type: "MDI" }} />
-                      <Text allowFontScaling={false} style={[styles.optionLabel, !hasPrevPage && { color: '#ccc' }]}>{t('editor.movePagePrev')}</Text>
-                    </TouchableOpacity>
-                  )}
-                  {onMovePage && pages && pages.length > 1 && (
-                    <TouchableOpacity
-                      style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, !hasNextPage && styles.optionButtonDisabled]}
-                      onPress={async () => { if (hasNextPage) { setShowToolOptions(false); await onMovePage('next'); showToast(t('editor.pageMovedToast')); } }}
-                      disabled={!hasNextPage}
-                    >
-                      <MyIcon info={{ name: "page-next-outline", size: 24, color: hasNextPage ? '#007AFF' : '#ccc', type: "MDI" }} />
-                      <Text allowFontScaling={false} style={[styles.optionLabel, !hasNextPage && { color: '#ccc' }]}>{t('editor.movePageNext')}</Text>
-                    </TouchableOpacity>
-                  )}
-                  {onDeletePage && pages && pages.length > 1 && (
-                    <TouchableOpacity style={[styles.optionButton, { flexDirection: 'row', justifyContent: 'flex-start' }, styles.optionButtonDestructive]} onPress={() => { setShowToolOptions(false); handleDeletePage(); }}>
-                      <MyIcon info={{ name: "file-remove-outline", size: 24, color: '#FF3B30', type: "MDI" }} />
-                      <Text allowFontScaling={false} style={[styles.optionLabel, { color: '#FF3B30' }]}>{t('editor.deletePage')}</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               )}
+
             </ScrollView>
           </Animated.View>
         )}
