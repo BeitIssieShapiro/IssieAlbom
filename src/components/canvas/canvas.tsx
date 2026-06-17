@@ -255,6 +255,7 @@ function Canvas({
     // Refs & State
     const isMoving = useRef(false);
     const elemMoveStart = useRef<{ x: number; y: number } | null>(null);
+    const elemMoveOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const isDragMoving = useRef(false);
     const canvasRef = useRef<View | null>(null);
     //const viewOffset = useRef<Offset>({ x: 0, y: 0 });
@@ -1311,6 +1312,9 @@ function Canvas({
                     return <View key={elem.id} style={[styles.elementStyle, { left: elem.x * ratio, top: elem.y * ratio }]}
                         onTouchStart={(e) => {
                             elemMoveStart.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
+                            // Capture offset between touch point and element origin so drag feels natural
+                            const touchCanvas = screen2Canvas(e.nativeEvent.pageX, e.nativeEvent.pageY);
+                            elemMoveOffset.current = { x: touchCanvas[0] - elem.x, y: touchCanvas[1] - elem.y };
                         }}
                         onMoveShouldSetResponderCapture={(e) => {
                             const { pageX, pageY } = e.nativeEvent;
@@ -1326,18 +1330,22 @@ function Canvas({
                         }}
                         onResponderMove={(e) => {
                             if (e.nativeEvent) {
-                                const touchPoint = screen2Canvas(e.nativeEvent.pageX, e.nativeEvent.pageY) as SketchPoint
-                                onMoveElement?.(MoveTypes.ElementMove, elem.id, touchPoint);
+                                const touchPoint = screen2Canvas(e.nativeEvent.pageX, e.nativeEvent.pageY) as SketchPoint;
+                                const offset = elemMoveOffset.current;
+                                const adjusted: SketchPoint = [touchPoint[0] - offset.x, touchPoint[1] - offset.y];
+                                onMoveElement?.(MoveTypes.ElementMove, elem.id, adjusted);
                             }
                         }}
                         onResponderRelease={() => {
                             isMoving.current = false;
                             elemMoveStart.current = null;
+                            elemMoveOffset.current = { x: 0, y: 0 };
                             onMoveEnd?.(MoveTypes.ElementMove, elem.id)
                         }}
                         onResponderTerminate={() => {
                             isMoving.current = false;
                             elemMoveStart.current = null;
+                            elemMoveOffset.current = { x: 0, y: 0 };
                         }}
                         onTouchEnd={() => {
                             elemMoveStart.current = null;

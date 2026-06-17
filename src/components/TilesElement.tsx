@@ -99,12 +99,6 @@ export function TilesElement({
 
         return (
           <React.Fragment key={displayIndex}>
-            {/* Drag handle — outside first tile for LTR, before first tile in render order */}
-            {editMode && !isTextRTL && displayIndex === 0 && (
-              <View style={styles.dragHandle} pointerEvents="none">
-                <MyIcon info={{ type: 'MDI', name: 'drag', size: Math.max(20, tileSize * 0.35), color: 'rgba(0,0,0,0.35)' }} />
-              </View>
-            )}
 
             {/* Tile */}
             <TouchableOpacity
@@ -196,16 +190,23 @@ export function TilesElement({
             {displayIndex < wordsToRender.length - 1 && (
               <View style={styles.spacer} />
             )}
-
-            {/* Drag handle — outside last tile for RTL */}
-            {editMode && isTextRTL && displayIndex === wordsToRender.length - 1 && (
-              <View style={styles.dragHandle} pointerEvents="none">
-                <MyIcon info={{ type: 'MDI', name: 'drag', size: Math.max(20, tileSize * 0.35), color: 'rgba(0,0,0,0.35)' }} />
-              </View>
-            )}
           </React.Fragment>
         );
       })}
+
+      {/* Drag handle — absolutely positioned inside the padding gap so it doesn't affect tile layout */}
+      {editMode && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.dragHandle,
+            isTextRTL ? { right: 0 } : { left: 0 },
+            { top: '50%', transform: [{ translateY: -Math.max(20, tileSize * 0.35) / 2 }] },
+          ]}
+        >
+          <MyIcon info={{ type: 'MDI', name: 'drag', size: Math.max(20, tileSize * 0.35), color: 'rgba(0,0,0,0.35)' }} />
+        </View>
+      )}
     </View>
   );
 }
@@ -283,8 +284,8 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
   },
   dragHandle: {
+    position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 2,
   },
 });
