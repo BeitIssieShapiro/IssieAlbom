@@ -66,7 +66,7 @@ export function RTLAlert({
             </View>
           )}
 
-          <View style={styles.buttonContainer}>
+          <View style={[styles.buttonContainer, buttons.length >= 3 && styles.buttonContainerVertical]}>
             {buttons.map((button, index) => {
               const isCancel = button.style === 'cancel';
               const isDestructive = button.style === 'destructive';
@@ -77,6 +77,7 @@ export function RTLAlert({
                   style={[
                     styles.button,
                     buttons.length === 1 && styles.buttonSingle,
+                    buttons.length >= 3 && styles.buttonFull,
                     isCancel && styles.buttonCancel,
                   ]}
                   onPress={() => handleButtonPress(button)}
@@ -192,6 +193,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
+  buttonContainerVertical: {
+    flexDirection: 'column',
+    gap: 8,
+  },
   button: {
     paddingVertical: 12,
     paddingHorizontal: 32,
@@ -199,6 +204,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     minWidth: 120,
+  },
+  buttonFull: {
+    width: '100%',
+    paddingHorizontal: 16,
   },
   buttonSingle: {
     backgroundColor: '#007AFF',
