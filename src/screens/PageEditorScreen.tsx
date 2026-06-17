@@ -35,6 +35,7 @@ import { CameraModal } from '../components/CameraModal';
 import { SearchImageModal } from '../components/SearchImageModal';
 import { ImageEditModal } from '../components/ImageEditModal';
 import { TilesModal } from '../components/TilesModal';
+import { TilesCreationModal, TilesCreationModalRef } from '../components/TilesCreationModal';
 import { TilesElement } from '../components/TilesElement';
 import { SearchSymbolModal } from '../components/SearchSymbolModal';
 import { getId, compileQueueToElements } from '../utils/pageUtils';
@@ -307,6 +308,16 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   const [tilesTextColor, setTilesTextColor] = useState('#333333');
   const [tilesSize, setTilesSize] = useState(0.12); // Default to M
   const [tilesScale, setTilesScale] = useState(1); // Tile dimension multiplier vs auto-calculated default
+
+  // Tiles creation state (new flow: counter + per-tile editing)
+  const [tilesCreating, setTilesCreating] = useState(false); // true = showing creation UI in subtoolbar
+  const [tilesCreateCount, setTilesCreateCount] = useState(3); // number of tiles to create
+  const [tilesCreateWords, setTilesCreateWords] = useState<Array<{text: string; symbol?: string; symbolType?: 'emoji' | 'image'}>>([]);
+  const [tilesCreateEditingIndex, setTilesCreateEditingIndex] = useState<number | null>(null); // which tile is being edited
+  const [showTilesCreationModal, setShowTilesCreationModal] = useState(false);
+  const tilesCreationModalRef = useRef<TilesCreationModalRef>(null);
+  const [tilesCreationPickingIndex, setTilesCreationPickingIndex] = useState<number | null>(null);
+  const [tilesCreationPickingKeyword, setTilesCreationPickingKeyword] = useState<string>('');
 
   const [emojiRotation, setEmojiRotation] = useState<number | undefined>(); // Temporary rotation while dragging
   const [emojiPinchSize, setEmojiPinchSize] = useState<number | undefined>(); // Temporary size during pinch
@@ -1512,9 +1523,63 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       return;
     }
 
-    // No tiles yet - open modal to create new tiles
+    // No tiles yet - open creation modal
+    setShowTilesCreationModal(true);
+  };
+
+  // Called when user confirms a single tile's text during the creation flow
+  const handleTilesCreateTileConfirm = (index: number, text: string) => {
+    setTilesCreateWords(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], text };
+      return next;
+    });
+    setTilesCreateEditingIndex(null);
+  };
+
+  // Called when user confirms the full creation — builds TileWords and creates tiles
+  const handleTilesCreateConfirm = async () => {
+    const words = tilesCreateWords;
+    if (words.length === 0 || words.every(w => !w.text)) return;
+
+    let tileWords: TileWord[] = words.map((w, index) => ({
+      text: w.text || '',
+      originalIndices: [index],
+      symbol: w.symbol,
+      symbolType: w.symbolType,
+    }));
+
+    // Search symbols for tiles that have text but no symbol
+    const fullText = tileWords.map(t => t.text).join(' ');
+    tileWords = await searchSymbolsForTiles(tileWords, fullText);
+
+    const numTiles = tileWords.length;
+    const calculatedTileSize = pageWidth / (1.5 * numTiles + 0.5);
+    const maxTileSize = pageHeight * MAX_TILE_SIZE_RATIO;
+    const approxTileSize = Math.min(calculatedTileSize, maxTileSize);
+
+    const newTiles: SketchTiles = {
+      id: TILES_ID,
+      words: tileWords,
+      fontSize: tilesSize,
+      backgroundColor: tilesBgColor,
+      textColor: tilesTextColor,
+      rtl: isRTL,
+      y: pageHeight - approxTileSize * 1.5,
+      size: tilesScale,
+    };
+
+    queue.current.pushTiles(newTiles);
+    if (textsRef.current.find(t => t.id === TITLE_TEXT_ID)) {
+      queue.current.pushTextDelete(TITLE_TEXT_ID);
+    }
+    rebuildStateFromQueue();
+
+    setTilesCreating(false);
+    setTilesCreateWords([]);
     setTilesSelected(true);
-    setShowTilesModal(true);
+    setShowToolOptions(true);
+    autoSave();
   };
 
   const handleEditTilesText = () => {
@@ -1525,7 +1590,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       setTilesSize(tiles.fontSize && tiles.fontSize > 1 ? 0.12 : tiles.fontSize);
       setTilesScale(tiles.size ?? 1);
     }
-    setShowTilesModal(true);
+    setShowTilesCreationModal(true);
   };
 
   const handleTilesConfirm = async (text: string) => {
@@ -1935,6 +2000,29 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
   };
 
   const handleSymbolSelectFromWeb = async (symbolId: string) => {
+    // If picking for the creation modal, route there instead
+    if (tilesCreationPickingIndex !== null) {
+      setShowSearchSymbolModal(false);
+      const pickIndex = tilesCreationPickingIndex;
+      setTilesCreationPickingIndex(null);
+      // Download and pass to modal
+      try {
+        const timestamp = Date.now();
+        const fileName = `symbol_${symbolId}_${timestamp}.png`;
+        const symbolsDir = `${RNFS.DocumentDirectoryPath}/albums/${albumId}/attachments`;
+        await RNFS.mkdir(symbolsDir);
+        const localPath = `${symbolsDir}/${fileName}`;
+        const symbolUrl = `${ImageLibrary.BASE_URL}/pictograms/${symbolId}?download=false`;
+        await RNFS.downloadFile({ fromUrl: symbolUrl, toFile: localPath }).promise;
+        tilesCreationModalRef.current?.setTileSymbol(pickIndex, `attachments/${fileName}`);
+      } catch (err) {
+        console.error('[handleSymbolSelectFromWeb] Creation modal download failed', err);
+      }
+      setTilesCreationPickingIndex(null);
+      setTilesCreationPickingKeyword('');
+      return;
+    }
+
     if (!tiles || selectedTileIndex === null) return;
 
     // Download the symbol
@@ -3736,6 +3824,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                     setCurrentEdited({});
                   }
                   setShowToolOptions(false);
+                  setTilesCreating(false);
                 }}
               >
                 <MyIcon info={{ name: "close", size: 24, color: '#666', type: "MI" }} />
@@ -3846,6 +3935,7 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
                       </TouchableOpacity>
                     )}
                   </View>
+
 
                   {/* Tiles multi-select toolbar — shown when tiles mode is active */}
                   {tilesSelected && tiles && (() => {
@@ -4584,6 +4674,53 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         isEditing={tiles != null}
       />
 
+      {/* Tiles Creation Modal — used for both initial creation and editing */}
+      <TilesCreationModal
+        ref={tilesCreationModalRef}
+        visible={showTilesCreationModal}
+        hidden={showSearchSymbolModal && tilesCreationPickingIndex !== null}
+        albumId={albumId}
+        initialTiles={tiles ? tiles.words : undefined}
+        isEditing={tiles != null}
+        onImagePick={(tileIndex, keyword) => {
+          setTilesCreationPickingIndex(tileIndex);
+          setTilesCreationPickingKeyword(keyword);
+          setSelectedTileIndex(tileIndex);
+          setShowSearchSymbolModal(true);
+        }}
+        onClose={() => setShowTilesCreationModal(false)}
+        onConfirm={async (tileWords) => {
+          setShowTilesCreationModal(false);
+          // Build the tiles object — reuse existing style state
+          const numTiles = tileWords.length;
+          const calculatedTileSize = pageWidth / (1.5 * numTiles + 0.5);
+          const maxTileSize = pageHeight * MAX_TILE_SIZE_RATIO;
+          const approxTileSize = Math.min(calculatedTileSize, maxTileSize);
+          const newTiles: SketchTiles = {
+            id: TILES_ID,
+            words: tileWords,
+            fontSize: tilesSize,
+            backgroundColor: tiles?.backgroundColor ?? tilesBgColor,
+            textColor: tiles?.textColor ?? tilesTextColor,
+            rtl: isRTL,
+            y: tiles?.y ?? (pageHeight - approxTileSize * 1.5),
+            size: tiles?.size ?? tilesScale,
+          };
+          queue.current.pushTiles(newTiles);
+          if (!tiles && textsRef.current.find(t => t.id === TITLE_TEXT_ID)) {
+            queue.current.pushTextDelete(TITLE_TEXT_ID);
+          }
+          rebuildStateFromQueue();
+          setTilesSelected(true);
+          setShowToolOptions(true);
+          autoSave();
+          // Regenerate audio timings if audio exists
+          if (pageAudioFile && pageAudioWordTimings.length > 0) {
+            regenerateAudioTimings(tileWords);
+          }
+        }}
+      />
+
       {/* Search Symbol Modal */}
       <SearchSymbolModal
         visible={showSearchSymbolModal}
@@ -4591,8 +4728,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
         onClose={() => {
           setShowSearchSymbolModal(false);
           setSelectedTileIndex(null);
+          setTilesCreationPickingIndex(null);
+          setTilesCreationPickingKeyword('');
         }}
-        initialKeyword={selectedTileIndex !== null && tiles ? tiles.words[selectedTileIndex].text : ''}
+        initialKeyword={tilesCreationPickingIndex !== null ? tilesCreationPickingKeyword : (selectedTileIndex !== null && tiles ? tiles.words[selectedTileIndex].text : '')}
       />
 
       {/* Symbol Search Loading Overlay */}
