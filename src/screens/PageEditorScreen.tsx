@@ -127,7 +127,7 @@ function generateInitialWordTimings(words: string[], duration: number): WordTimi
 interface PageEditorScreenProps {
   page: AlbumPage;
   albumId: string;
-  onSave: (updatedPage: AlbumPageV2, shouldExit?: boolean) => void;
+  onSave: (updatedPage: AlbumPageV2, shouldExit?: boolean) => Promise<void> | void;
   onDiscard: () => void;
   pages?: AlbumPage[];
   onNavigatePage?: (pageId: string) => void;
@@ -255,6 +255,10 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       keyboardDidHideListener.remove();
     };
   }, [insets.top]);
+
+  // Keep a ref to the current page prop to avoid stale closures in async handlers
+  const pageRef = useRef(page);
+  useEffect(() => { pageRef.current = page; }, [page]);
 
   // Queue for undo/redo with attachment cleanup
   const queue = useRef(new DoQueue(async (relativePath: string) => {
@@ -811,10 +815,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     pageModifiedRef.current = true;
     console.log('[PageEditorScreen] autoSave called, pageModifiedRef set to true');
 
+    const currentPage = pageRef.current;
     const savedPage: AlbumPageV2 = {
-      id: page.id,
-      pageNumber: page.pageNumber,
-      backgroundPath: page.backgroundPath,
+      id: currentPage.id,
+      pageNumber: currentPage.pageNumber,
+      backgroundPath: currentPage.backgroundPath,
       version: '2.0',
       elements: queue.current.getAll(),
       canvasWidth: pageWidth,
@@ -845,10 +850,11 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     await queue.current.clearUndo();
 
     // Build saved page data
+    const currentPage = pageRef.current;
     const savedPage: AlbumPageV2 = {
-      id: page.id,
-      pageNumber: page.pageNumber,
-      backgroundPath: page.backgroundPath,
+      id: currentPage.id,
+      pageNumber: currentPage.pageNumber,
+      backgroundPath: currentPage.backgroundPath,
       version: '2.0',
       elements: queue.current.getAll(),
       canvasWidth: pageWidth,
@@ -880,9 +886,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
 
     // Save current page before navigating
     const savedPage: AlbumPageV2 = {
-      id: page.id,
-      pageNumber: page.pageNumber,
-      backgroundPath: page.backgroundPath,
+      id: pageRef.current.id,
+      pageNumber: pageRef.current.pageNumber,
+      backgroundPath: pageRef.current.backgroundPath,
       version: '2.0',
       elements: queue.current.getAll(),
       canvasWidth: pageWidth,
@@ -907,21 +913,21 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     queue.current.clearUndo();
 
     // Save current page before navigating
-    const savedPage: AlbumPageV2 = {
-      id: page.id,
-      pageNumber: page.pageNumber,
-      backgroundPath: page.backgroundPath,
+    const savedPage2: AlbumPageV2 = {
+      id: pageRef.current.id,
+      pageNumber: pageRef.current.pageNumber,
+      backgroundPath: pageRef.current.backgroundPath,
       version: '2.0',
       elements: queue.current.getAll(),
       canvasWidth: pageWidth,
       canvasHeight: pageHeight,
     };
-    onSave(savedPage);
+    onSave(savedPage2);
 
     onNavigatePage(pages[currentPageIndex + 1].id);
   };
 
-  const handleNewPage = () => {
+  const handleNewPage = async () => {
     if (!onCreatePage) return;
 
     // Save pending text edits before creating new page
@@ -934,22 +940,24 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
     // Clear undo queue to delete unreachable attachments
     queue.current.clearUndo();
 
-    // Save current page before creating new one
+    // Save current page and WAIT for it to complete before creating new page
+    // (createPage reads pages from disk — must not race with this write)
+    const currentPage = pageRef.current;
     const savedPage: AlbumPageV2 = {
-      id: page.id,
-      pageNumber: page.pageNumber,
-      backgroundPath: page.backgroundPath,
+      id: currentPage.id,
+      pageNumber: currentPage.pageNumber,
+      backgroundPath: currentPage.backgroundPath,
       version: '2.0',
       elements: queue.current.getAll(),
       canvasWidth: pageWidth,
       canvasHeight: pageHeight,
     };
-    onSave(savedPage);
+    await onSave(savedPage);
 
     // Collapse subtoolbar
     setShowToolOptions(false);
 
-    onCreatePage(page.pageNumber);
+    onCreatePage(currentPage.pageNumber);
   };
 
   const handleDeletePage = () => {
@@ -3017,9 +3025,9 @@ export function PageEditorScreen({ page, albumId, onSave, onDiscard, pages, onNa
       // Notify parent to reload pages by saving current page again
       // This triggers loadPages() in the parent without creating a new page
       const savedPage: AlbumPageV2 = {
-        id: page.id,
-        pageNumber: page.pageNumber,
-        backgroundPath: page.backgroundPath,
+        id: pageRef.current.id,
+        pageNumber: pageRef.current.pageNumber,
+        backgroundPath: pageRef.current.backgroundPath,
         version: '2.0',
         elements: queue.current.getAll(),
         canvasWidth: pageWidth,

@@ -366,14 +366,19 @@ export function AudioWordMappingModal({
     // Use ref to check word timings (state might not be updated yet)
     const currentWordTimings = wordTimingsRef.current;
 
-    // Apply heuristics if we haven't already and no initial mappings existed
+    // Apply heuristics only if waveform data is already available.
+    // If not, handleWaveformData will run heuristics once data arrives.
     if (!hasAppliedHeuristicsRef.current && currentWordTimings.length > 0) {
       const parsedWords = getWords();
       const currentWaveformData = waveformDataRef.current;
-      const optimizedTimings = applyWaveformHeuristics(parsedWords, duration, currentWaveformData);
-      console.log('[AudioWordMappingModal] Applied waveform heuristics:', optimizedTimings);
-      setWordTimings(optimizedTimings);
-      hasAppliedHeuristicsRef.current = true;
+      if (currentWaveformData.length > 0) {
+        const optimizedTimings = applyWaveformHeuristics(parsedWords, duration, currentWaveformData);
+        console.log('[AudioWordMappingModal] Applied waveform heuristics on audio load:', optimizedTimings);
+        setWordTimings(optimizedTimings);
+        hasAppliedHeuristicsRef.current = true;
+      } else {
+        console.log('[AudioWordMappingModal] Deferring heuristics - waiting for waveform data');
+      }
     } else {
       console.log('[AudioWordMappingModal] Skipping heuristics - hasAppliedHeuristics:', hasAppliedHeuristicsRef.current, 'currentWordTimings.length:', currentWordTimings.length);
     }

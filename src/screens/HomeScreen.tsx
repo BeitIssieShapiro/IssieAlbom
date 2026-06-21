@@ -63,6 +63,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [albumToRename, setAlbumToRename] = useState<Album | null>(null);
   const [renameAlbumName, setRenameAlbumName] = useState('');
+  const [newAlbumError, setNewAlbumError] = useState<string>('');
 
   // Track screen dimensions for rotation support
   const [screenDimensions, setScreenDimensions] = useState(() => {
@@ -135,6 +136,7 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
 
   const handleAddAlbum = () => {
     setNewAlbumName('');
+    setNewAlbumError('');
     if (!isPhone) {
       const { width, height } = Dimensions.get('window');
       setSelectedOrientation(height >= width ? 'portrait' : 'landscape');
@@ -147,10 +149,11 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
   const handleCreateAlbum = async () => {
     const trimmedName = newAlbumName.trim();
     if (!trimmedName) {
-      RTLAlertStatic.alert(t('home.error'), t('home.errorEnterName'));
+      setNewAlbumError(t('home.errorEnterName'));
       return;
     }
 
+    setNewAlbumError('');
     try {
       const { width, height } = Dimensions.get('window');
       const canvasWidth = selectedOrientation === 'landscape'
@@ -163,30 +166,18 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
       setShowNewAlbumModal(false);
       onOpenAlbum(newAlbum);
     } catch (error) {
-      // Translate validation error codes
       let errorMessage = t('home.errorCreateAlbum');
       if (error instanceof Error && error.message.startsWith('VALIDATION_ERROR:')) {
         const errorCode = error.message.replace('VALIDATION_ERROR:', '');
         switch (errorCode) {
-          case 'EMPTY':
-            errorMessage = t('home.errorNameEmpty');
-            break;
-          case 'TOO_LONG':
-            errorMessage = t('home.errorNameTooLong');
-            break;
-          case 'INVALID_CHARS':
-            errorMessage = t('home.errorNameInvalidChars');
-            break;
-          case 'RESERVED_NAME':
-            errorMessage = t('home.errorNameReserved');
-            break;
-          case 'DUPLICATE_NAME':
-            errorMessage = t('home.errorNameDuplicate');
-            break;
+          case 'EMPTY': errorMessage = t('home.errorNameEmpty'); break;
+          case 'TOO_LONG': errorMessage = t('home.errorNameTooLong'); break;
+          case 'INVALID_CHARS': errorMessage = t('home.errorNameInvalidChars'); break;
+          case 'RESERVED_NAME': errorMessage = t('home.errorNameReserved'); break;
+          case 'DUPLICATE_NAME': errorMessage = t('home.errorNameDuplicate'); break;
         }
       }
-      RTLAlertStatic.alert(t('home.error'), errorMessage);
-      // Keep modal open so user can fix the name
+      setNewAlbumError(errorMessage);
     }
   };
 
@@ -390,11 +381,16 @@ export function HomeScreen({ onOpenAlbum, refreshTrigger }: HomeScreenProps) {
                   }]}
                   placeholder={t('home.albumNamePlaceholder')}
                   value={newAlbumName}
-                  onChangeText={setNewAlbumName}
+                  onChangeText={v => { setNewAlbumName(v); setNewAlbumError(''); }}
                   autoFocus
                   returnKeyType="done"
                   onSubmitEditing={handleCreateAlbum}
                 />
+                {!!newAlbumError && (
+                  <Text allowFontScaling={false} style={{ color: '#FF3B30', fontSize: 13, marginTop: 6, textAlign: isRTL ? 'right' : 'left' }}>
+                    {newAlbumError}
+                  </Text>
+                )}
                 {!isPhone && (
                 <View style={styles.orientationPicker}>
                   <TouchableOpacity
