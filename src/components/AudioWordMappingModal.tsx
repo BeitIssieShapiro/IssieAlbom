@@ -592,7 +592,8 @@ export function AudioWordMappingModal({
               </View>
 
               {/* Waveform */}
-              <View style={[styles.waveformContainer, isRTL && { transform: [{ scaleX: -1 }] }]}>
+              {/* Waveform — flip when text is RTL regardless of UI direction */}
+              <View style={[styles.waveformContainer, { direction: 'ltr' }, isRTL && { transform: [{ scaleX: -1 }] }]}>
                 <AudioWaveform
                   audioFile={audioFile}
                   albumId={albumId}
@@ -602,9 +603,8 @@ export function AudioWordMappingModal({
                   onWaveformData={handleWaveformData}
                 />
 
-                {/* Word marker lines */}
+                {/* Word marker lines — use timeToX (not mirrored) because waveform container is already scaleX(-1) for RTL */}
                 {wordTimings.map((wt, index) => {
-                  // If this word is being dragged, use dragging position, otherwise use timing position
                   const x = (draggingIndex === index) ? draggingX : timeToX(wt.startTime);
                   return (
                     <View

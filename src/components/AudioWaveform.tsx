@@ -148,7 +148,7 @@ export function AudioWaveform({
   }, [audioFile, loaded]);
 
   return (
-    <View style={[styles.container, { width, height, backgroundColor }]}>
+    <View style={[styles.container, { width, height, backgroundColor, direction: 'ltr' }]}>
       <Waveform
         ref={waveformRef}
         mode="static"
