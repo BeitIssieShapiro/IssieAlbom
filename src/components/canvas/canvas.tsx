@@ -405,6 +405,19 @@ function Canvas({
         const pt = screen2Canvas(x0, y0);
         const iconSize = 30 / ratioRef.current;
 
+        // Check emoji positions — on Android PanResponder blocks TouchableOpacity without this.
+        // Only block for unselected emojis (tap-to-select). Selected emoji must reach PanResponder for dragging.
+        if (!isViewModeRef.current && textsRef.current?.length) {
+            if (textsRef.current.some(t => {
+                if (!t.isEmoji) return false;
+                if (t.id === currentEmojiIdRef.current) return false; // selected — let PanResponder handle drag
+                const w = (t.width ?? (t.fontSize || 100) * 1.2) / ratioRef.current;
+                const h = (t.height ?? (t.fontSize || 100) * 1.2) / ratioRef.current;
+                return pt[0] >= t.x && pt[0] <= t.x + w &&
+                       pt[1] >= t.y && pt[1] <= t.y + h;
+            })) return true;
+        }
+
         // Check general elements (e.g. audio, tiles)
         if (elementsRef.current?.length) {
             const elemSize = 80 / ratioRef.current;
